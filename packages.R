@@ -8,3 +8,4 @@ ggplot2::theme_set(cowplot::theme_cowplot())
 library(furrr)
 options(parallelly.fork.enable = TRUE,
 				tflow.report_dir = "docs")
+plan(multicore)

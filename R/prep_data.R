@@ -16,3 +16,32 @@ prep_rna_data = function(rna_data,
 	rna_dds = DESeq2::estimateSizeFactors(rna_dds)
 	rna_dds
 }
+
+split_intensities_feature_metadata = function(all_data)
+{
+	# tar_load(lipidomics_file)
+	# all_data = suppressMessages(readxl::read_excel(lipidomics_file,
+	# sheet = "Data",
+	# skip = 8)) |>
+	# janitor::clean_names()  |>
+	# rename_experimental_samples()
+	start_samples = which(grepl("^s[[:digit:]]", colnames(all_data)))[1]
+	sample_locs = seq(start_samples, ncol(all_data))
+	metadata_locs = seq_len(start_samples - 1)
+	
+	if ("bin_base_name" %in% colnames(all_data)) {
+		feature_id = janitor::make_clean_names(all_data[["bin_base_name"]])
+	} else {
+		feature_id = janitor::make_clean_names(all_data[["identifier"]])
+	}
+	
+	sample_data = all_data[, sample_locs]
+	sample_data = purrr::map(sample_data, as.numeric) |>
+		dplyr::bind_cols()
+	metadata = all_data[, metadata_locs]
+	sample_data$feature_id = feature_id
+	metadata$feature_id = feature_id
+	
+	list(abundance = sample_data,
+			 metadata = metadata)
+}
