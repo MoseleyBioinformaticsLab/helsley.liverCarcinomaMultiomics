@@ -8,6 +8,7 @@ prep_rna_data_patient = function(rna_data,
 	rownames(rna_matrix) = rna_data$gene_id
 	sample_info = sample_info |>
 		dplyr::filter(sample_id %in% colnames(rna_matrix))
+	sample_info_matched = determine_matched_samples(sample_info)
 	rna_matrix = rna_matrix[, sample_info$sample_id]
 	
 	sample_info$treatment = factor(sample_info$treatment, levels = c("normal_adjacent", "cancerous"))
@@ -20,6 +21,8 @@ prep_rna_data_patient = function(rna_data,
 prep_rna_data_treatment = function(rna_data,
 																	 sample_info)
 {
+	# tar_load(rna_data)
+	# sample_info = tar_read(sample_info_no11)
 	rna_matrix = as.matrix(rna_data[, -1])
 	rownames(rna_matrix) = rna_data$gene_id
 	sample_info = sample_info |>

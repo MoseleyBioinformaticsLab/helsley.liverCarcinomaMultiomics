@@ -68,6 +68,29 @@ keep_presence = function(normalized_data,
 	return(normalized_out)
 }
 
+floor_values = function(rna_matrix)
+{
+	new_matrix = rna_matrix
+	new_matrix[rna_matrix < 10] = 0
+	new_matrix
+}
+
+keep_presence_dds = function(rna_dds,
+												 fraction = 0.75)
+{
+	# rna_dds = tar_read(rna_dds_treatment)
+	# fraction = 0.75
+	norm_wide = counts(rna_dds)
+	sample_info = as.data.frame(colData(rna_dds))
+	# set anything less than 10 to 0 so it still counts as missing
+	norm_wide[norm_wide < 10] = 0
+	keep_norm = visualizationQualityControl::keep_non_missing_percentage(norm_wide, sample_info$treatment,
+																																			 keep_num = fraction,
+																																			 missing_value = c(NA, 0))
+	rna_dds = rna_dds[keep_norm, ]
+	return(rna_dds)
+}
+
 sample_correlations_pca = function(normalized_data,
 																	 sample_info)
 {
