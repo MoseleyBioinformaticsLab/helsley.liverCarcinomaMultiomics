@@ -33,7 +33,10 @@ tar_plan(
 	rna_data = suppressMessages(readr::read_tsv(rna_file)) |>
 		janitor::clean_names(),
 	
-	rna_dds = prep_rna_data_patient(rna_data[, seq_len(16)], sample_info),
+	rna_dds = prep_rna_data_treatment(rna_data = rna_data, sample_metadata = sample_info,
+																	count_locs = seq(2, 16),
+																	feature_metadata = seq(17, 25)),
+	
 	rna_norm = DESeq2::counts(rna_dds, normalized = TRUE) |>
 		matrix_2_long() |>
 		floor_values(),
@@ -69,7 +72,7 @@ tar_plan(
 	bioamines_keep = keep_presence(bioamines_norm,
 																 sample_info),
 	
-	bioamines_n_qcqa = c(nrow(bioamines_norm), bioamines_keep),
+	bioamines_n_qcqa = c(nrow(bioamines_norm), nrow(bioamines_keep)),
 	bioamines_ratios = calculate_patient_ratios(bioamines_keep, sample_info_no11),
 	
 	bioamines_cor_pca = sample_correlations_pca(bioamines_keep, sample_info),
@@ -141,11 +144,11 @@ tar_plan(
 	
 	### Unpaired --------
 	#### RNA -------
-	rna_dds_treatment = prep_rna_data_treatment(rna_data[, seq_len(16)],
-																							sample_info_no11),
-	rna_dds_keep_treatment = keep_presence_dds(rna_dds_treatment, 0.75),
-	rna_deseq2_treatment = DESeq2::DESeq(rna_dds_keep_treatment),
-	rna_results_treatment = DESeq2::results(rna_deseq2_treatment, contrast = c("treatment", "cancerous", "normal_adjacent"), tidy = TRUE),
+	# rna_dds_treatment = prep_rna_data_treatment(rna_data,
+	# 																						sample_info_no11),
+	# rna_dds_keep_treatment = keep_presence_dds(rna_dds_treatment, 0.75),
+	# rna_deseq2_treatment = DESeq2::DESeq(rna_dds_keep_treatment),
+	# rna_results_treatment = DESeq2::results(rna_deseq2_treatment, contrast = c("treatment", "cancerous", "normal_adjacent"), tidy = TRUE),
 	## documents -----------
 	tar_quarto(qcqa, "docs/qcqa.qmd")
 # target = function_to_make(arg), ## drake style

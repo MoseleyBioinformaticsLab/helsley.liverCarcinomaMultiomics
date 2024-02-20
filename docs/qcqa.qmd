@@ -22,14 +22,14 @@ targets::tar_source("R")
 #| label: load-targets
 #| include: false
 tar_load(c(rna_qcqa,
-					 rna_ratios_qcqa,
 					 bioamines_qcqa,
-					 bioamines_ratios_qcqa,
 					 lipidomics_qcqa,
-					 lipidomics_ratios_qcqa,
 					 primary_metabolism_qcqa,
-					 primary_metabolism_ratios_qcqa))
-
+					 sample_info,
+					 rna_n_qcqa,
+					 bioamines_n_qcqa,
+					 lipidomics_n_qcqa,
+					 pr_n_qcqa))
 ```
 
 ## Purpose
@@ -41,14 +41,22 @@ An [executive summary](#executive-summary) is available at the end of this docum
 
 Liver carcinoma and adjacent normal samples from several patients.
 RNA-seq transcriptomics performed by Novogene.
-Two patients are missing RNA-seq for their normal samples.
+Two patients are missing RNA-seq for their normal samples, and a single patient has a technical replicate of the normal sample.
 Metabolomics for biogenic amines, lipidomics, and primary metabolism measured by West Coast Metabolomics Center (WCMC).
+
+```{r}
+#| label: tbl-number-samples
+#| tbl-cap: "Number of samples in each treatment group overall."
+tmp_var = as.data.frame(table(sample_info$treatment))
+names(tmp_var) = c("treatment", "N-Samples")
+gt::gt(tmp_var)
+```
 
 ## Processing
 
 RNA-seq data was normalized by {DESeq2}.
 Metabolomics datasets normalized by dividing by the median of all values in each sample.
-For each dataset, we only keep those features (genes or metabolites) that were present in at least 25% of the normal or cancer samples.
+For each dataset, we only keep those features (genes or metabolites) that were present in at least 75% of the normal or cancer samples.
 Sample - sample correlations were calculated using information-content-informed Kendall-tau (ICI-Kt).
 Principal component analysis (PCA) was performed after $log(x + 1)$ (using the {log1p} function).
 
@@ -61,13 +69,14 @@ In the median correlation plots, the samples are grouped by treatment, and the m
 For PCA, each principal component (PC) is a linear combination of all of the feature abundances, ranked by how much variance is accounted for in that combination, and where each subsequent PC is orthogonal to the previous one.
 The PC's are labeled with the percentage of variance that PC accounts for out of all of the PCs.
 
-We removed **s11** and kept **s12** for within patient sample - sample ratios.
-Within patient ratios are calculated using **cancerous / normal_adjacent**, not a number and infinity values (from dividing by 0 or NA) replaced with missing (NA) and then correlations between patients calculated using ICI-Kt.
 
 ## RNA Seq
 
-### Individual Samples
+Number of features:
 
+  * Total features: `r rna_n_qcqa[1]`
+  * Features in 75% of a class: `r rna_n_qcqa[2]`
+  
 ```{r}
 #| label: fig-rnaseq-heatmap
 #| fig-cap: Sample-sample ICI-Kt correlations for RNA-seq data.
@@ -88,23 +97,13 @@ rna_qcqa$median_cor +
 rna_qcqa$pca_all
 ```
 
-### Patient Ratios
-
-```{r}
-#| label: fig-rnaseq-ratios-heatmap
-#| fig-cap: ICI-Kt patient - patient correlations for RNA-seq transcriptomics, using ratios within patients.
-rna_ratios_qcqa$heatmap
-```
-
-```{r}
-#| label: fig-rnaseq-ratios-median
-#| fig-cap: Median ICI-Kt patient - patient correlations for RNA-seq transcriptomics.
-rna_ratios_qcqa$median_cor
-```
 
 ## Primary Metabolism
 
-### Individual Samples
+Number of features:
+
+  * Total: `r pr_n_qcqa[1]`
+  * In 75% of a class: `r pr_n_qcqa[2]`
 
 ```{r}
 #| label: fig-pr-heatmap
@@ -137,23 +136,13 @@ primary_metabolism_qcqa$pca_noblanks
 primary_metabolism_qcqa$pca_nooutlier
 ```
 
-### Patient Ratios
-
-```{r}
-#| label: fig-pr-ratios-heatmap
-#| fig-cap: ICI-Kt patient - patient correlations for primary metabolism metabolomics, using ratios within patients.
-primary_metabolism_ratios_qcqa$heatmap
-```
-
-```{r}
-#| label: fig-pr-ratios-mediancor
-#| fig-cap: Median ICI-Kt patient - patient correlations for primary metabolism metabolomics.
-primary_metabolism_ratios_qcqa$median_cor
-```
 
 ## Biogenic Amines
 
-### Individual Samples
+Number of features:
+
+  * Total: `r bioamines_n_qcqa[1]`
+  * In 75% of a class: `r bioamines_n_qcqa[2]`
 
 ```{r}
 #| label: fig-bioamines-heatmap
@@ -181,23 +170,13 @@ bioamines_qcqa$pca_all
 bioamines_qcqa$pca_noblanks
 ```
 
-### Patient Ratios
-
-```{r}
-#| label: fig-bioamines-ratios-heatmap
-#| fig-cap: ICI-Kt patient - patient correlations for biogenic amines metabolomics, using ratios within patients.
-bioamines_ratios_qcqa$heatmap
-```
-
-```{r}
-#| label: fig-bioamines-ratios-mediancor
-#| fig-cap: Median ICI-Kt patient - patient correlations for biogenic amines metabolomics.
-bioamines_ratios_qcqa$median_cor
-```
 
 ## Lipidomics
 
-### Individual Samples
+Number of features:
+
+  * Total: `r lipidomics_n_qcqa[1]`
+  * In 75% of a class: `r lipidomics_n_qcqa[2]`
 
 ```{r}
 #| label: fig-lipidomics-heatmap
@@ -231,25 +210,12 @@ lipidomics_qcqa$pca_noblanks
 lipidomics_qcqa$pca_nooutlier
 ```
 
-### Patient Ratios
-
-```{r}
-#| label: fig-lipidomics-ratios-heatmap
-#| fig-cap: ICI-Kt patient - patient correlations for lipid metabolites, using ratios within patients.
-lipidomics_ratios_qcqa$heatmap
-```
-
-```{r}
-#| label: fig-lipidomics-ratios-mediancor
-#| fig-cap: Median ICI-Kt patient - patient correlations for lipidomics.
-lipidomics_ratios_qcqa$median_cor
-```
 
 ## Executive Summary
 
-* Most everything looks really good, honestly.
 * s11 and s12 (technical replicates) have really high sample-sample correlations in every -omics type, with the one oddity in primary metabolites, where one is an outlier (s11) and the other is not (s12).
-* s1 is an outlier sample by median correlation in both primary metabolism and lipidomics. This may indicate it really is an outlier overall and should not be used for the un-paired comparison between cancer and adjacent-normal.
-* s12 looks like it is probably the better choice for the two normal samples from patient 6.
-* The sample - sample ratios have much lower correlations between patients than the individual samples within each treatment group.
-  * This is likely due to the fact that each cancerous sample is doing it's own thing for at least a subset of things measured, which then means the ratios with normal result in larger differences overall than either of them independently.
+* With the exception of the *primary metabolism* metabolites, everything else looks rather good.
+* Heatmaps and PCA plots show clear separation of the cancerous and adjacent normal.
+* Primary metabolites has two outlier samples in the adjacent normal (see @fig-pr-heatmap and @fig-pr-mediancor).
+* In addition, the PCA in @fig-pr-pca-nooutlier is the only one that does not show complete separation of cancerous and adjacent normal.
+* s1 is an outlier sample by median correlation in both primary metabolism and lipidomics. This *may* indicate it really is an outlier overall and should not be used for the un-paired comparison between cancer and adjacent-normal.

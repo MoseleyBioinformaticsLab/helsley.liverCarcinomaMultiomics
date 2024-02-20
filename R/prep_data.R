@@ -1,37 +1,64 @@
-prep_rna_data_patient = function(rna_data,
-												 sample_info)
+prep_rna_data_patient = function(rna_data = rna_data, sample_metadata = sample_info,
+																 counts_locs = seq(2, 16),
+																 feature_metadata = seq(17, 25))
 {
 	# tar_load(rna_data)
-	# rna_data = rna_data[, seq_len(16)]
-	# tar_load(sample_info)
-	rna_matrix = as.matrix(rna_data[, -1])
+	# sample_metadata = tar_read(sample_info)
+	# count_locs = seq(2, 16)
+	# feature_metadata = seq(17, 25)
+	rna_matrix = as.matrix(rna_data[, count_locs])
 	rownames(rna_matrix) = rna_data$gene_id
-	sample_info = sample_info |>
+	metadata_cols = c("gene_id", names(rna_data)[feature_metadata])
+	gene_metadata = rna_data[, metadata_cols]
+	sample_metadata = sample_metadata |>
 		dplyr::filter(sample_id %in% colnames(rna_matrix))
-	sample_info_matched = determine_matched_samples(sample_info)
-	rna_matrix = rna_matrix[, sample_info$sample_id]
+	sample_metadata_matched = determine_matched_samples(sample_metadata)
+	rna_matrix = rna_matrix[, sample_metadata_matched$sample_id]
 	
-	sample_info$treatment = factor(sample_info$treatment, levels = c("normal_adjacent", "cancerous"))
-	rna_dds = DESeq2::DESeqDataSetFromMatrix(rna_matrix, sample_info,
-																					 design = ~ patient + treatment)
+	gene_ranges = GRanges(seqnames = gene_metadata$gene_chr,
+												ranges = IRanges(start = gene_metadata$gene_start,
+																				 end = gene_metadata$gene_end),
+												strand = gene_metadata$gene_strand,
+												feature_id = gene_metadata$gene_id,
+												biotype = gene_metadata$gene_biotype,
+												description = gene_metadata$gene_description)
+	
+	sample_metadata$treatment = factor(sample_metadata$treatment, levels = c("normal_adjacent", "cancerous"))
+	sample_metadata$patient = factor(sample_metadata$patient)
+	rna_dds = DESeq2::DESeqDataSetFromMatrix(rna_matrix, sample_metadata,
+																					 design = ~ patient + treatment,
+																					 rowRanges = gene_ranges)
 	rna_dds = DESeq2::estimateSizeFactors(rna_dds)
 	rna_dds
 }
 
-prep_rna_data_treatment = function(rna_data,
-																	 sample_info)
+prep_rna_data_treatment = function(rna_data = rna_data, sample_metadata = sample_info,
+																	 count_locs = seq(2, 16),
+																	 feature_metadata = seq(17, 25))
 {
-	# tar_load(rna_data)
-	# sample_info = tar_read(sample_info_no11)
-	rna_matrix = as.matrix(rna_data[, -1])
+	rna_matrix = as.matrix(rna_data[, count_locs])
 	rownames(rna_matrix) = rna_data$gene_id
-	sample_info = sample_info |>
+	metadata_cols = c("gene_id", names(rna_data)[feature_metadata])
+	gene_metadata = rna_data[, metadata_cols]
+	sample_metadata = sample_metadata |>
 		dplyr::filter(sample_id %in% colnames(rna_matrix))
-	rna_matrix = rna_matrix[, sample_info$sample_id]
+	rna_matrix = rna_matrix[, sample_metadata$sample_id]
 	
-	sample_info$treatment = factor(sample_info$treatment, levels = c("normal_adjacent", "cancerous"))
-	rna_dds = DESeq2::DESeqDataSetFromMatrix(rna_matrix, sample_info,
-																					 design = ~ treatment)
+	gene_ranges = GRanges(seqnames = gene_metadata$gene_chr,
+												ranges = IRanges(start = gene_metadata$gene_start,
+																				 end = gene_metadata$gene_end),
+												strand = gene_metadata$gene_strand,
+												feature_id = gene_metadata$gene_id,
+												biotype = gene_metadata$gene_biotype,
+												description = gene_metadata$gene_description)
+	
+	sample_metadata$treatment = factor(sample_metadata$treatment, levels = c("normal_adjacent", "cancerous"))
+	sample_metadata$patient = factor(sample_metadata$patient)
+	rna_dds = DESeq2::DESeqDataSetFromMatrix(rna_matrix, sample_metadata,
+																					 design = ~ treatment,
+																					 rowRanges = gene_ranges)
+	rna_dds = DESeq2::estimateSizeFactors(rna_dds)
+	rna_dds
 }
 
 split_intensities_feature_metadata = function(all_data)
