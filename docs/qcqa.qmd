@@ -1,0 +1,255 @@
+---
+title: "Liver Carcinoma Omics QC-QA"
+author: "Robert M Flight"
+date: last-modified
+date-format: YYYY-MM-DD HH:mm
+format: 
+  html:
+    embed-resources: true
+    toc: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(echo = FALSE)
+## target knits qmds in their own session, so load libraries here.
+targets::tar_source("./packages.R")
+targets::tar_source("R")
+```
+
+```{r}
+#| label: load-targets
+#| include: false
+tar_load(c(rna_qcqa,
+					 rna_ratios_qcqa,
+					 bioamines_qcqa,
+					 bioamines_ratios_qcqa,
+					 lipidomics_qcqa,
+					 lipidomics_ratios_qcqa,
+					 primary_metabolism_qcqa,
+					 primary_metabolism_ratios_qcqa))
+
+```
+
+## Purpose
+
+Quality-control and quality-assurance of the various datasets for from Helsley liver carcinoma multi-omics experiment.
+An [executive summary](#executive-summary) is available at the end of this document.
+
+## Data
+
+Liver carcinoma and adjacent normal samples from several patients.
+RNA-seq transcriptomics performed by Novogene.
+Two patients are missing RNA-seq for their normal samples.
+Metabolomics for biogenic amines, lipidomics, and primary metabolism measured by West Coast Metabolomics Center (WCMC).
+
+## Processing
+
+RNA-seq data was normalized by {DESeq2}.
+Metabolomics datasets normalized by dividing by the median of all values in each sample.
+For each dataset, we only keep those features (genes or metabolites) that were present in at least 25% of the normal or cancer samples.
+Sample - sample correlations were calculated using information-content-informed Kendall-tau (ICI-Kt).
+Principal component analysis (PCA) was performed after $log(x + 1)$ (using the {log1p} function).
+
+In the heatmaps, the sample-sample correlations are mapped to colors.
+The values are reflected across the diagonal (so top and bottom are equivalent), and the diagonal shows the fraction of non-missing entries for that sample.
+
+In the median correlation plots, the samples are grouped by treatment, and the median correlation values **within** the treatment group are calculated for each sample in that treatment group.
+**Sina** plots attempt to plot the distribution of values within each grouping so that the individual values are visible.
+
+For PCA, each principal component (PC) is a linear combination of all of the feature abundances, ranked by how much variance is accounted for in that combination, and where each subsequent PC is orthogonal to the previous one.
+The PC's are labeled with the percentage of variance that PC accounts for out of all of the PCs.
+
+We removed **s11** and kept **s12** for within patient sample - sample ratios.
+Within patient ratios are calculated using **cancerous / normal_adjacent**, not a number and infinity values (from dividing by 0 or NA) replaced with missing (NA) and then correlations between patients calculated using ICI-Kt.
+
+## RNA Seq
+
+### Individual Samples
+
+```{r}
+#| label: fig-rnaseq-heatmap
+#| fig-cap: Sample-sample ICI-Kt correlations for RNA-seq data.
+rna_qcqa$heatmap
+```
+
+```{r}
+#| label: fig-rnaseq-mediancor
+#| fig-cap: Median ICI-Kt correlations for RNA-seq data.
+rna_qcqa$median_cor +
+	labs(y = "Median Correlation") +
+	theme(legend.position = c(0.7, 0.3))
+```
+
+```{r}
+#| label: fig-rnaseq-pca
+#| fig-cap: PCA plot for RNA-seq data.
+rna_qcqa$pca_all
+```
+
+### Patient Ratios
+
+```{r}
+#| label: fig-rnaseq-ratios-heatmap
+#| fig-cap: ICI-Kt patient - patient correlations for RNA-seq transcriptomics, using ratios within patients.
+rna_ratios_qcqa$heatmap
+```
+
+```{r}
+#| label: fig-rnaseq-ratios-median
+#| fig-cap: Median ICI-Kt patient - patient correlations for RNA-seq transcriptomics.
+rna_ratios_qcqa$median_cor
+```
+
+## Primary Metabolism
+
+### Individual Samples
+
+```{r}
+#| label: fig-pr-heatmap
+#| fig-cap: Sample-sample ICI-Kt correlations for primary metabolism.
+primary_metabolism_qcqa$heatmap
+```
+
+```{r}
+#| label: fig-pr-mediancor
+#| fig-cap: Median ICI-Kt correlations for primary metabolism data.
+primary_metabolism_qcqa$median_cor +
+	labs(y = "Median Correlation")
+```
+
+```{r}
+#| label: fig-pr-pca-all
+#| fig-cap: PCA plot for primary metabolism data, including pooled samples.
+primary_metabolism_qcqa$pca_all
+```
+
+```{r}
+#| label: fig-pr-pca-nopool
+#| fig-cap: PCA plot for primary metabolism data, no pooled samples.
+primary_metabolism_qcqa$pca_noblanks
+```
+
+```{r}
+#| label: fig-pr-pca-nooutlier
+#| fig-cap: PCA plot for primary metabolism metabolites, no outliers.
+primary_metabolism_qcqa$pca_nooutlier
+```
+
+### Patient Ratios
+
+```{r}
+#| label: fig-pr-ratios-heatmap
+#| fig-cap: ICI-Kt patient - patient correlations for primary metabolism metabolomics, using ratios within patients.
+primary_metabolism_ratios_qcqa$heatmap
+```
+
+```{r}
+#| label: fig-pr-ratios-mediancor
+#| fig-cap: Median ICI-Kt patient - patient correlations for primary metabolism metabolomics.
+primary_metabolism_ratios_qcqa$median_cor
+```
+
+## Biogenic Amines
+
+### Individual Samples
+
+```{r}
+#| label: fig-bioamines-heatmap
+#| fig-cap: Sample-sample ICI-Kt correlations for biogenic amines metabolites.
+bioamines_qcqa$heatmap
+```
+
+```{r}
+#| label: fig-bioamines-mediancor
+#| fig-cap: Median ICI-Kt correlations for biogenic amines metabolites.
+bioamines_qcqa$median_cor +
+	labs(y = "Median Correlation") +
+	theme(legend.position = c(0.1, 0.8))
+```
+
+```{r}
+#| label: fig-bioamines-pca
+#| fig-cap: PCA plot for biogenic amines metabolites.
+bioamines_qcqa$pca_all
+```
+
+```{r}
+#| label: fig-bioamines-pca-nopool
+#| fig-cap: PCA plot for biogenic amines metabolites, without pooled and blank samples.
+bioamines_qcqa$pca_noblanks
+```
+
+### Patient Ratios
+
+```{r}
+#| label: fig-bioamines-ratios-heatmap
+#| fig-cap: ICI-Kt patient - patient correlations for biogenic amines metabolomics, using ratios within patients.
+bioamines_ratios_qcqa$heatmap
+```
+
+```{r}
+#| label: fig-bioamines-ratios-mediancor
+#| fig-cap: Median ICI-Kt patient - patient correlations for biogenic amines metabolomics.
+bioamines_ratios_qcqa$median_cor
+```
+
+## Lipidomics
+
+### Individual Samples
+
+```{r}
+#| label: fig-lipidomics-heatmap
+#| fig-cap: Sample-sample ICI-Kt correlations for lipid metabolites.
+lipidomics_qcqa$heatmap
+```
+
+```{r}
+#| label: fig-lipidomics-mediancor
+#| fig-cap: Median ICI-Kt correlations for lipid metabolites.
+lipidomics_qcqa$median_cor +
+	labs(y = "Median Correlation") +
+	theme(legend.position = c(0.75, 0.3))
+```
+
+```{r}
+#| label: fig-lipidomics-pca
+#| fig-cap: PCA plot for lipid metabolites.
+lipidomics_qcqa$pca_all
+```
+
+```{r}
+#| label: fig-lipidomics-pca-nopool
+#| fig-cap: PCA plot for lipid metabolites, without pooled and blank samples.
+lipidomics_qcqa$pca_noblanks
+```
+
+```{r}
+#| label: fig-lipidomics-pca-nooutlier
+#| fig-cap: PCA plot for lipid metabolites, without pooled or outlier samples.
+lipidomics_qcqa$pca_nooutlier
+```
+
+### Patient Ratios
+
+```{r}
+#| label: fig-lipidomics-ratios-heatmap
+#| fig-cap: ICI-Kt patient - patient correlations for lipid metabolites, using ratios within patients.
+lipidomics_ratios_qcqa$heatmap
+```
+
+```{r}
+#| label: fig-lipidomics-ratios-mediancor
+#| fig-cap: Median ICI-Kt patient - patient correlations for lipidomics.
+lipidomics_ratios_qcqa$median_cor
+```
+
+## Executive Summary
+
+* Most everything looks really good, honestly.
+* s11 and s12 (technical replicates) have really high sample-sample correlations in every -omics type, with the one oddity in primary metabolites, where one is an outlier (s11) and the other is not (s12).
+* s1 is an outlier sample by median correlation in both primary metabolism and lipidomics. This may indicate it really is an outlier overall and should not be used for the un-paired comparison between cancer and adjacent-normal.
+* s12 looks like it is probably the better choice for the two normal samples from patient 6.
+* The sample - sample ratios have much lower correlations between patients than the individual samples within each treatment group.
+  * This is likely due to the fact that each cancerous sample is doing it's own thing for at least a subset of things measured, which then means the ratios with normal result in larger differences overall than either of them independently.

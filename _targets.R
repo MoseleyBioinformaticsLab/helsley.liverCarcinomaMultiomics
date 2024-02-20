@@ -7,6 +7,8 @@ tar_source("R")
 ## tar_plan supports drake-style targets and also tar_target()
 tar_plan(
 
+	color_scales = sample_colors(),
+	
 	tar_target(sample_list_file,
 						 "raw_data/sample_list.xlsx",
 						 format = "file"),
@@ -17,6 +19,13 @@ tar_plan(
 									treatment = tolower(gsub(" ", "_", treatment)),
 									patient = tolower(gsub(" ", "_", patient))),
 	
+	sample_info_no11 = sample_info |>
+		dplyr::filter(!(sample_id %in% "s11")),
+	patient_info = sample_info_no11 |>
+		dplyr::transmute(sample_id = patient,
+									treatment = "none") |>
+		dplyr::distinct(),
+	
 	## RNA -------
 	tar_target(rna_file,
 						 "raw_data/transcriptomics_counts.txt",
@@ -24,13 +33,24 @@ tar_plan(
 	rna_data = suppressMessages(readr::read_tsv(rna_file)) |>
 		janitor::clean_names(),
 	
-	rna_dds = prep_rna_data(rna_data[, seq_len(16)], sample_info),
+	rna_dds = prep_rna_data_patient(rna_data[, seq_len(16)], sample_info),
 	rna_norm = DESeq2::counts(rna_dds, normalized = TRUE) |>
 		matrix_2_long(),
 	rna_keep = keep_presence(rna_norm,
 													 sample_info),
 	
-	rna_cor_pca = sample_correlations(rna_keep),
+	rna_ratios = calculate_patient_ratios(rna_keep,
+																				sample_info_no11),
+	
+	rna_cor_pca = sample_correlations_pca(rna_keep, sample_info),
+	rna_qcqa = create_qcqa_plots(rna_cor_pca,
+															 sample_info,
+															 color_scales),
+	
+	rna_ratios_cor_pca = sample_correlations_pca(rna_ratios, patient_info),
+	rna_ratios_qcqa = create_qcqa_plots(rna_ratios_cor_pca,
+																			patient_info,
+																			color_scales),
 	
 	
 	## Biogenic Amines -----
@@ -46,7 +66,18 @@ tar_plan(
 	bioamines_norm = median_normalization(bioamines$abundance),
 	bioamines_keep = keep_presence(bioamines_norm,
 																 sample_info),
-	bioamines_cor_pca = sample_correlations(bioamines_keep),
+	bioamines_ratios = calculate_patient_ratios(bioamines_keep, sample_info_no11),
+	
+	bioamines_cor_pca = sample_correlations_pca(bioamines_keep, sample_info),
+	bioamines_qcqa = create_qcqa_plots(bioamines_cor_pca,
+																		 sample_info,
+																		 color_scales),
+	
+	bioamines_ratios_cor_pca = sample_correlations_pca(bioamines_ratios,
+																										 patient_info),
+	bioamines_ratios_qcqa = create_qcqa_plots(bioamines_ratios_cor_pca,
+																						patient_info,
+																						color_scales),
 	
 	## Lipidomics -----
 	tar_target(lipidomics_file,
@@ -61,8 +92,18 @@ tar_plan(
 	lipidomics_norm = median_normalization(lipidomics$abundance),
 	lipidomics_keep = keep_presence(lipidomics_norm,
 																	sample_info),
-	lipidomics_cor_pca = sample_correlations(lipidomics_keep),
+	lipidomics_ratios = calculate_patient_ratios(lipidomics_keep,
+																							 sample_info_no11),
 	
+	lipidomics_cor_pca = sample_correlations_pca(lipidomics_keep, sample_info),
+	lipidomics_qcqa = create_qcqa_plots(lipidomics_cor_pca,
+																			sample_info,
+																			color_scales),
+	lipidomics_ratios_cor_pca = sample_correlations_pca(lipidomics_ratios,
+																											patient_info),
+	lipidomics_ratios_qcqa = create_qcqa_plots(lipidomics_ratios_cor_pca,
+																						 patient_info,
+																						 color_scales),
 	## Primary Metabolism ----
 	tar_target(primary_metabolism_file,
 						 "raw_data/metabolomics_primary_metabolism.xlsx",
@@ -76,9 +117,22 @@ tar_plan(
 	primary_metabolism_norm = median_normalization(primary_metabolism$abundance),
 	primary_metabolism_keep = keep_presence(primary_metabolism_norm,
 																					sample_info),
-	primary_metabolism_cor_pca = sample_correlations(primary_metabolism_keep)
+	primary_metabolism_ratios = calculate_patient_ratios(primary_metabolism_keep,
+																											 sample_info_no11),
 	
+	primary_metabolism_cor_pca = sample_correlations_pca(primary_metabolism_keep,
+																											 sample_info),
+	primary_metabolism_qcqa = create_qcqa_plots(primary_metabolism_cor_pca,
+																							sample_info,
+																							color_scales),
+	primary_metabolism_ratios_cor_pca = sample_correlations_pca(primary_metabolism_ratios,
+																														 patient_info),
+	primary_metabolism_ratios_qcqa = create_qcqa_plots(primary_metabolism_ratios_cor_pca,
+																										 patient_info,
+																										 color_scales),
 	
+	## documents -----------
+	tar_quarto(qcqa, "docs/qcqa.qmd")
 # target = function_to_make(arg), ## drake style
 
 # tar_target(target2, function_to_make2(arg)) ## targets style
