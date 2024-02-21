@@ -100,6 +100,11 @@ tar_plan(
 																							color_scales),
 	
 	## Differential Analysis --------
+	### Determine Outliers
+	rna_outliers = determine_outliers(rna_keep),
+	bioamines_outliers = determine_outliers(bioamines_keep),
+	lipidomics_outliers = determine_outliers(lipidomics_keep),
+	pr_outliers = determine_outliers(primary_metabolism_keep),
 	
 	### Unpaired --------
 	#### RNA -------
