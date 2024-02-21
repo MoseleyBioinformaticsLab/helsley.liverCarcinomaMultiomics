@@ -37,26 +37,12 @@ tar_plan(
 																	count_locs = seq(2, 16),
 																	feature_metadata = seq(17, 25)),
 	
-	rna_norm = DESeq2::counts(rna_dds, normalized = TRUE) |>
-		matrix_2_long() |>
-		floor_values(),
-	rna_keep = keep_presence(rna_norm,
-													 sample_info),
+	rna_keep = keep_presence_dds(rna_dds),
 	rna_n_qcqa = c(get_n_features(rna_dds), get_n_features(rna_keep)),
 	
-	rna_ratios = calculate_patient_ratios(rna_keep,
-																				sample_info_no11),
-	
-	rna_cor_pca = sample_correlations_pca(rna_keep, sample_info),
+	rna_cor_pca = sample_correlations_pca(rna_keep),
 	rna_qcqa = create_qcqa_plots(rna_cor_pca,
-															 sample_info,
 															 color_scales),
-	
-	rna_ratios_cor_pca = sample_correlations_pca(rna_ratios, patient_info),
-	rna_ratios_qcqa = create_qcqa_plots(rna_ratios_cor_pca,
-																			patient_info,
-																			color_scales),
-	
 	
 	### Biogenic Amines -----
 	tar_target(bioamines_file,
@@ -72,18 +58,10 @@ tar_plan(
 	bioamines_keep = keep_presence(bioamines_norm),
 	
 	bioamines_n_qcqa = c(get_n_features(bioamines_norm), get_n_features(bioamines_keep)),
-	bioamines_ratios = calculate_patient_ratios(bioamines_keep, sample_info_no11),
 	
-	bioamines_cor_pca = sample_correlations_pca(bioamines_keep, sample_info),
+	bioamines_cor_pca = sample_correlations_pca(bioamines_keep),
 	bioamines_qcqa = create_qcqa_plots(bioamines_cor_pca,
-																		 sample_info,
 																		 color_scales),
-	
-	bioamines_ratios_cor_pca = sample_correlations_pca(bioamines_ratios,
-																										 patient_info),
-	bioamines_ratios_qcqa = create_qcqa_plots(bioamines_ratios_cor_pca,
-																						patient_info,
-																						color_scales),
 	
 	### Lipidomics -----
 	tar_target(lipidomics_file,
@@ -92,25 +70,17 @@ tar_plan(
 	lipidomics = suppressMessages(readxl::read_excel(lipidomics_file,
 																									 sheet = "Data",
 																									 skip = 8)) |>
-		janitor::clean_names()  |>
+		janitor::clean_names() |>
 		rename_experimental_samples() |>
-		split_intensities_feature_metadata(),
-	lipidomics_norm = median_normalization(lipidomics$abundance),
-	lipidomics_keep = keep_presence(lipidomics_norm,
-																	sample_info),
+		(\(x){setup_metabolomics(x, sample_info)})(),
+	lipidomics_norm = median_normalization(lipidomics),
+	lipidomics_keep = keep_presence(lipidomics_norm),
 	lipidomics_n_qcqa = c(get_n_features(lipidomics_norm), get_n_features(lipidomics_keep)),
-	lipidomics_ratios = calculate_patient_ratios(lipidomics_keep,
-																							 sample_info_no11),
 	
-	lipidomics_cor_pca = sample_correlations_pca(lipidomics_keep, sample_info),
+	lipidomics_cor_pca = sample_correlations_pca(lipidomics_keep),
 	lipidomics_qcqa = create_qcqa_plots(lipidomics_cor_pca,
-																			sample_info,
 																			color_scales),
-	lipidomics_ratios_cor_pca = sample_correlations_pca(lipidomics_ratios,
-																											patient_info),
-	lipidomics_ratios_qcqa = create_qcqa_plots(lipidomics_ratios_cor_pca,
-																						 patient_info,
-																						 color_scales),
+	
 	### Primary Metabolism ----
 	tar_target(primary_metabolism_file,
 						 "raw_data/metabolomics_primary_metabolism.xlsx",
@@ -120,24 +90,14 @@ tar_plan(
 																													 skip = 8)) |>
 		janitor::clean_names() |>
 		rename_experimental_samples() |>
-		split_intensities_feature_metadata(),
-	primary_metabolism_norm = median_normalization(primary_metabolism$abundance),
-	primary_metabolism_keep = keep_presence(primary_metabolism_norm,
-																					sample_info),
+		(\(x){setup_metabolomics(x, sample_info)})(),
+	primary_metabolism_norm = median_normalization(primary_metabolism),
+	primary_metabolism_keep = keep_presence(primary_metabolism_norm),
 	pr_n_qcqa = c(get_n_features(primary_metabolism_norm), get_n_features(primary_metabolism_keep)),
-	primary_metabolism_ratios = calculate_patient_ratios(primary_metabolism_keep,
-																											 sample_info_no11),
 	
-	primary_metabolism_cor_pca = sample_correlations_pca(primary_metabolism_keep,
-																											 sample_info),
+	primary_metabolism_cor_pca = sample_correlations_pca(primary_metabolism_keep),
 	primary_metabolism_qcqa = create_qcqa_plots(primary_metabolism_cor_pca,
-																							sample_info,
 																							color_scales),
-	primary_metabolism_ratios_cor_pca = sample_correlations_pca(primary_metabolism_ratios,
-																														 patient_info),
-	primary_metabolism_ratios_qcqa = create_qcqa_plots(primary_metabolism_ratios_cor_pca,
-																										 patient_info,
-																										 color_scales),
 	
 	## Differential Analysis --------
 	
