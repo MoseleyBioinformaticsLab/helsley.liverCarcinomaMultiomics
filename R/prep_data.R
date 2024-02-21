@@ -44,6 +44,8 @@ prep_rna_data_treatment = function(rna_data = rna_data, sample_metadata = sample
 		dplyr::filter(sample_id %in% colnames(rna_matrix))
 	rna_matrix = rna_matrix[, sample_metadata$sample_id]
 	
+	# anything below min_count is set to 0
+	
 	gene_ranges = GRanges(seqnames = gene_metadata$gene_chr,
 												ranges = IRanges(start = gene_metadata$gene_start,
 																				 end = gene_metadata$gene_end),
@@ -61,7 +63,8 @@ prep_rna_data_treatment = function(rna_data = rna_data, sample_metadata = sample
 	rna_dds
 }
 
-split_intensities_feature_metadata = function(all_data)
+setup_metabolomics = function(all_data, 
+															sample_info)
 {
 	# tar_load(lipidomics_file)
 	# all_data = suppressMessages(readxl::read_excel(lipidomics_file,
@@ -69,6 +72,7 @@ split_intensities_feature_metadata = function(all_data)
 	# skip = 8)) |>
 	# janitor::clean_names()  |>
 	# rename_experimental_samples()
+	# tar_load(sample_info)
 	start_samples = which(grepl("^s[[:digit:]]", colnames(all_data)))[1]
 	sample_locs = seq(start_samples, ncol(all_data))
 	metadata_locs = seq_len(start_samples - 1)
@@ -84,10 +88,37 @@ split_intensities_feature_metadata = function(all_data)
 		dplyr::bind_cols()
 	metadata = all_data[, metadata_locs]
 	sample_data$feature_id = feature_id
-	metadata$feature_id = feature_id
 	
-	list(abundance = sample_data,
-			 metadata = metadata)
+	sample_matrix = sample_data |>
+		dplyr::select(-feature_id) |>
+		as.matrix()
+	rownames(sample_matrix) = sample_data$feature_id
+	
+	sample_info_extra = add_blanks_pooled(colnames(sample_matrix), sample_info)
+	sample_matrix = sample_matrix[, sample_info_extra$sample_id]
+	
+	metadata$feature_id = feature_id
+	rownames(metadata) = metadata$feature_id
+	
+	out_data = SummarizedExperiment(assays = list(counts = sample_matrix),
+																	rowData = metadata,
+																	colData = sample_info_extra)
+	out_data
+}
+
+add_blanks_pooled = function(sample_names,
+														 sample_info)
+{
+	# sample_names = colnames(cor_pca$correlation$cor)
+	extra_samples = tibble::tibble(sample_id = setdiff(sample_names, sample_info$sample_id)) |>
+		dplyr::mutate(treatment = dplyr::case_when(
+			grepl("^pool", sample_id) ~ "pooled",
+			grepl("^blank", sample_id) ~ "blank"
+		),
+		patient = "none")
+	sample_info = dplyr::bind_rows(sample_info,
+																 extra_samples)
+	sample_info
 }
 
 determine_matched_samples = function(sample_info)
@@ -121,4 +152,33 @@ calculate_patient_ratios = function(normalized_data,
 		dplyr::mutate(abundance = cancerous / normal_adjacent,
 									sample_id = patient)
 	patient_ratios
+}
+
+split_intensities_feature_metadata = function(all_data)
+{
+	# tar_load(lipidomics_file)
+	# all_data = suppressMessages(readxl::read_excel(lipidomics_file,
+	# sheet = "Data",
+	# skip = 8)) |>
+	# janitor::clean_names()  |>
+	# rename_experimental_samples()
+	start_samples = which(grepl("^s[[:digit:]]", colnames(all_data)))[1]
+	sample_locs = seq(start_samples, ncol(all_data))
+	metadata_locs = seq_len(start_samples - 1)
+	
+	if ("bin_base_name" %in% colnames(all_data)) {
+		feature_id = janitor::make_clean_names(all_data[["bin_base_name"]])
+	} else {
+		feature_id = janitor::make_clean_names(all_data[["identifier"]])
+	}
+	
+	sample_data = all_data[, sample_locs]
+	sample_data = purrr::map(sample_data, as.numeric) |>
+		dplyr::bind_cols()
+	metadata = all_data[, metadata_locs]
+	sample_data$feature_id = feature_id
+	metadata$feature_id = feature_id
+	
+	list(abundance = sample_data,
+			 metadata = metadata)
 }

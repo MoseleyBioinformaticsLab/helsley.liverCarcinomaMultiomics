@@ -5,23 +5,18 @@ rename_experimental_samples = function(metabolomics_dataset)
 	metabolomics_dataset
 }
 
-median_normalization = function(feature_abundance)
+median_normalization = function(feature_se)
 {
-	# feature_abundance = tar_read(lipidomics)$abundance
-	long_abundance = feature_abundance |>
-		tidyr::pivot_longer(cols = -feature_id,
-												names_to = "sample_id",
-												values_to = "abundance")
-	median_values = long_abundance |>
-		dplyr::group_by(sample_id) |>
-		dplyr::summarise(median = median(abundance, na.rm = TRUE))
+	# feature_se = tar_read(bioamines)
+	feature_abundance = assays(feature_se)$counts
 	
-	tmp_abundance = dplyr::left_join(long_abundance, median_values, by = c("sample_id"))
-	out_abundance = tmp_abundance |>
-		dplyr::mutate(abundance = abundance / median,
-									abundance_type = "median_normalized") |>
-		dplyr::select(-median)
-	out_abundance
+	sample_medians = matrixStats::colMedians(feature_abundance, na.rm = TRUE)
+	median_matrix = matrix(sample_medians, nrow = nrow(feature_abundance),
+												 ncol = ncol(feature_abundance), byrow = TRUE)
+	norm_abundance = feature_abundance / median_matrix
+	
+	assays(feature_se)$counts = norm_abundance
+	feature_se
 }
 
 matrix_2_long = function(wide_matrix)
@@ -47,25 +42,17 @@ long_2_matrix = function(long_data)
 	wide_matrix
 }
 
-keep_presence = function(normalized_data,
-												 sample_info,
+keep_presence = function(normalized_se,
 												 fraction = 0.75)
 {
-	# normalized_data = tar_read(bioamines_norm)
-	# tar_load(sample_info)
-	# fraction = 0.25
-	norm_wide = long_2_matrix(normalized_data)
-	sample_info = sample_info |>
-		dplyr::filter(sample_id %in% colnames(norm_wide))
-	norm_wide = norm_wide[, sample_info$sample_id]
+	# normalized_se = tar_read(bioamines_norm)
+	# fraction = 0.75
 	
-	keep_norm = visualizationQualityControl::keep_non_missing_percentage(norm_wide, sample_info$treatment,
+	keep_norm = visualizationQualityControl::keep_non_missing_percentage(assays(normalized_se)$counts, colData(normalized_se)$treatment,
 																																			 keep_num = fraction,
 																																			 missing_value = c(NA, 0))
-	keep_features = names(keep_norm)[keep_norm]
-	normalized_out = normalized_data |>
-		dplyr::filter(feature_id %in% keep_features)
-	return(normalized_out)
+	out_se = normalized_se[keep_norm, ]
+	return(out_se)
 }
 
 floor_values = function(rna_matrix)
@@ -80,7 +67,7 @@ keep_presence_dds = function(rna_dds,
 {
 	# rna_dds = tar_read(rna_dds_treatment)
 	# fraction = 0.75
-	norm_wide = counts(rna_dds)
+	norm_wide = DESeq2::counts(rna_dds)
 	sample_info = as.data.frame(colData(rna_dds))
 	# set anything less than 10 to 0 so it still counts as missing
 	norm_wide[norm_wide < 10] = 0
@@ -91,18 +78,18 @@ keep_presence_dds = function(rna_dds,
 	return(rna_dds)
 }
 
-sample_correlations_pca = function(normalized_data,
-																	 sample_info)
+sample_correlations_pca = function(normalized_se)
 {
-	# normalized_data = tar_read(bioamines_keep)
-	# tar_load(sample_info)
-	# 
-	# normalized_data = tar_read(rna_ratios)
-	# sample_info = tar_read(patient_info)
-	wide_matrix = long_2_matrix(normalized_data)
+	# normalized_se = tar_read(bioamines_keep)
+	# normalized_se = tar_read(rna_keep)
+	if (inherits(normalized_se, "DESeqDataSet")) {
+		wide_matrix = DESeq2::counts(normalized_se, normalized = TRUE)
+	} else {
+		wide_matrix = assays(normalized_se)$counts
+	}
 	wide_matrix[is.nan(wide_matrix) | is.infinite(wide_matrix)] = NA
 	
-	sample_sample_cor = ICIKendallTau::ici_kendalltau(wide_matrix, global_na = c(0, NA), perspective = "global", scale_max = TRUE, diag_good = TRUE)
+	sample_sample_cor = suppressWarnings(ICIKendallTau::ici_kendalltau(wide_matrix, global_na = c(0, NA), perspective = "global", scale_max = TRUE, diag_good = TRUE))
 	
 	if (any(is.na(wide_matrix))) {
 		wide_matrix[is.na(wide_matrix)] = 0
@@ -112,12 +99,12 @@ sample_correlations_pca = function(normalized_data,
 	pool_blank_samples = grepl("^pool|^blank", colnames(wide_matrix))
 	sample_noblanks_pca = prcomp(t(log1p(wide_matrix[, !pool_blank_samples])), center = TRUE, scale. = FALSE)
 	
-	match_samples = intersect(colnames(wide_matrix), sample_info$sample_id)
-	sample_info2 = sample_info |>
-		dplyr::filter(sample_id %in% match_samples)
-	matrix_cor = sample_sample_cor$cor[sample_info2$sample_id, sample_info2$sample_id]
-	median_cor = visualizationQualityControl::median_correlations(matrix_cor, sample_info2$treatment)
+	sample_info = colData(normalized_se) |> as.data.frame()
+	
+	matrix_cor = sample_sample_cor$cor
+	median_cor = visualizationQualityControl::median_correlations(matrix_cor, sample_info$treatment)
 	median_outliers = visualizationQualityControl::determine_outliers(median_correlations = median_cor)
+	sample_info = dplyr::left_join(sample_info, median_outliers, by = "sample_id")
 	use_samples = median_outliers |>
 		dplyr::filter(!outlier) |>
 		dplyr::pull(sample_id)
@@ -127,46 +114,25 @@ sample_correlations_pca = function(normalized_data,
 	return(list(correlation = sample_sample_cor,
 							all_pca = sample_all_pca,
 							noblanks_pca = sample_noblanks_pca,
-							nooutlier_pca = sample_nooutlier_pca))
-}
-
-add_blanks_pooled = function(sample_names,
-													 sample_info)
-{
-	# sample_names = colnames(cor_pca$correlation$cor)
-	extra_samples = tibble::tibble(sample_id = setdiff(sample_names, sample_info$sample_id)) |>
-		dplyr::mutate(treatment = dplyr::case_when(
-			grepl("^pool", sample_id) ~ "pooled",
-			grepl("^blank", sample_id) ~ "blank"
-		),
-		patient = "none")
-	sample_info = dplyr::bind_rows(sample_info,
-																 extra_samples)
-	sample_info
+							nooutlier_pca = sample_nooutlier_pca,
+							info = sample_info))
 }
 
 create_qcqa_plots = function(cor_pca,
-														 sample_info,
 														 color_scales)
 {
 	# cor_pca = tar_read(bioamines_cor_pca)
 	# cor_pca = tar_read(primary_metabolism_cor_pca)
-	# tar_load(sample_info)
-	sample_info = add_blanks_pooled(colnames(cor_pca$correlation$cor), sample_info)
+	# tar_load(color_scales)
+	sample_info = cor_pca$info
 	cor_matrix = cor_pca$correlation$cor
 	
-	cor_order = data.frame(sample_id = colnames(cor_matrix))
-	sample_info = dplyr::left_join(cor_order, sample_info, by = "sample_id")
 	rownames(sample_info) = sample_info$sample_id
 	
 	treatment_order = visualizationQualityControl::similarity_reorderbyclass(cor_matrix, sample_classes = sample_info[, c("treatment"), drop = FALSE], transform = "sub_1")
 	
 	cor_matrix_treatment = cor_matrix[treatment_order$indices, treatment_order$indices]
 	sample_info_treatment = sample_info[treatment_order$indices, ]
-	
-	median_cor_treatment = visualizationQualityControl::median_correlations(cor_matrix_treatment, sample_classes = sample_info_treatment$treatment)
-	median_outlier_treatment = visualizationQualityControl::determine_outliers(median_correlations = median_cor_treatment)
-	sample_info_treatment = dplyr::left_join(sample_info_treatment, median_outlier_treatment, by = "sample_id")
 	
 	low_range = round(min(cor_matrix_treatment), digits = 2)
 	hi_range = round(max(cor_matrix_treatment), digits = 2)
@@ -199,7 +165,8 @@ create_qcqa_plots = function(cor_pca,
 	
 	median_cor_all = visualizationQualityControl::median_correlations(cor_matrix_all)
 	median_outlier_all = visualizationQualityControl::determine_outliers(median_correlations = median_cor_all)
-	sample_info_all = dplyr::left_join(sample_info_all, median_outlier_all, by = "sample_id")
+	tmp_all = c("sample_id", base::setdiff(names(sample_info), base::intersect(names(sample_info), names(median_outlier_all))))
+	sample_info_all = dplyr::left_join(sample_info_all[, tmp_all], median_outlier_all, by = "sample_id")
 	
 	annotate_treatment_groups = c("treatment", "outlier")
 	
@@ -275,4 +242,13 @@ sample_colors = function()
 	names(outlier_colors) = c("TRUE", "FALSE")
 	list(treatment = treatment_colors,
 			 outlier = outlier_colors)
+}
+
+get_n_features = function(in_data)
+{
+	if (inherits(in_data, "data.frame")) {
+		return(length(unique(in_data$feature_id)))
+	} else {
+		return(nrow(in_data))
+	}
 }

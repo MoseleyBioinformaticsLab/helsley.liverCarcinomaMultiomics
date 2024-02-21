@@ -34,7 +34,7 @@ tar_load(c(rna_qcqa,
 
 ## Purpose
 
-Quality-control and quality-assurance of the various datasets for from Helsley liver carcinoma multi-omics experiment.
+Quality-control and quality-assurance of the various datasets from the Helsley liver carcinoma multi-omics experiment.
 An [executive summary](#executive-summary) is available at the end of this document.
 
 ## Data
