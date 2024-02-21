@@ -5,23 +5,18 @@ rename_experimental_samples = function(metabolomics_dataset)
 	metabolomics_dataset
 }
 
-median_normalization = function(feature_abundance)
+median_normalization = function(feature_se)
 {
-	# feature_abundance = tar_read(lipidomics)$abundance
-	long_abundance = feature_abundance |>
-		tidyr::pivot_longer(cols = -feature_id,
-												names_to = "sample_id",
-												values_to = "abundance")
-	median_values = long_abundance |>
-		dplyr::group_by(sample_id) |>
-		dplyr::summarise(median = median(abundance, na.rm = TRUE))
+	# feature_se = tar_read(bioamines)
+	feature_abundance = assays(feature_se)$counts
 	
-	tmp_abundance = dplyr::left_join(long_abundance, median_values, by = c("sample_id"))
-	out_abundance = tmp_abundance |>
-		dplyr::mutate(abundance = abundance / median,
-									abundance_type = "median_normalized") |>
-		dplyr::select(-median)
-	out_abundance
+	sample_medians = matrixStats::colMedians(feature_abundance, na.rm = TRUE)
+	median_matrix = matrix(sample_medians, nrow = nrow(feature_abundance),
+												 ncol = ncol(feature_abundance), byrow = TRUE)
+	norm_abundance = feature_abundance / median_matrix
+	
+	assays(feature_se)$counts = norm_abundance
+	feature_se
 }
 
 matrix_2_long = function(wide_matrix)
@@ -47,25 +42,17 @@ long_2_matrix = function(long_data)
 	wide_matrix
 }
 
-keep_presence = function(normalized_data,
-												 sample_info,
+keep_presence = function(normalized_se,
 												 fraction = 0.75)
 {
-	# normalized_data = tar_read(bioamines_norm)
-	# tar_load(sample_info)
-	# fraction = 0.25
-	norm_wide = long_2_matrix(normalized_data)
-	sample_info = sample_info |>
-		dplyr::filter(sample_id %in% colnames(norm_wide))
-	norm_wide = norm_wide[, sample_info$sample_id]
+	# normalized_se = tar_read(bioamines_norm)
+	# fraction = 0.75
 	
-	keep_norm = visualizationQualityControl::keep_non_missing_percentage(norm_wide, sample_info$treatment,
+	keep_norm = visualizationQualityControl::keep_non_missing_percentage(assays(normalized_se)$counts, colData(normalized_se)$treatment,
 																																			 keep_num = fraction,
 																																			 missing_value = c(NA, 0))
-	keep_features = names(keep_norm)[keep_norm]
-	normalized_out = normalized_data |>
-		dplyr::filter(feature_id %in% keep_features)
-	return(normalized_out)
+	out_se = normalized_se[keep_norm, ]
+	return(out_se)
 }
 
 floor_values = function(rna_matrix)
@@ -128,21 +115,6 @@ sample_correlations_pca = function(normalized_data,
 							all_pca = sample_all_pca,
 							noblanks_pca = sample_noblanks_pca,
 							nooutlier_pca = sample_nooutlier_pca))
-}
-
-add_blanks_pooled = function(sample_names,
-													 sample_info)
-{
-	# sample_names = colnames(cor_pca$correlation$cor)
-	extra_samples = tibble::tibble(sample_id = setdiff(sample_names, sample_info$sample_id)) |>
-		dplyr::mutate(treatment = dplyr::case_when(
-			grepl("^pool", sample_id) ~ "pooled",
-			grepl("^blank", sample_id) ~ "blank"
-		),
-		patient = "none")
-	sample_info = dplyr::bind_rows(sample_info,
-																 extra_samples)
-	sample_info
 }
 
 create_qcqa_plots = function(cor_pca,
@@ -275,4 +247,13 @@ sample_colors = function()
 	names(outlier_colors) = c("TRUE", "FALSE")
 	list(treatment = treatment_colors,
 			 outlier = outlier_colors)
+}
+
+get_n_features = function(in_data)
+{
+	if (inherits(in_data, "data.frame")) {
+		return(length(unique(in_data$feature_id)))
+	} else {
+		return(nrow(in_data))
+	}
 }

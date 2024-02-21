@@ -42,7 +42,7 @@ tar_plan(
 		floor_values(),
 	rna_keep = keep_presence(rna_norm,
 													 sample_info),
-	rna_n_qcqa = c(nrow(rna_dds), nrow(rna_keep)),
+	rna_n_qcqa = c(get_n_features(rna_dds), get_n_features(rna_keep)),
 	
 	rna_ratios = calculate_patient_ratios(rna_keep,
 																				sample_info_no11),
@@ -67,12 +67,11 @@ tar_plan(
 																									skip = 9)) |>
 		janitor::clean_names() |>
 		rename_experimental_samples() |>
-		split_intensities_feature_metadata(),
-	bioamines_norm = median_normalization(bioamines$abundance),
-	bioamines_keep = keep_presence(bioamines_norm,
-																 sample_info),
+		(\(x){setup_metabolomics(x, sample_info)})(),
+	bioamines_norm = median_normalization(bioamines),
+	bioamines_keep = keep_presence(bioamines_norm),
 	
-	bioamines_n_qcqa = c(nrow(bioamines_norm), nrow(bioamines_keep)),
+	bioamines_n_qcqa = c(get_n_features(bioamines_norm), get_n_features(bioamines_keep)),
 	bioamines_ratios = calculate_patient_ratios(bioamines_keep, sample_info_no11),
 	
 	bioamines_cor_pca = sample_correlations_pca(bioamines_keep, sample_info),
@@ -99,7 +98,7 @@ tar_plan(
 	lipidomics_norm = median_normalization(lipidomics$abundance),
 	lipidomics_keep = keep_presence(lipidomics_norm,
 																	sample_info),
-	lipidomics_n_qcqa = c(nrow(lipidomics_norm), nrow(lipidomics_keep)),
+	lipidomics_n_qcqa = c(get_n_features(lipidomics_norm), get_n_features(lipidomics_keep)),
 	lipidomics_ratios = calculate_patient_ratios(lipidomics_keep,
 																							 sample_info_no11),
 	
@@ -125,7 +124,7 @@ tar_plan(
 	primary_metabolism_norm = median_normalization(primary_metabolism$abundance),
 	primary_metabolism_keep = keep_presence(primary_metabolism_norm,
 																					sample_info),
-	pr_n_qcqa = c(nrow(primary_metabolism_norm), nrow(primary_metabolism_keep)),
+	pr_n_qcqa = c(get_n_features(primary_metabolism_norm), get_n_features(primary_metabolism_keep)),
 	primary_metabolism_ratios = calculate_patient_ratios(primary_metabolism_keep,
 																											 sample_info_no11),
 	
