@@ -100,11 +100,19 @@ tar_plan(
 																							color_scales),
 	
 	## Differential Analysis --------
-	### Determine Outliers
+	### Determine Outliers --------
 	rna_outliers = determine_outliers(rna_keep),
 	bioamines_outliers = determine_outliers(bioamines_keep),
 	lipidomics_outliers = determine_outliers(lipidomics_keep),
 	pr_outliers = determine_outliers(primary_metabolism_keep),
+	
+	### Collapse Replicates -----
+	### Note that this function also *removes* the previously identified outliers before
+	### collapsing the replicates.
+	rna_collapsed = collapse_deseq_replicates(rna_outliers),
+	bioamines_collapsed = collapse_metabolomics_replicates(bioamines_outliers),
+	lipidomics_collapsed = collapse_metabolomics_replicates(lipidomics_outliers),
+	pr_collapsed = collapse_metabolomics_replicates(pr_outliers),
 	
 	### Unpaired --------
 	#### RNA -------

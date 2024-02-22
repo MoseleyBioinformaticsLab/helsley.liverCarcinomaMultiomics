@@ -103,7 +103,8 @@ sample_correlations_pca = function(normalized_se)
 	
 	matrix_cor = sample_sample_cor$cor
 	median_cor = visualizationQualityControl::median_correlations(matrix_cor, sample_info$treatment)
-	median_outliers = visualizationQualityControl::determine_outliers(median_correlations = median_cor)
+	outlier_frac = visualizationQualityControl::outlier_fraction(log1p(matrix_cor), sample_info$treatment, remove_missing = c(0, NA))
+	median_outliers = visualizationQualityControl::determine_outliers(median_correlations = median_cor, outlier_fraction = outlier_frac)
 	sample_info = dplyr::left_join(sample_info, median_outliers, by = "sample_id")
 	use_samples = median_outliers |>
 		dplyr::filter(!outlier) |>
