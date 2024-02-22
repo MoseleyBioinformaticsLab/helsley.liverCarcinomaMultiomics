@@ -115,12 +115,21 @@ tar_plan(
 	pr_collapsed = collapse_metabolomics_replicates(pr_outliers),
 	
 	### Unpaired --------
-	#### RNA -------
-	# rna_dds_treatment = prep_rna_data_treatment(rna_data,
-	# 																						sample_info_no11),
-	# rna_dds_keep_treatment = keep_presence_dds(rna_dds_treatment, 0.75),
-	# rna_deseq2_treatment = DESeq2::DESeq(rna_dds_keep_treatment),
-	# rna_results_treatment = DESeq2::results(rna_deseq2_treatment, contrast = c("treatment", "cancerous", "normal_adjacent"), tidy = TRUE),
+	rna_de_treatment = calculate_deseq_stats(rna_collapsed,
+																					 which = "treatment"),
+	bioamines_de_treatment = calculate_metabolomics_stats(bioamines_collapsed,
+																												which = "unpaired"),
+	lipidomics_de_treatment = calculate_metabolomics_stats(lipidomics_collapsed,
+																												 which = "unpaired"),
+	pr_de_treatment = calculate_metabolomics_stats(pr_collapsed,
+																								 which = "unpaired"),
+	### Paired --------
+	rna_paired = filter_to_pairs(rna_collapsed),
+	rna_de_patient = calculate_deseq_stats(rna_paired,
+																				 which = "patient"),
+	
+	bioamines_paired = filter_to_pairs(bioamines_collapsed),
+	
 	## documents -----------
 	tar_quarto(qcqa, "docs/qcqa.qmd")
 # target = function_to_make(arg), ## drake style
