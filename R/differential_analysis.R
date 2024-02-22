@@ -132,18 +132,69 @@ calculate_metabolomics_stats = function(data_se,
 	# paired = NULL
 	# contrast = c("treatment", "cancerous", "normal_adjacent")
 	# missing = c(0, NA)
+	# 
+	# data_se = tar_read(pr_paired)
+	# paired = "patient"
+	# contrast = c("treatment", "cancerous", "normal_adjacent")
+	# missing = c(0, NA)
 	contrast_var = contrast[1]
 	numerator = contrast[2]
 	denominator = contrast[3]
 	
-	num_samples = data_se[[contrast_var]] == numerator
-	denom_samples = data_se[[contrast_var]] == denominator
-	
+	sample_info = colData(data_se) |> as.data.frame()
+	t_paired = FALSE
 	if (!is.null(paired)) {
-		# do something with the pairing variable
-	} else {
-		counts = assays(data_se)$counts
-		counts[]
+		sample_info = sample_info |>
+			dplyr::arrange(paired, contrast_var)
+		t_paired = TRUE
 	}
-	NULL
+	num_samples = sample_info[["sample_id"]][sample_info[[contrast_var]] == numerator]
+	denom_samples = sample_info[["sample_id"]][sample_info[[contrast_var]] == denominator]
+	
+	counts = assays(data_se)$counts
+	counts[counts %in% missing] = NA
+	log_counts = log2(counts)
+	use_missing = signif(min(log_counts, na.rm = TRUE), digits = 2)
+	num_counts = log_counts[, num_samples]
+	denom_counts = log_counts[, denom_samples]
+		
+	out_stats = purrr::map(rownames(log_counts), \(in_row){
+		num_tmp = num_counts[in_row, ]
+		denom_tmp = denom_counts[in_row, ]
+		
+		if (!is.null(paired)) {
+			num_n = sum(!is.na(num_tmp))
+			num_tmp[is.na(num_tmp)] = use_missing
+			denom_n = sum(!is.na(denom_tmp))
+			denom_tmp[is.na(denom_tmp)] = use_missing
+		}	else {
+			num_tmp = num_tmp[!is.na(num_tmp)]
+			num_n = length(num_tmp)
+			if (num_n < 3) {
+				num_tmp = rep(use_missing, length(num_samples))
+			}
+			denom_tmp = denom_tmp[!is.na(denom_tmp)]
+			denom_n = length(denom_tmp)
+			if (denom_n < 3) {
+				denom_tmp = rep(use_missing, length(denom_samples))
+			}
+			if ((denom_n < 3) & (num_n < 3)) {
+				return(NULL)
+			}
+		}
+		t_res = broom::tidy(t.test(num_tmp, denom_tmp, paired = t_paired))
+		if (!is.null(paired)) {
+			names(t_res)[1] = contrast[1]
+		} else {
+			names(t_res)[c(1, 2, 3)] = contrast
+		}
+		t_res[[paste0("n_", contrast[2])]] = num_n
+		t_res[[paste0("n_", contrast[3])]] = denom_n
+		t_res[["feature_id"]] = in_row
+			return(t_res)
+	}) |>
+		purrr::list_rbind()
+	out_stats$p.adj = p.adjust(out_stats$p.value, method = "BH")
+	
+	return(out_stats)
 }

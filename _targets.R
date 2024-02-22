@@ -117,18 +117,22 @@ tar_plan(
 	### Unpaired --------
 	rna_de_treatment = calculate_deseq_stats(rna_collapsed,
 																					 which = "treatment"),
-	bioamines_de_treatment = calculate_metabolomics_stats(bioamines_collapsed,
-																												which = "unpaired"),
-	lipidomics_de_treatment = calculate_metabolomics_stats(lipidomics_collapsed,
-																												 which = "unpaired"),
-	pr_de_treatment = calculate_metabolomics_stats(pr_collapsed,
-																								 which = "unpaired"),
+	bioamines_de_treatment = calculate_metabolomics_stats(bioamines_collapsed),
+	lipidomics_de_treatment = calculate_metabolomics_stats(lipidomics_collapsed),
+	pr_de_treatment = calculate_metabolomics_stats(pr_collapsed),
 	### Paired --------
 	rna_paired = filter_to_pairs(rna_collapsed),
 	rna_de_patient = calculate_deseq_stats(rna_paired,
 																				 which = "patient"),
 	
 	bioamines_paired = filter_to_pairs(bioamines_collapsed),
+	bioamines_de_patient = calculate_metabolomics_stats(bioamines_paired, paired = "patient"),
+	lipidomics_paired = filter_to_pairs(lipidomics_collapsed),
+	lipidomics_de_patient = calculate_metabolomics_stats(lipidomics_paired, paired = "patient"),
+	pr_paired = filter_to_pairs(pr_collapsed),
+	pr_de_patient = calculate_metabolomics_stats(pr_paired,
+																							 paired = "patient"),
+
 	
 	## documents -----------
 	tar_quarto(qcqa, "docs/qcqa.qmd")
