@@ -51,6 +51,7 @@ prep_rna_data_treatment = function(rna_data = rna_data, sample_metadata = sample
 																				 end = gene_metadata$gene_end),
 												strand = gene_metadata$gene_strand,
 												feature_id = gene_metadata$gene_id,
+												name = gene_metadata$gene_name,
 												biotype = gene_metadata$gene_biotype,
 												description = gene_metadata$gene_description)
 	

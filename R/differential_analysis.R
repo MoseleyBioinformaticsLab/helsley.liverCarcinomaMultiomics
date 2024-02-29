@@ -91,6 +91,7 @@ calculate_deseq_stats = function(rna_se,
 {
 	# rna_se = tar_read(rna_collapsed)
 	# which = "treatment"
+	# contrast = c("treatment", "cancerous", "normal_adjacent")
 	# rna_se = tar_read(rna_paired)
 	# which = "patient"
 	if (which %in% "treatment") {
@@ -101,7 +102,9 @@ calculate_deseq_stats = function(rna_se,
 	}
 	
 	rna_deseq = DESeq(rna_se)
-	rna_results = results(rna_deseq, contrast = contrast)
+	rna_results = results(rna_deseq, contrast = contrast) |> as.data.frame()
+	rna_info = rowData(rna_se) |> as.data.frame()
+	rna_results = cbind(rna_results, rna_info)
 	rna_results
 }
 
@@ -194,7 +197,11 @@ calculate_metabolomics_stats = function(data_se,
 			return(t_res)
 	}) |>
 		purrr::list_rbind()
-	out_stats$p.adj = p.adjust(out_stats$p.value, method = "BH")
+	out_stats$padj = p.adjust(out_stats$p.value, method = "BH")
+	feature_info = rowData(data_se)[out_stats$feature_id, ] |> as.data.frame()
+	
+	out_stats = dplyr::left_join(out_stats, feature_info, by = "feature_id")
+	out_stats$log2FoldChange = out_stats[[contrast[1]]]
 	
 	return(out_stats)
 }

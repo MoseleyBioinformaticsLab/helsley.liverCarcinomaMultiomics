@@ -133,6 +133,39 @@ tar_plan(
 	pr_de_patient = calculate_metabolomics_stats(pr_paired,
 																							 paired = "patient"),
 
+	## Annotations --------
+	### Genes -------
+	ensembl_uniprot = get_ensembl_uniprot(version = "111"),
+	tar_target(go_file,
+						 "data/ancestors.json",
+						 format = "file"),
+	tar_target(namespace_file,
+						 "data/namespace.json",
+						 format = "file"),
+	ensembl_go = create_go_annotations(ensembl_uniprot,
+																		 go_file,
+																		 namespace_file),
+	tar_target(reactome_gene_file,
+						 "data/Ensembl2Reactome_All_Levels.txt",
+						 format = "file"),
+	ensembl_reactome = create_reactome_gene_annotations(reactome_gene_file),
+	
+	### Metabolites -----
+	tar_target(chebi_reactome_file,
+						 "data/ChEBI2Reactome_All_Levels.txt",
+						 format = "file"),
+	chebi_reactome = create_reactome_chebi_annotations(chebi_reactome_file),
+	tar_target(chebi_inchi_file,
+						 "data/chebiId_inchi.tsv.gz",
+						 format = "file"),
+	inchi_df = write_inchi(chebi_inchi_file),
+	inchikey_hash = get_inchikey_hash(inchi_df,
+																		"data/chebi"),
+	chebi_inchikey = map_chebi_to_inchikey(inchi_df,
+																				 inchi_dir = "data/chebi",
+																				 inchikey_hash),
+	
+	rna_treatment_enrichment_go = run_enrichment(rna_de_treatment, ensembl_go),
 	
 	## documents -----------
 	tar_quarto(qcqa, "docs/qcqa.qmd")
