@@ -123,6 +123,10 @@ filter_to_pairs = function(data_se)
 	
 	# remove the unused patients from the factor levels
 	data_se$patient = factor(data_se$patient)
+	
+	sample_order = sample(length(data_se$patient), length(data_se$patient))
+	data_se = data_se[, sample_order]
+	
 	return(data_se)
 }
 
@@ -140,17 +144,24 @@ calculate_metabolomics_stats = function(data_se,
 	# paired = "patient"
 	# contrast = c("treatment", "cancerous", "normal_adjacent")
 	# missing = c(0, NA)
+	
+	# data_se = tar_read(bioamines_paired)
+	# data_se = tar_read(bioamines_collapsed)
+	# paired = "treatment"
+	# contrast = c("treatment", "cancerous", "normal_adjacent")
+	# missing = c(0, NA)
 	contrast_var = contrast[1]
 	numerator = contrast[2]
 	denominator = contrast[3]
 	
 	sample_info = colData(data_se) |> as.data.frame()
+	# actually arrange things so they are paired
 	t_paired = FALSE
-	if (!is.null(paired)) {
+	if (!is.null(paired) && (paired %in% "patient")) {
 		sample_info = sample_info |>
-			dplyr::arrange(paired, contrast_var)
+			dplyr::arrange(patient, treatment)
 		t_paired = TRUE
-	}
+	} 
 	num_samples = sample_info[["sample_id"]][sample_info[[contrast_var]] == numerator]
 	denom_samples = sample_info[["sample_id"]][sample_info[[contrast_var]] == denominator]
 	
@@ -165,7 +176,7 @@ calculate_metabolomics_stats = function(data_se,
 		num_tmp = num_counts[in_row, ]
 		denom_tmp = denom_counts[in_row, ]
 		
-		if (!is.null(paired)) {
+		if (t_paired) {
 			num_n = sum(!is.na(num_tmp))
 			num_tmp[is.na(num_tmp)] = use_missing
 			denom_n = sum(!is.na(denom_tmp))
@@ -204,4 +215,63 @@ calculate_metabolomics_stats = function(data_se,
 	out_stats$log2FoldChange = out_stats[[contrast[1]]]
 	
 	return(out_stats)
+}
+
+merge_and_map_metabolomics = function(in_data,
+																			chebi_inchikey)
+{
+	# in_data = tar_read(metabolomics_de_treatment_list)
+	# tar_load(chebi_inchikey)
+	de_vals = purrr::imap(in_data, \(use_data, id){
+		if ("in_ch_i_key" %in% names(use_data)) {
+			use_data = use_data |>
+				dplyr::mutate(in_chi_key = in_ch_i_key)
+		}
+		out_de = use_data |>
+			dplyr::select(log2FoldChange, p.value, padj, feature_id, in_chi_key) |>
+			dplyr::mutate(type = id)
+		out_de
+	}) |>
+		purrr::list_rbind()
+	
+	de_vals = dplyr::left_join(de_vals, chebi_inchikey, by = c("in_chi_key" = "in_ch_i_key"),
+														 relationship = "many-to-many")
+	de_vals = de_vals |>
+		dplyr::mutate(feature_org = feature_id,
+									feature_id = as.character(chebi_id))
+	de_vals
+}
+
+compare_treatment_patient = function(de_treatment,
+																		 de_patient)
+{
+	# de_treatment = tar_read(metabolomics_de_treatment)
+	# de_patient = tar_read(metabolomics_de_patient)
+	# 
+	# de_treatment = tar_read(rna_de_treatment)
+	# de_patient = tar_read(rna_de_patient)
+	
+	if ("feature_org" %in% names(de_treatment)) {
+		de_treatment_mod = de_treatment |>
+			dplyr::select(log2FoldChange, p.value, padj, feature_org, type) |>
+			dplyr::distinct()
+		de_patient_mod = de_patient |>
+			dplyr::select(log2FoldChange, p.value, padj, feature_org, type) |>
+			dplyr::distinct()
+		de_merge = dplyr::left_join(de_treatment_mod, de_patient_mod,
+																by = "feature_org",
+																suffix = c(".treatment", ".patient"))
+	} else {
+		de_treatment_mod = de_treatment |>
+			dplyr::select(log2FoldChange, pvalue, padj, feature_id) |>
+			dplyr::distinct()
+		de_patient_mod = de_patient |>
+			dplyr::select(log2FoldChange, pvalue, padj, feature_id) |>
+			dplyr::distinct()
+		de_merge = dplyr::left_join(de_treatment_mod, de_patient_mod,
+																by = "feature_id",
+																suffix = c(".treatment", ".patient"))
+	}
+	de_merge
+	
 }

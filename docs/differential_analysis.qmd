@@ -1,0 +1,151 @@
+---
+title: "Hepatocarcinoma Multi-Omics Differential Analysis"
+author: "Robert M Flight"
+date: last-modified
+date-format: YYYY-MM-DD HH:mm
+format: 
+  html:
+    embed-resources: true
+    toc: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(echo = FALSE,
+											warning = FALSE,
+											message = FALSE)
+## target knits qmds in their own session, so load libraries here.
+targets::tar_source("./packages.R")
+tar_source("./R")
+```
+
+```{r}
+#| label: load-targets
+#| include: false
+tar_load(c(rna_de_treatment,
+					 rna_de_patient,
+					 novagene_rna_stats,
+					 metabolomics_de_compare))
+
+# # If your chunk output is shown in-line, then you'll need to wrap tar_load()
+# # like so:
+# 
+# withr::with_dir(here::here(), {
+#   tar_load(c(target_1, target_2, target_3))
+# })
+# 
+# # This is not needed when using tar_make() to render the document.
+```
+
+## Purpose
+
+Differential analyses of transcriptomics and metabolomics (bioamines, primary metabolism, lipidomics) for several patients with hepatocarcinoma.
+
+There is an [Executive Summar](#executive-summary) at the end of this document.
+
+## Data
+
+Numbers.
+
+For all datasets, we merged the two replicate samples normal adjacent samples from Patient 6, either by adding the counts (transcriptomics) or averaging (metabolomics).
+
+For each dataset, we performed the differential calculations two ways:
+
+  1. Ignoring the paired nature of the samples (treatment).
+  1. Incorporating pairing information of the patients (patient).
+
+
+
+## P-Value Checks
+
+### Transcriptomics
+
+In addition to our own differential results, we also have the values calculated by NovaGene.
+We will calculate ratios of $-1 \times log_{10}(p-values)$ just to see which of the methods (NovaGene, treatment, patient) seems to be performing better.
+
+```{r}
+#| label: transcriptomics-comparisons
+patient_treatment = dplyr::left_join(rna_de_patient[, c("feature_id", "pvalue", "padj")],
+																		 rna_de_treatment[, c("feature_id", "pvalue", "padj")],
+																		 by = "feature_id", suffix = c(".patient", ".treatment"))
+patient_treatment = dplyr::left_join(patient_treatment, novagene_rna_stats[, c("gene_id", "pvalue", "padj")], 
+																		 by = c("feature_id" = "gene_id"),
+																		 suffix = c(".patient", ".novagene"))
+patient_treatment = patient_treatment |>
+	dplyr::mutate(pvalue.novagene = pvalue,
+								padj.novagene = padj) |>
+	dplyr::mutate(patient_treatment = -1*log10(pvalue.patient) - -1*log10(pvalue.treatment),
+								treatment_novagene = -1*log10(pvalue.treatment) - -1*log10(pvalue.novagene),
+								patient_novagene = -1*log10(pvalue.patient) - -1*log10(pvalue.novagene))
+```
+
+@fig-transcriptomics-pvalues shows the histograms of p-values from each method.
+Surprisingly, the number of very low NovaGene p-values seem to be in-between the treatment and patient values.
+
+```{r}
+#| label: fig-transcriptomics-pvalues
+#| fig-cap: P-Value histogram for each of the different sets of p-values.
+patient_treatment_pvals = patient_treatment |>
+	dplyr::select(feature_id, pvalue.patient, pvalue.treatment, pvalue.novagene) |>
+	tidyr::pivot_longer(-feature_id, names_to = "type", values_to = "pvalue") |>
+	dplyr::mutate(type = gsub("pvalue.", "", type)) |>
+	dplyr::mutate(type = factor(type, levels = c("novagene", "treatment", "patient"), ordered = TRUE))
+patient_treatment_pvals |>
+	ggplot(aes(x = pvalue)) +
+	geom_histogram(binwidth = 0.01) +
+	facet_wrap(~ type, ncol = 1)
+```
+
+@fig-transcriptomics-comparison shows that in general, it appears that using the paired patient information results in more extreme p-values than not.
+In addition, 
+
+```{r}
+#| label: fig-transcriptomics-comparison
+#| fig-cap: Sina plot of comparisons of $-1 \times log_{10}(p-values)$ from differential calculations between treatment vs NovaGene; patient vs treatment; and patient vs NovaGene. Red line denotes no difference.
+patient_treatment_diff = patient_treatment |>
+	dplyr::select(feature_id, patient_treatment, treatment_novagene, patient_novagene) |>
+	tidyr::pivot_longer(-feature_id,
+											names_to = "comparison",
+											values_to = "difference") |>
+	dplyr::mutate(comparison = factor(comparison, levels = c("patient_novagene", "treatment_novagene", "patient_treatment"), ordered = TRUE))
+patient_treatment_diff |>
+	dplyr::filter(dplyr::between(difference, -2.5, 2.5)) |>
+	ggplot(aes(x = difference, y = comparison)) +
+	geom_sina(alpha = 0.5, size = 0.5) +
+	geom_vline(xintercept = 0, color = "red")
+```
+
+So, it makes sense to only look at the results from incorporating the patients in the transcriptomics.
+
+### Metabolomics
+
+
+```{r}
+#| label: metabolomics-comparisons
+#| fig-cap: P-Value histograms for treatment and patient differential analyses across each metabolomics platform.
+metabolomics_pvalue_long = metabolomics_de_compare |>
+	dplyr::select(feature_org, p.value.patient, p.value.treatment, type.treatment) |>
+	tidyr::pivot_longer(c(-feature_org, -type.treatment), names_to = "pvalue_type",
+											values_to = "p.value") |>
+	dplyr::mutate(pvalue_type = gsub("p.value.", "", pvalue_type))
+metabolomics_pvalue_long |>
+	ggplot(aes(x = p.value)) +
+	geom_histogram(binwidth = 0.05) +
+	facet_grid(pvalue_type ~ type.treatment)
+```
+
+```{r}
+#| label: fig-metabolomics-comparison
+metabolomics_diffs = metabolomics_de_compare |>
+	dplyr::mutate(patient_treatment = -1*log10(p.value.patient) - -1*log10(p.value.treatment)) |>
+	dplyr::select(type.treatment, feature_org, patient_treatment) |>
+	tidyr::pivot_longer(c(-type.treatment, -feature_org),
+											names_to = "comparison",
+											values_to = "difference")
+metabolomics_diffs |>
+	ggplot(aes(x = difference, y = comparison)) +
+	geom_sina(alpha = 0.5) +
+	geom_vline(xintercept = 0, color = "red") +
+	facet_wrap(~ type.treatment, nrow = 1)
+```

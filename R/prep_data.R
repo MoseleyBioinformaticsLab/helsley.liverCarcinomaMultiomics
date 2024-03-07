@@ -65,7 +65,8 @@ prep_rna_data_treatment = function(rna_data = rna_data, sample_metadata = sample
 }
 
 setup_metabolomics = function(all_data, 
-															sample_info)
+															sample_info,
+															metabolite_type = "")
 {
 	# tar_load(lipidomics_file)
 	# all_data = suppressMessages(readxl::read_excel(lipidomics_file,
@@ -79,9 +80,11 @@ setup_metabolomics = function(all_data,
 	metadata_locs = seq_len(start_samples - 1)
 	
 	if ("bin_base_name" %in% colnames(all_data)) {
-		feature_id = janitor::make_clean_names(all_data[["bin_base_name"]])
+		feature_id = paste0(janitor::make_clean_names(all_data[["bin_base_name"]]), ".",
+												metabolite_type)
 	} else {
-		feature_id = janitor::make_clean_names(all_data[["identifier"]])
+		feature_id = paste0(janitor::make_clean_names(all_data[["identifier"]]), ".",
+												metabolite_type)
 	}
 	
 	sample_data = all_data[, sample_locs]
