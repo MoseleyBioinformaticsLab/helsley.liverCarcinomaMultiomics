@@ -118,13 +118,13 @@ tar_plan(
 	lipidomics_collapsed = collapse_metabolomics_replicates(lipidomics_outliers),
 	pm_collapsed = collapse_metabolomics_replicates(pm_outliers),
 	
-	### Unpaired --------
+	### Unpaired t-test --------
 	rna_de_treatment = calculate_deseq_stats(rna_collapsed,
 																					 which = "treatment"),
 	bioamines_de_treatment = calculate_metabolomics_stats(bioamines_collapsed),
 	lipidomics_de_treatment = calculate_metabolomics_stats(lipidomics_collapsed),
 	pm_de_treatment = calculate_metabolomics_stats(pm_collapsed),
-	### Paired --------
+	### Paired t-test --------
 	rna_paired = filter_to_pairs(rna_collapsed),
 	rna_de_patient = calculate_deseq_stats(rna_paired,
 																				 which = "patient"),
@@ -146,6 +146,10 @@ tar_plan(
 	pm_de_patient_unpaired = calculate_metabolomics_stats(pm_paired,
 																							 paired = "treatment"),
 
+	### Unpaired ANOVA --------
+	bioamines_de_aov_treatment = calculate_metabolomics_stats_aov(bioamines_collapsed),
+	lipidomics_de_aov_treatment = calculate_metabolomics_stats_aov(lipidomics_collapsed),
+	pm_de_aov_treatment = calculate_metabolomics_stats_aov(pm_collapsed),
 	## Annotations --------
 	### Genes -------
 	ensembl_uniprot = get_ensembl_uniprot(version = "111"),

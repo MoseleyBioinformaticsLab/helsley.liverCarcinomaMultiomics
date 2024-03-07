@@ -217,6 +217,92 @@ calculate_metabolomics_stats = function(data_se,
 	return(out_stats)
 }
 
+calculate_metabolomics_stats_aov = function(data_se,
+																				paired = NULL,
+																				contrast = c("treatment", "cancerous", "normal_adjacent"),
+																				missing = c(0, NA))
+{
+	# data_se = tar_read(pr_collapsed)
+	# paired = NULL
+	# contrast = c("treatment", "cancerous", "normal_adjacent")
+	# missing = c(0, NA)
+	# 
+	# data_se = tar_read(pr_paired)
+	# paired = "patient"
+	# contrast = c("treatment", "cancerous", "normal_adjacent")
+	# missing = c(0, NA)
+	
+	# data_se = tar_read(bioamines_paired)
+	# data_se = tar_read(bioamines_collapsed)
+	# paired = NULL
+	# contrast = c("treatment", "cancerous", "normal_adjacent")
+	# missing = c(0, NA)
+	contrast_var = contrast[1]
+	numerator = contrast[2]
+	denominator = contrast[3]
+	
+	sample_info = colData(data_se) |> as.data.frame()
+	
+	counts = assays(data_se)$counts
+	counts[counts %in% missing] = NA
+	log_counts = log2(counts)
+	use_missing = signif(min(log_counts, na.rm = TRUE), digits = 2)
+	
+	use_df = sample_info[, c("treatment", "patient")]
+	num_locs = use_df$treatment == numerator
+	denom_locs = use_df$treatment == denominator
+	
+	out_stats = purrr::map(rownames(log_counts), \(in_row){
+		use_vals = log_counts[in_row, ]
+		
+		aov_setup = cbind(data.frame(abundance = use_vals),
+											use_df)
+		
+		num_n = sum(!is.na(aov_setup$abundance[num_locs]))
+		denom_n = sum(!is.na(aov_setup$abundance[denom_locs]))
+		if (num_n < 3) {
+			aov_setup$abundance[num_locs] = use_missing
+		} else {
+			num_na = is.na(aov_setup$abundance) & num_locs
+			aov_setup$abundance[num_na] = use_missing
+		}
+		if (denom_n < 3) {
+			aov_setup$abundance[denom_locs] = use_missing
+		} else {
+			denom_na = is.na(aov_setup$abundance) & denom_locs
+			aov_setup$abundance[denom_na] = use_missing
+		}
+		
+		if ((denom_n < 3) && (num_n < 3)) {
+			return(NULL)
+		}
+		
+		if (is.null(paired) || (paired == "paired")) {
+			aov_res = broom::tidy(aov(abundance ~ treatment, data = aov_setup)) |>
+				dplyr::filter(term %in% "treatment")
+		} else {
+			aov_res = broom::tidy(aov(abundance ~ patient + treatment, data = aov_setup)) |>
+				dplyr::filter(term %in% "treatment")
+		}
+		diff_vals = data.frame(numerator = mean(aov_setup$abundance[aov_setup$treatment %in% numerator]),
+													 denominator = mean(aov_setup$abundance[aov_setup$treatment %in% denominator]))
+		diff_vals$contrast = diff_vals$numerator - diff_vals$denominator
+		names(diff_vals) = c(numerator, denominator, contrast_var)
+		out_res = cbind(aov_res, diff_vals)
+		out_res$feature_id = in_row
+		out_res
+	}) |>
+		purrr::list_rbind()
+	
+	out_stats$padj = p.adjust(out_stats$p.value, method = "BH")
+	feature_info = rowData(data_se)[out_stats$feature_id, ] |> as.data.frame()
+	
+	out_stats = dplyr::left_join(out_stats, feature_info, by = "feature_id")
+	out_stats$log2FoldChange = out_stats[[contrast[1]]]
+	
+	return(out_stats)
+}
+
 merge_and_map_metabolomics = function(in_data,
 																			chebi_inchikey)
 {
