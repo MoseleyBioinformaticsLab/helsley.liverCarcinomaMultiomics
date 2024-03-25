@@ -5,17 +5,42 @@ rename_experimental_samples = function(metabolomics_dataset)
 	metabolomics_dataset
 }
 
-median_normalization = function(feature_se)
+median_normalization = function(feature_se,
+																min_type = "global")
 {
 	# feature_se = tar_read(bioamines)
+	# feature_se = tar_read(lipidomics)
+	# feature_se = tar_read(primary_metabolism)
 	feature_abundance = assays(feature_se)$counts
-	
 	sample_medians = matrixStats::colMedians(feature_abundance, na.rm = TRUE)
 	median_matrix = matrix(sample_medians, nrow = nrow(feature_abundance),
 												 ncol = ncol(feature_abundance), byrow = TRUE)
 	norm_abundance = feature_abundance / median_matrix
 	
 	assays(feature_se)$counts = norm_abundance
+	feature_se$normalization = sample_medians
+	
+	if (min_type %in% "global") {
+		min_vals = rep(min(norm_abundance, na.rm = TRUE), length(sample_medians))
+		names(min_vals) = names(sample_medians)
+	} else if (min_type %in% "sample") {
+		min_all = min(feature_abundance, na.rm = TRUE)
+		min_vals = min_all * sample_medians
+	} else if (min_type %in% "patient") {
+		split_sample_patient = split(feature_se$sample_id, feature_se$patient)
+		names(split_sample_patient) = NULL
+		min_patient = purrr::map(split_sample_patient, \(in_patients){
+			min_value = min(norm_abundance[, in_patients], na.rm = TRUE)
+			min_out = rep(min_value, length(in_patients))
+			names(min_out) = in_patients
+			min_out
+		})
+		min_vals = unlist(min_patient)
+		min_vals = min_vals[names(sample_medians)]
+	}
+	
+	feature_se$minimum = min_vals
+	
 	feature_se
 }
 

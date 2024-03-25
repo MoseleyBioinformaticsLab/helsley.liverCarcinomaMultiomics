@@ -135,11 +135,11 @@ calculate_metabolomics_stats = function(data_se,
 																				contrast = c("treatment", "cancerous", "normal_adjacent"),
 																				missing = c(0, NA))
 {
-	# data_se = tar_read(pr_collapsed)
+	# data_se = tar_read(pm_collapsed)
 	# paired = NULL
 	# contrast = c("treatment", "cancerous", "normal_adjacent")
 	# missing = c(0, NA)
-	# 
+
 	# data_se = tar_read(pr_paired)
 	# paired = "patient"
 	# contrast = c("treatment", "cancerous", "normal_adjacent")
@@ -168,7 +168,8 @@ calculate_metabolomics_stats = function(data_se,
 	counts = assays(data_se)$counts
 	counts[counts %in% missing] = NA
 	log_counts = log2(counts)
-	use_missing = signif(min(log_counts, na.rm = TRUE), digits = 2)
+	use_missing = log2(sample_info$minimum)
+	names(use_missing) = sample_info$sample_id
 	num_counts = log_counts[, num_samples]
 	denom_counts = log_counts[, denom_samples]
 		
@@ -176,28 +177,18 @@ calculate_metabolomics_stats = function(data_se,
 		num_tmp = num_counts[in_row, ]
 		denom_tmp = denom_counts[in_row, ]
 		
-		if (t_paired) {
-			num_n = sum(!is.na(num_tmp))
-			num_tmp[is.na(num_tmp)] = use_missing
-			denom_n = sum(!is.na(denom_tmp))
-			denom_tmp[is.na(denom_tmp)] = use_missing
-		}	else {
-			num_tmp = num_tmp[!is.na(num_tmp)]
-			num_n = length(num_tmp)
-			if (num_n < 3) {
-				num_tmp = rep(use_missing, length(num_samples))
-			}
-			denom_tmp = denom_tmp[!is.na(denom_tmp)]
-			denom_n = length(denom_tmp)
-			if (denom_n < 3) {
-				denom_tmp = rep(use_missing, length(denom_samples))
-			}
-			if ((denom_n < 3) & (num_n < 3)) {
-				return(NULL)
-			}
+		num_n = sum(!is.na(num_tmp))
+		na_num_locs = names(num_tmp)[is.na(num_tmp)]
+		num_tmp[na_num_locs] = use_missing[na_num_locs]
+		denom_n = sum(!is.na(denom_tmp))
+		na_den_locs = names(denom_tmp)[is.na(denom_tmp)]
+		denom_tmp[na_den_locs] = use_missing[na_den_locs]
+		if ((denom_n < 3) & (num_n < 3)) {
+			return(NULL)
 		}
+		
 		t_res = broom::tidy(t.test(num_tmp, denom_tmp, paired = t_paired))
-		if (!is.null(paired)) {
+		if (t_paired) {
 			names(t_res)[1] = contrast[1]
 		} else {
 			names(t_res)[c(1, 2, 3)] = contrast

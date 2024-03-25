@@ -66,7 +66,8 @@ prep_rna_data_treatment = function(rna_data = rna_data, sample_metadata = sample
 
 setup_metabolomics = function(all_data, 
 															sample_info,
-															metabolite_type = "")
+															metabolite_type = "",
+															replace_zero = TRUE)
 {
 	# tar_load(lipidomics_file)
 	# all_data = suppressMessages(readxl::read_excel(lipidomics_file,
@@ -104,6 +105,11 @@ setup_metabolomics = function(all_data,
 	
 	sample_info_extra = add_blanks_pooled(colnames(sample_matrix), sample_info)
 	sample_matrix = sample_matrix[, sample_info_extra$sample_id]
+	
+	if (replace_zero) {
+		sample_matrix[sample_matrix == 0] = NA
+	}
+	
 	
 	metadata$feature_id = feature_id
 	rownames(metadata) = metadata$feature_id
