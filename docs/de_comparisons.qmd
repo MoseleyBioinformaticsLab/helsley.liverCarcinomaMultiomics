@@ -49,7 +49,7 @@ b_1 = metabolomics_de_compare |>
 	labs(subtitle = "Bioamines")
 b_2 = metabolomics_de_compare |>
 	dplyr::filter(type.treatment %in% "bioamines") |>
-	ggplot(aes(x = p.value.treatment, y = p.value.patient)) +
+	ggplot(aes(x = -1*log10(p.value.treatment), y = -1*log10(p.value.patient))) +
 	geom_abline(slope = 1, color = "red") +
 	geom_point(alpha = 0.5)
 (b_1 | b_2) + plot_annotation(tag_levels = "A")
@@ -98,7 +98,7 @@ pm_1 = metabolomics_de_compare |>
 	labs(subtitle = "Primary Metabolism")
 pm_2 = metabolomics_de_compare |>
 	dplyr::filter(type.treatment %in% "pm") |>
-	ggplot(aes(x = p.value.treatment, y = p.value.patient)) +
+	ggplot(aes(x = -1*log10(p.value.treatment), y = -1*log10(p.value.patient))) +
 	geom_abline(slope = 1, color = "red") +
 	geom_point(alpha = 0.5)
 (pm_1 | pm_2) + plot_annotation(tag_levels = "A")
@@ -148,7 +148,7 @@ l_1 = metabolomics_de_compare |>
 	labs(subtitle = "Lipidomics")
 l_2 = metabolomics_de_compare |>
 	dplyr::filter(type.treatment %in% "lipidomics") |>
-	ggplot(aes(x = p.value.treatment, y = p.value.patient)) +
+	ggplot(aes(x = -1*log10(p.value.treatment), y = -1*log10(p.value.patient))) +
 	geom_abline(slope = 1, color = "red") +
 	geom_point(alpha = 0.5)
 (l_1 | l_2) + plot_annotation(tag_levels = "A")
@@ -205,7 +205,7 @@ rna_2 = rna_de_compare |>
 
 ```{r}
 #| label: fig-rna-histogram
-#| fig-cap: Transcriptomics histogram of log-fold change differnces of treatment (cancer vs normal) and paired patient statistical tests.
+#| fig-cap: Transcriptomics histogram of log-fold change differences of treatment (cancer vs normal) and paired patient statistical tests.
 rna_de_compare |>
 	ggplot(aes(x = (log2FoldChange.treatment - log2FoldChange.patient))) +
 	geom_vline(xintercept = 0, color = "red") +

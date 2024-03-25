@@ -303,28 +303,42 @@ calculate_metabolomics_stats_aov = function(data_se,
 	return(out_stats)
 }
 
-merge_and_map_metabolomics = function(in_data,
+merge_list = function(in_data)
+{
+	merged_vals = purrr::imap(in_data, \(x, id){
+		x |>
+			dplyr::mutate(type = id)
+	}) |>
+		purrr::list_rbind()
+	merged_vals
+}
+
+map_metabolomics_chebi = function(in_data,
 																			chebi_inchikey)
 {
 	# in_data = tar_read(metabolomics_de_treatment_list)
 	# tar_load(chebi_inchikey)
-	de_vals = purrr::imap(in_data, \(use_data, id){
-		if ("in_ch_i_key" %in% names(use_data)) {
-			use_data = use_data |>
-				dplyr::mutate(in_chi_key = in_ch_i_key)
-		}
-		out_de = use_data |>
-			dplyr::select(log2FoldChange, p.value, padj, feature_id, in_chi_key) |>
-			dplyr::mutate(type = id)
-		out_de
-	}) |>
-		purrr::list_rbind()
 	
-	de_vals = dplyr::left_join(de_vals, chebi_inchikey, by = c("in_chi_key" = "in_ch_i_key"),
+	de_vals = dplyr::left_join(in_data, chebi_inchikey, by = c("in_chi_key" = "in_ch_i_key"),
 														 relationship = "many-to-many")
 	de_vals = de_vals |>
 		dplyr::mutate(feature_org = feature_id,
 									feature_id = as.character(chebi_id))
+	de_vals
+}
+
+map_metabolomics_kegg = function(in_data,
+																inchikey_kegg)
+{
+	# in_data = tar_read(metabolomics_de_treatment_list)
+	# tar_load(inchikey_kegg)
+	
+	de_vals = dplyr::left_join(in_data |> dplyr::select(-kegg), inchikey_kegg, by = "in_chi_key",
+														 relationship = "many-to-many")
+	de_vals = de_vals |>
+		dplyr::mutate(feature_org = feature_id,
+									feature_id = as.character(kegg)) |>
+		dplyr::filter(!is.na(feature_id))
 	de_vals
 }
 
@@ -336,7 +350,10 @@ compare_treatment_patient = function(de_treatment,
 	# 
 	# de_treatment = tar_read(rna_de_treatment)
 	# de_patient = tar_read(rna_de_patient)
-	
+	# 
+	# de_treatment = tar_read(metabolomics_de_aov_treatment)
+	# de_patient = tar_read(metabolomics_de_aov_patient)
+	# 
 	if ("feature_org" %in% names(de_treatment)) {
 		de_treatment_mod = de_treatment |>
 			dplyr::select(log2FoldChange, p.value, padj, feature_org, type) |>

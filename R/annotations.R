@@ -16,6 +16,24 @@ get_ensembl_uniprot = function(version = "111")
 	feature_data
 }
 
+get_ensembl_entrez = function(version = "111")
+{
+	# version = "111"
+	ensembl = useEnsembl(biomart = "ensembl", 
+											 dataset = "hsapiens_gene_ensembl", 
+											 version = version)
+	
+	use_attributes = c("ensembl_gene_id",
+										 "hgnc_symbol",
+										 "entrezgene_id",
+										 "description")
+	feature_data = getBM(attributes = use_attributes,
+											 mart = ensembl)
+	
+	feature_data
+}
+
+
 create_reactome_gene_annotations = function(reactome_file,
 																			 target_species = "Homo sapiens")
 {
@@ -87,10 +105,30 @@ create_go_annotations = function(ensembl_uniprot,
 	out_annotation
 }
 
+group_annotations = function(group_enrichment,
+															similarity_cutoff = 0.8)
+{
+	# group_enrichment = tar_read(rna_treatment_enrichment_pn_go)
+	# similarity_cutoff = 0.8
+	just_enrich = group_enrichment$enrich
+	
+	enrich_graph = generate_annotation_graph(just_enrich)
+	enrich_graph = remove_edges(enrich_graph, similarity_cutoff)
+	enrich_assign = annotation_combinations(enrich_graph)
+	enrich_assign = assign_colors(enrich_assign)
+	
+	enrich_communities = assign_communities(enrich_graph)
+	enrich_comm_labels = label_communities(enrich_communities, just_enrich@annotation)
+	
+	enrich_table = table_from_graph(enrich_graph, enrich_assign, enrich_comm_labels)
+	enrich_table
+}
+
 
 run_enrichment = function(de_values,
 													annotation_obj,
-													padj_cutoff = 0.01)
+													padj_cutoff = 0.01,
+													keep_group = NULL)
 {
 	# de_values = tar_read(rna_de_treatment)
 	# annotation_obj = tar_read(ensembl_go)
@@ -127,13 +165,20 @@ run_enrichment = function(de_values,
 		p_adjust = "BH"
 	)
 	stats_pos = extract_enrich_stats(enrich_pos)
-	enrich_comb = combine_enrichments(all = enrich_all,
-																		pos = enrich_pos,
-																		neg = enrich_neg)
+	enrich_list = list(all = enrich_all,
+										 pos = enrich_pos,
+										 neg = enrich_neg)
 	stats_list = list(all = stats_all,
 										pos = stats_pos,
 										neg = stats_neg)
-	return(list(enrich = enrich_comb,
+	if (!is.null(keep_group)) {
+		enrich_list = enrich_list[keep_group]
+		stats_list = stats_list[keep_group]
+	}
+	enrich_comb = combine_enrichments(enrich_list)
+	enrich_sig = get_significant_annotations(enrich_comb, padjust <= 0.01, counts >= 2, counts <= 500)
+	
+	return(list(enrich = enrich_sig,
 							stats = stats_list))
 }
 

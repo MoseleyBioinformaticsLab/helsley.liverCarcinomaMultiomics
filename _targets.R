@@ -150,9 +150,35 @@ tar_plan(
 	bioamines_de_aov_treatment = calculate_metabolomics_stats_aov(bioamines_collapsed),
 	lipidomics_de_aov_treatment = calculate_metabolomics_stats_aov(lipidomics_collapsed),
 	pm_de_aov_treatment = calculate_metabolomics_stats_aov(pm_collapsed),
+	
+	### Paired ANOVA --------
+	bioamines_de_aov_patient = calculate_metabolomics_stats_aov(bioamines_collapsed,
+																															paired = "patient"),
+	lipidomics_de_aov_patient = calculate_metabolomics_stats_aov(lipidomics_collapsed,
+																																 paired = "patient"),
+	pm_de_aov_patient = calculate_metabolomics_stats_aov(pm_collapsed,
+																												 paired = "patient"),
+	
+	### Comparing Metabolites AOV --------
+	metabolomics_de_aov_patient_list = list(bioamines = bioamines_de_aov_patient,
+																			lipidomics = lipidomics_de_aov_patient,
+																			pm = pm_de_aov_patient) |>
+		merge_list(),
+	metabolomics_de_aov_treatment_list = list(bioamines = bioamines_de_aov_treatment,
+																			lipidomics = lipidomics_de_aov_treatment,
+																			pm = pm_de_aov_treatment) |>
+		merge_list(),
+	
+	metabolomics_de_aov_treatment = map_metabolomics_chebi(metabolomics_de_aov_treatment_list,
+																														 chebi_inchikey),
+	metabolomics_de_aov_patient = map_metabolomics_chebi(metabolomics_de_aov_patient_list,
+																													 chebi_inchikey),
+	metabolomics_de_aov_compare = compare_treatment_patient(metabolomics_de_aov_treatment,
+																											metabolomics_de_aov_patient),
 	## Annotations --------
 	### Genes -------
 	ensembl_uniprot = get_ensembl_uniprot(version = "111"),
+	ensembl_entrez = get_ensembl_entrez(version = "111"),
 	tar_target(go_file,
 						 "data/ancestors.json",
 						 format = "file"),
@@ -182,16 +208,51 @@ tar_plan(
 																				 inchi_dir = "data/chebi",
 																				 inchikey_hash),
 	
+	inchikey_kegg = readr::read_tsv("data/inchikey_metacyc_translation.txt") |>
+		janitor::clean_names() |>
+		dplyr::mutate(in_chi_key = gsub("InChIKey=", "", query)) |>
+		dplyr::select(in_chi_key, kegg) |>
+		dplyr::filter(!(kegg %in% "NIL")),
+	
+	## Enrichments --------
+	### GO --------
 	rna_treatment_enrichment_go = run_enrichment(rna_de_treatment, ensembl_go),
 	rna_patient_enrichment_go = run_enrichment(rna_de_patient, ensembl_go),
 	
+	rna_treatment_enrichment_pn_go = run_enrichment(rna_de_treatment, ensembl_go,
+																									keep_group = c("pos", "neg")),
+	
+	rna_treatment_enrichment_grouped_go = group_annotations(rna_treatment_enrichment_go,
+																														 similarity_cutoff = 0.8),
+	
+	rna_patient_enrichment_grouped_go = group_annotations(rna_patient_enrichment_go,
+																													similarity_cutoff = 0.8),
+	
+	### Reactome ---------
 	rna_treatment_enrichment_reactome = run_enrichment(rna_de_treatment, ensembl_reactome),
 	rna_patient_enrichment_reactome = run_enrichment(rna_de_patient, ensembl_reactome),
 	
+	rna_treatment_enrichment_grouped_reactome = group_annotations(rna_treatment_enrichment_reactome,
+																																similarity_cutoff = 0.8),
+	
+	rna_patient_enrichment_grouped_reactome = group_annotations(rna_patient_enrichment_reactome,
+																															similarity_cutoff = 0.8),
+	
 	metabolomics_de_treatment_list = list(bioamines = bioamines_de_treatment,
 																				lipidomics = lipidomics_de_treatment,
-																				pm = pm_de_treatment),
-	metabolomics_de_treatment = merge_and_map_metabolomics(metabolomics_de_treatment_list,
+																				pm = pm_de_treatment) |>
+		merge_list(),
+	
+	metabolomics_feature_list = list(bioamines = rowData(bioamines_collapsed) |> as.data.frame(),
+																	 lipidomics = rowData(lipidomics_collapsed) |> as.data.frame(),
+																	 pm = rowData(pm_collapsed) |> as.data.frame()) |>
+		merge_list(),
+	
+	feature_to_kegg = dplyr::left_join(metabolomics_feature_list |>
+																		 	dplyr::select(feature_id, in_chi_key),
+																		 inchikey_kegg, by = "in_chi_key"),
+	
+	metabolomics_de_treatment = map_metabolomics_chebi(metabolomics_de_treatment_list,
 																												 chebi_inchikey),
 	
 	metabolomics_treatment_enrichment_reactome = run_enrichment(metabolomics_de_treatment,
@@ -199,14 +260,27 @@ tar_plan(
 	
 	
 	metabolomics_de_patient_list = list(bioamines = bioamines_de_patient,
-																				lipidomics = lipidomics_de_patient,
-																				pm = pm_de_patient),
-	metabolomics_de_patient = merge_and_map_metabolomics(metabolomics_de_patient_list,
+																			lipidomics = lipidomics_de_patient,
+																				pm = pm_de_patient) |>
+		merge_list(),
+	metabolomics_de_patient = map_metabolomics_chebi(metabolomics_de_patient_list,
 																												 chebi_inchikey),
 	
 	metabolomics_patient_enrichment_reactome = run_enrichment(metabolomics_de_patient,
 																															chebi_reactome),
 	
+	### KEGG -----
+	kegg_data = get_kegg_compound_data(),
+	
+	ensembl_kegg = create_kegg_annotations_genes(kegg_data, ensembl_entrez),
+	compound_kegg = create_kegg_annotations_compounds(kegg_data),
+	
+	metabolomics_de_treatment_kegg = map_metabolomics_kegg(metabolomics_de_treatment_list,
+																												 inchikey_kegg),
+	
+	metabolomics_treatment_enrichment_kegg = run_enrichment(metabolomics_de_treatment_kegg,
+																													compound_kegg),
+	rna_treatment_enrichment_kegg = run_enrichment(rna_de_treatment, ensembl_kegg),
 	
 	## Comparing Statistics Between Treatment and Paired ---------
 	metabolomics_de_compare = compare_treatment_patient(metabolomics_de_treatment,
@@ -217,8 +291,9 @@ tar_plan(
 	
 	metabolomics_de_patient_unpaired_list = list(bioamines = bioamines_de_patient_unpaired,
 																			lipidomics = lipidomics_de_patient_unpaired,
-																			pm = pm_de_patient_unpaired),
-	metabolomics_de_patient_unpaired = merge_and_map_metabolomics(metabolomics_de_patient_unpaired_list,
+																			pm = pm_de_patient_unpaired) |>
+		merge_list(),
+	metabolomics_de_patient_unpaired = map_metabolomics_chebi(metabolomics_de_patient_unpaired_list,
 																											 chebi_inchikey),
 	rna_de_unpaired_compare = compare_treatment_patient(
 		rna_de_patient,

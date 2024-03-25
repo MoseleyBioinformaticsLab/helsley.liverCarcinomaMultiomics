@@ -87,6 +87,10 @@ setup_metabolomics = function(all_data,
 												metabolite_type)
 	}
 	
+	if ("in_ch_i_key" %in% colnames(all_data)) {
+		all_data = dplyr::rename(all_data, "in_chi_key" = "in_ch_i_key")
+		message("renamed inchi keys")
+	}
 	sample_data = all_data[, sample_locs]
 	sample_data = purrr::map(sample_data, as.numeric) |>
 		dplyr::bind_cols()
