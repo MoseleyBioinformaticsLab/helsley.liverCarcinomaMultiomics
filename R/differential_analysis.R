@@ -346,12 +346,22 @@ compare_treatment_patient = function(de_treatment,
 	# de_patient = tar_read(metabolomics_de_aov_patient)
 	# 
 	if ("feature_org" %in% names(de_treatment)) {
-		de_treatment_mod = de_treatment |>
-			dplyr::select(log2FoldChange, p.value, padj, feature_org, type) |>
-			dplyr::distinct()
-		de_patient_mod = de_patient |>
-			dplyr::select(log2FoldChange, p.value, padj, feature_org, type) |>
-			dplyr::distinct()
+		if (all(c("n_cancerous", "n_normal_adjacent") %in% names(de_patient))) {
+			de_treatment_mod = de_treatment |>
+				dplyr::select(log2FoldChange, p.value, padj, feature_org, type, n_cancerous, n_normal_adjacent) |>
+				dplyr::distinct()
+			de_patient_mod = de_patient |>
+				dplyr::select(log2FoldChange, p.value, padj, feature_org, type, n_cancerous, n_normal_adjacent) |>
+				dplyr::distinct()
+		} else {
+			de_treatment_mod = de_treatment |>
+				dplyr::select(log2FoldChange, p.value, padj, feature_org, type) |>
+				dplyr::distinct()
+			de_patient_mod = de_patient |>
+				dplyr::select(log2FoldChange, p.value, padj, feature_org, type) |>
+				dplyr::distinct()
+		}
+		
 		de_merge = dplyr::left_join(de_treatment_mod, de_patient_mod,
 																by = "feature_org",
 																suffix = c(".treatment", ".patient"))

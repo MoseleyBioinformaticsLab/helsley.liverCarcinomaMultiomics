@@ -53,6 +53,11 @@ b_2 = metabolomics_de_compare |>
 	geom_abline(slope = 1, color = "red") +
 	geom_point(alpha = 0.5)
 (b_1 | b_2) + plot_annotation(tag_levels = "A")
+
+b3 = metabolomics_de_compare |>
+	dplyr::filter(type.treatment %in% "bioamines") |>
+	ggplot(aes(x = n_cancerous.treatment, y = n_cancerous.patient)) +
+	geom_point()
 ```
 
 ```{r}
@@ -73,7 +78,7 @@ b_up_1 = metabolomics_de_unpaired_compare |>
 	dplyr::filter(type.treatment %in% "bioamines") |>
 	dplyr::mutate(log2FoldChange_patient = log2FoldChange.treatment,
 								log2FoldChange_unpaired = log2FoldChange.patient) |>
-	ggplot(aes(x = log2FoldChange_patient, log2FoldChange_unpaired)) +
+	ggplot(aes(y = log2FoldChange_patient, x = log2FoldChange_unpaired)) +
 	geom_abline(slope = 1, color = "red") +
 	geom_point(alpha = 0.5) +
 	labs(subtitle = "Bioamines")
@@ -81,7 +86,7 @@ b_up_2 = metabolomics_de_unpaired_compare |>
 	dplyr::filter(type.treatment %in% "bioamines") |>
 	dplyr::mutate(p.value_patient = p.value.treatment,
 								p.value_unpaired = p.value.patient) |>
-	ggplot(aes(x = p.value_patient, p.value_unpaired)) +
+	ggplot(aes(y = -1*log10(p.value_patient), x = -1*log10(p.value_unpaired))) +
 	geom_abline(slope = 1, color = "red") +
 	geom_point(alpha = 0.5)
 (b_up_1 | b_up_2) + plot_annotation(tag_levels = "A")
