@@ -74,18 +74,20 @@ metabolomics_de_compare |>
 ```{r}
 #| label: fig-bioamines-unpaired
 #| fig-cap: Bioamines log-fold changes (A) and p-values (B) from paired patient and un-paired patient statistical tests.
-b_up_1 = metabolomics_de_unpaired_compare |>
+tmp_bioamines = metabolomics_de_unpaired_compare |>
 	dplyr::filter(type.treatment %in% "bioamines") |>
 	dplyr::mutate(log2FoldChange_patient = log2FoldChange.treatment,
-								log2FoldChange_unpaired = log2FoldChange.patient) |>
+								log2FoldChange_unpaired = log2FoldChange.patient,
+								p.value_patient = p.value.treatment,
+								p.value_unpaired = p.value.patient)
+b_up_1 = tmp_bioamines |>
 	ggplot(aes(y = log2FoldChange_patient, x = log2FoldChange_unpaired)) +
 	geom_abline(slope = 1, color = "red") +
 	geom_point(alpha = 0.5) +
 	labs(subtitle = "Bioamines")
-b_up_2 = metabolomics_de_unpaired_compare |>
+b_up_2 = tmp_bioamines |>
 	dplyr::filter(type.treatment %in% "bioamines") |>
-	dplyr::mutate(p.value_patient = p.value.treatment,
-								p.value_unpaired = p.value.patient) |>
+	dplyr::mutate() |>
 	ggplot(aes(y = -1*log10(p.value_patient), x = -1*log10(p.value_unpaired))) +
 	geom_abline(slope = 1, color = "red") +
 	geom_point(alpha = 0.5)

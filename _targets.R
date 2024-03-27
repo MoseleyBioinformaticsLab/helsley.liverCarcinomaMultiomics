@@ -306,6 +306,8 @@ tar_plan(
 	),
 	
 	## documents -----------
+	tar_quarto(wcmc_imputed_value, "docs/wcmc_imputed_value.qmd"),
+	tar_quarto(mean_variance_relationships, "docs/mean_variance_relationships.qmd"),
 	tar_quarto(qcqa, "docs/qcqa.qmd"),
 	
 	tar_quarto(de_comparisons, "docs/de_comparisons.qmd"),

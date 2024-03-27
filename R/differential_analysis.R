@@ -140,7 +140,7 @@ calculate_metabolomics_stats = function(data_se,
 	# contrast = c("treatment", "cancerous", "normal_adjacent")
 	# missing = c(0, NA)
 
-	# data_se = tar_read(pr_paired)
+	# data_se = tar_read(pm_paired)
 	# paired = "patient"
 	# contrast = c("treatment", "cancerous", "normal_adjacent")
 	# missing = c(0, NA)
@@ -177,13 +177,16 @@ calculate_metabolomics_stats = function(data_se,
 		num_tmp = num_counts[in_row, ]
 		denom_tmp = denom_counts[in_row, ]
 		
-		num_n = sum(!is.na(num_tmp))
-		na_num_locs = names(num_tmp)[is.na(num_tmp)]
+		num_na = is.na(num_tmp)
+		denom_na = is.na(denom_tmp)
+		
+		num_n = sum(!num_na)
+		na_num_locs = names(num_tmp)[num_na]
 		num_tmp[na_num_locs] = use_missing[na_num_locs]
-		denom_n = sum(!is.na(denom_tmp))
-		na_den_locs = names(denom_tmp)[is.na(denom_tmp)]
+		denom_n = sum(!denom_na)
+		na_den_locs = names(denom_tmp)[denom_na]
 		denom_tmp[na_den_locs] = use_missing[na_den_locs]
-		if ((denom_n < 3) & (num_n < 3)) {
+		if ((denom_n < 3) && (num_n < 3)) {
 			return(NULL)
 		}
 		
@@ -377,5 +380,39 @@ compare_treatment_patient = function(de_treatment,
 																suffix = c(".treatment", ".patient"))
 	}
 	de_merge
+	
+}
+
+
+information_volume <- function(in_x, in_y){
+	in_both <- sum(in_x & in_y)
+	in_both
+}
+
+both_samples <- function(in_x, in_y){
+	in_both <- sum(in_x & in_y)
+	in_both
+}
+
+either_samples <- function(in_x, in_y){
+	in_either <- sum(in_x | in_y)
+	in_either
+}
+
+neither_sample <- function(in_x, in_y){
+	not_in_both <- sum(!in_x & !in_y)
+	not_in_both
+}
+
+calculate_jaccard <- function(in_both, in_either){
+	in_both / in_either
+}
+
+calculate_information_consistency <- function(in_both, not_in_both, total_features){
+	(in_both + not_in_both) / total_features
+}
+
+information_stats = function(num_na, denom_na)
+{
 	
 }

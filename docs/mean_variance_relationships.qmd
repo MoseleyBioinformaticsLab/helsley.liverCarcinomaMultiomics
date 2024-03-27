@@ -1,0 +1,105 @@
+---
+title: "Mean Variance Relationships"
+author: "Robert M Flight"
+date: last-modified
+date-format: YYYY-MM-DD HH:mm
+format: 
+  html:
+    embed-resources: true
+    toc: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(echo = TRUE,
+											warning = FALSE,
+											message = FALSE)
+## target knits qmds in their own session, so load libraries here.
+targets::tar_source("./packages.R")
+targets::tar_source("R")
+library(patchwork)
+```
+
+```{r}
+#| label: load-targets
+#| include: false
+tar_load(c(bioamines,
+					 lipidomics))
+```
+
+## Mean - Variance
+
+We are curious if we can reliably plug the WCMC metabolomics data into a package like {DESeq2} or {edgeR}, which use the negative-binomial distribution to model the counts of RNA-Seq reads to transcripts or genes.
+However, the negative-binomial assumes a Poisson-like distribution with inflated variance compared to the mean, especially at low values.
+
+
+
+WCMC included some pooled and blank samples in the data returned.
+Therefore, we should be able to use them as replicate data to investigate the relationship between mean and variance.
+
+```{r}
+#| label: fig-bioamines
+bioamines_counts = assays(bioamines)$counts |> tibble::as_tibble() |>
+	dplyr::select(starts_with(c("b", "p")))
+bioamines_info = colData(bioamines) |> tibble::as_tibble()
+bioamines_counts$feature_id = rownames(assays(bioamines)$counts)
+
+bioamines_long = bioamines_counts |>
+	tidyr::pivot_longer(-feature_id, values_to = "value", names_to = "sample_id")
+
+bioamines_long = dplyr::left_join(bioamines_long, bioamines_info |>
+																		dplyr::select(sample_id, treatment),
+																	by = "sample_id")
+bioamines_stats = bioamines_long |>
+	dplyr::group_by(feature_id, treatment) |>
+	dplyr::summarise(mean = mean(value, na.rm = TRUE),
+									 diff = max(value) - min(value),
+									 sd = sd(value, na.rm = TRUE),
+									 var = var(value, na.rm = TRUE),
+									 rsd = sd / mean)
+
+bioamines_diff = bioamines_stats |>
+	ggplot(aes(x = mean, y = diff)) +
+	geom_point()
+bioamines_sd = bioamines_stats |>
+	ggplot(aes(x = mean, y = sd)) +
+	geom_point()
+bioamines_rsd = bioamines_stats |>
+	ggplot(aes(x = mean, y = rsd)) +
+	geom_point()
+(bioamines_diff | bioamines_sd | bioamines_rsd) + plot_annotation(subtitle = "Bioamines")
+```
+
+```{r}
+#| label: fig-lipidomics
+lipidomics_counts = assays(lipidomics)$counts |> tibble::as_tibble() |>
+	dplyr::select(starts_with(c("b", "p")))
+lipidomics_info = colData(lipidomics) |> tibble::as_tibble()
+lipidomics_counts$feature_id = rownames(assays(lipidomics)$counts)
+
+lipidomics_long = lipidomics_counts |>
+	tidyr::pivot_longer(-feature_id, values_to = "value", names_to = "sample_id")
+
+lipidomics_long = dplyr::left_join(lipidomics_long, lipidomics_info |>
+																		dplyr::select(sample_id, treatment),
+																	by = "sample_id")
+lipidomics_stats = lipidomics_long |>
+	dplyr::group_by(feature_id, treatment) |>
+	dplyr::summarise(mean = mean(value, na.rm = TRUE),
+									 diff = max(value) - min(value),
+									 sd = sd(value, na.rm = TRUE),
+									 var = var(value, na.rm = TRUE),
+									 rsd = sd / mean)
+
+lipidomics_diff = lipidomics_stats |>
+	ggplot(aes(x = mean, y = diff)) +
+	geom_point()
+lipidomics_sd = lipidomics_stats |>
+	ggplot(aes(x = mean, y = sd)) +
+	geom_point()
+lipidomics_rsd = lipidomics_stats |>
+	ggplot(aes(x = mean, y = rsd)) +
+	geom_point()
+(lipidomics_diff | lipidomics_sd | lipidomics_rsd) + plot_annotation(subtitle = "Lipidomics")
+```

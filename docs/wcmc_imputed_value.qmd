@@ -1,0 +1,139 @@
+---
+title: "WCMC Imputed Values"
+author: "Robert M Flight"
+date: last-modified
+date-format: YYYY-MM-DD HH:mm
+format: 
+  html:
+    embed-resources: true
+    toc: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(echo = TRUE,
+											warning = FALSE,
+											message = FALSE)
+## target knits qmds in their own session, so load libraries here.
+targets::tar_source("./packages.R")
+targets::tar_source("R")
+library(patchwork)
+```
+
+```{r}
+#| label: load-targets
+#| include: false
+tar_load(c(bioamines,
+					 lipidomics,
+					 primary_metabolism,
+					 bioamines_de_treatment))
+```
+
+## Analysis of Low / Missing Values
+
+We are seeing some weirdness in the t-tests of the metabolomics data sets, that doesn't fit what we expect.
+In particular, we see extremely low p-values in some of the comparisons, where **all** samples have non-missing values.
+This implies, that perhaps WCMC is actually putting a cutoff value in the data that we don't know about.
+
+So let's find out.
+
+@tbl-values-bioamines is examining specifically the raw values for one of the features that has a p-value of **0** in the treatment t-test.
+
+@fig-bioamines-values, I've first sorted all the values from across samples, and then counted how many of each value there are overall in the dataset, and then plotted their frequency directly.
+On the right, is a normal histogram of the values.
+Neither one seem to indicate anything odd with the values being reported by WCMC.
+
+```{r}
+#| label: tbl-values-bioamines
+#| tbl-cap: Raw values for one of the features that has an extremely low p-value in treatment but higher p-value when paired.
+p_0_example = bioamines_de_treatment |>
+	dplyr::arrange(p.value) |>
+	dplyr::slice_head(n = 1) |>
+	dplyr::pull(feature_id)
+
+bioamines_counts = assays(bioamines)$counts |> tibble::as_tibble() |>
+	dplyr::select(starts_with("s"))
+bioamines_counts$feature_id = rownames(assays(bioamines)$counts)
+bioamines_n = nrow(bioamines_counts) * (ncol(bioamines_counts) - 1)
+bioamines_n_na = sum(is.na(bioamines_counts))
+bioamines_n_0 = sum(bioamines_counts == 0, na.rm = TRUE)
+
+bioamines_long = bioamines_counts |>
+	tidyr::pivot_longer(cols = starts_with("s"), names_to = "sample_id", values_to = "value")
+
+p_0_vals = bioamines_long |>
+	dplyr::filter(feature_id %in% p_0_example)
+gt::gt(p_0_vals)
+```
+
+```{r}
+#| label: fig-bioamines-values
+#| fig-cap: Left - Counts of each value across all samples; Right - Histogram of values.
+bioamines_rle = sort(bioamines_long$value, na.last = NA) |> rle()
+bioamines_rle_df = data.frame(value = bioamines_rle$values,
+																count = bioamines_rle$lengths)
+bioamines_rle_fig1 = bioamines_rle_df |>
+  ggplot(aes(x = log(value), y = count)) +
+  geom_point(size = 0.5) +
+	labs(subtitle = "Bioamines")
+
+bioamines_histogram = bioamines_long |>
+	ggplot(aes(x = log(value))) +
+	geom_histogram(bins = 100)
+bioamines_rle_fig1 | bioamines_histogram
+```
+
+We can also go down and check on the individual samples.
+@fig-persample-bioamines shows an example for the first sample, and again, there doesn't seem to be any values that are showing up more than we might expect.
+
+```{r}
+#| label: fig-persample-bioamines
+#| fig-cap: Counts of values from the first sample.
+bioamines_sample_rle = purrr::imap(bioamines_counts |> dplyr::select(starts_with("s")), \(in_values, in_sample){
+	tmp_values = sort(in_values, na.last = NA)
+	tmp_rle = rle(tmp_values)
+	tmp_df = data.frame(value = tmp_rle$values,
+											count = tmp_rle$lengths,
+											sample_id = in_sample)
+	list(values = data.frame(sample_id = in_sample, values = in_values),
+			 rle_data = tmp_df)
+})
+
+bioamines_sample_rle[[1]]$rle_data |>
+	ggplot(aes(x = log(value), y = count)) +
+	geom_point()
+```
+
+One more thing to try.
+This is an idea Hunter had.
+For each missing value we have, get the non-missing values in that same group (cancerous or normal adjacent), and then record if they are above or below the median values for the group.
+If we just record them as 0 or 1 (below or above), we can concatenate the "tosses" across all `r bioamines_n_na` of the missing values and then calculate a statistic using a binomial test.
+
+The fraction of tosses greater than the median is shown, and the statistical result of the binomial test is shown in @tbl-compare-to-median.
+I actually used a probability of 4 / 7 (or 0.57), because we have a non-even number of samples in most cases.
+The estimate is 0.54.
+
+```{r}
+#| label: tbl-compare-to-median
+#| tbl-cap: Reported statistics from the binomial test of whether values are above or below the median value for remaining values for a feature that has a missing value.
+bioamines_info = colData(bioamines) |> tibble::as_tibble()
+bioamines_long_class = dplyr::left_join(bioamines_long, bioamines_info |>
+																					dplyr::select(sample_id, treatment),
+																				by = "sample_id")
+
+na_features = bioamines_long_class |>
+	dplyr::filter(is.na(value))
+
+na_list = split(na_features, seq_len(nrow(na_features)))
+na_tosses = purrr::map(na_list, \(in_feature){
+	sub_long = bioamines_long_class |>
+		dplyr::filter(feature_id %in% in_feature$feature_id, treatment %in% in_feature$treatment, !is.na(value))
+	med_value = median(sub_long$value)
+	as.integer(sub_long$value >= med_value)
+}) |> unlist()
+
+sum(na_tosses) / length(na_tosses)
+
+gt::gt(broom::tidy(binom.test(sum(na_tosses), length(na_tosses), p = 4/7)))
+```
