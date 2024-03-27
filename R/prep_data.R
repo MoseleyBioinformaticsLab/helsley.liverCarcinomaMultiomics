@@ -76,6 +76,7 @@ setup_metabolomics = function(all_data,
 	# janitor::clean_names()  |>
 	# rename_experimental_samples()
 	# tar_load(sample_info)
+	# metabolite_type = "lipidomics"
 	start_samples = which(grepl("^s[[:digit:]]", colnames(all_data)))[1]
 	sample_locs = seq(start_samples, ncol(all_data))
 	metadata_locs = seq_len(start_samples - 1)
@@ -106,17 +107,16 @@ setup_metabolomics = function(all_data,
 	sample_info_extra = add_blanks_pooled(colnames(sample_matrix), sample_info)
 	sample_matrix = sample_matrix[, sample_info_extra$sample_id]
 	
-	if (replace_zero) {
-		sample_matrix[sample_matrix == 0] = NA
-	}
-	
+	sample_matrix[is.na(sample_matrix)] = 0
 	
 	metadata$feature_id = feature_id
 	rownames(metadata) = metadata$feature_id
 	
-	out_data = SummarizedExperiment(assays = list(counts = sample_matrix),
-																	rowData = metadata,
-																	colData = sample_info_extra)
+	out_data = DESeq2::DESeqDataSetFromMatrix(sample_matrix, sample_info_extra, design = ~ treatment)
+	
+	metadata_df = DataFrame(metadata)
+	mcols(out_data) = metadata_df
+	
 	out_data
 }
 
