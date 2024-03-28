@@ -107,6 +107,7 @@ sample_correlations_pca = function(normalized_se)
 {
 	# normalized_se = tar_read(bioamines_keep)
 	# normalized_se = tar_read(rna_keep)
+	#normalized_se = tar_read(primary_metabolism_keep)
 	if (inherits(normalized_se, "DESeqDataSet")) {
 		wide_matrix = DESeq2::counts(normalized_se, normalized = TRUE)
 	} else {
@@ -132,7 +133,7 @@ sample_correlations_pca = function(normalized_se)
 	median_outliers = visualizationQualityControl::determine_outliers(median_correlations = median_cor, outlier_fraction = outlier_frac)
 	sample_info = dplyr::left_join(sample_info, median_outliers, by = "sample_id")
 	use_samples = median_outliers |>
-		dplyr::filter(!outlier) |>
+		dplyr::filter(!outlier, !grepl("blank|pool", sample_id)) |>
 		dplyr::pull(sample_id)
 	
 	sample_nooutlier_pca = prcomp(t(log1p(wide_matrix[, use_samples])), center = TRUE, scale. = FALSE)

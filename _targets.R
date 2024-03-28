@@ -58,10 +58,10 @@ tar_plan(
 		janitor::clean_names() |>
 		rename_experimental_samples() |>
 		(\(x){setup_metabolomics(x, sample_info, "bioamine")})(),
-	bioamines_norm = median_normalization(bioamines),
-	bioamines_keep = keep_presence(bioamines_norm),
 	
-	bioamines_n_qcqa = c(get_n_features(bioamines_norm), get_n_features(bioamines_keep)),
+	bioamines_keep = keep_presence_dds(bioamines),
+	
+	bioamines_n_qcqa = c(get_n_features(bioamines), get_n_features(bioamines_keep)),
 	
 	bioamines_cor_pca = sample_correlations_pca(bioamines_keep),
 	bioamines_qcqa = create_qcqa_plots(bioamines_cor_pca,
@@ -77,9 +77,8 @@ tar_plan(
 		janitor::clean_names() |>
 		rename_experimental_samples() |>
 		(\(x){setup_metabolomics(x, sample_info, "lipids")})(),
-	lipidomics_norm = median_normalization(lipidomics),
-	lipidomics_keep = keep_presence(lipidomics_norm),
-	lipidomics_n_qcqa = c(get_n_features(lipidomics_norm), get_n_features(lipidomics_keep)),
+	lipidomics_keep = keep_presence_dds(lipidomics),
+	lipidomics_n_qcqa = c(get_n_features(lipidomics), get_n_features(lipidomics_keep)),
 	
 	lipidomics_cor_pca = sample_correlations_pca(lipidomics_keep),
 	lipidomics_qcqa = create_qcqa_plots(lipidomics_cor_pca,
@@ -95,9 +94,8 @@ tar_plan(
 		janitor::clean_names() |>
 		rename_experimental_samples() |>
 		(\(x){setup_metabolomics(x, sample_info, "pm")})(),
-	primary_metabolism_norm = median_normalization(primary_metabolism),
-	primary_metabolism_keep = keep_presence(primary_metabolism_norm),
-	pm_n_qcqa = c(get_n_features(primary_metabolism_norm), get_n_features(primary_metabolism_keep)),
+	primary_metabolism_keep = keep_presence_dds(primary_metabolism),
+	pm_n_qcqa = c(get_n_features(primary_metabolism), get_n_features(primary_metabolism_keep)),
 	
 	primary_metabolism_cor_pca = sample_correlations_pca(primary_metabolism_keep),
 	primary_metabolism_qcqa = create_qcqa_plots(primary_metabolism_cor_pca,
@@ -114,16 +112,10 @@ tar_plan(
 	### Note that this function also *removes* the previously identified outliers before
 	### collapsing the replicates.
 	rna_collapsed = collapse_deseq_replicates(rna_outliers),
-	bioamines_collapsed = collapse_metabolomics_replicates(bioamines_outliers),
-	lipidomics_collapsed = collapse_metabolomics_replicates(lipidomics_outliers),
-	pm_collapsed = collapse_metabolomics_replicates(pm_outliers),
 	
 	### Unpaired t-test --------
 	rna_de_treatment = calculate_deseq_stats(rna_collapsed,
 																					 which = "treatment"),
-	bioamines_de_treatment = calculate_metabolomics_stats(bioamines_collapsed),
-	lipidomics_de_treatment = calculate_metabolomics_stats(lipidomics_collapsed),
-	pm_de_treatment = calculate_metabolomics_stats(pm_collapsed),
 	### Paired t-test --------
 	rna_paired = filter_to_pairs(rna_collapsed),
 	rna_de_patient = calculate_deseq_stats(rna_paired,

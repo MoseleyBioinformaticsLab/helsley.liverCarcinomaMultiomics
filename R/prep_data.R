@@ -117,6 +117,7 @@ setup_metabolomics = function(all_data,
 	metadata_df = DataFrame(metadata)
 	mcols(out_data) = metadata_df
 	
+	out_data = DESeq2::estimateSizeFactors(out_data)
 	out_data
 }
 
