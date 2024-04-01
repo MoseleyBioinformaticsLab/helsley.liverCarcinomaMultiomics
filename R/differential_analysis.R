@@ -37,10 +37,15 @@ determine_outliers = function(normalized_se)
 
 collapse_deseq_replicates = function(outlier_se)
 {
-	# outlier_se = tar_read(rna_outliers)
+	# outlier_se = tar_read(pm_outliers)
 	outliers = outlier_se$outlier
 	outlier_se = outlier_se[, !outliers]
+	keep_reps = !is.na(outlier_se$replicate)
+	outlier_se = outlier_se[, keep_reps]
 	collapsed_se = collapseReplicates(outlier_se, outlier_se$replicate, outlier_se$sample_id, renameCols = TRUE)
+	
+	collapsed_se$treatment = forcats::fct_drop(collapsed_se$treatment)
+	collapsed_se$patient = factor(collapsed_se$patient)
 	collapsed_se
 }
 
@@ -87,13 +92,22 @@ collapse_metabolomics_replicates = function(outlier_se)
 
 calculate_deseq_stats = function(rna_se,
 																 which = "treatment",
-																 contrast = c("treatment", "cancerous", "normal_adjacent"))
+																 contrast = c("treatment", "cancerous", 
+																 						 "normal_adjacent"),
+																 fit_type = "local")
 {
 	# rna_se = tar_read(rna_collapsed)
 	# which = "treatment"
 	# contrast = c("treatment", "cancerous", "normal_adjacent")
 	# rna_se = tar_read(rna_paired)
 	# which = "patient"
+	# 
+	# rna_se = tar_read(pm_collapsed)
+	# which = "treatment"
+	# contrast = c("treatment", "cancerous", "normal_adjacent")
+	# 
+	# rna_se = tar_read(lipidomics_collapsed)
+	# which = "treatment"
 	if (which %in% "treatment") {
 		design(rna_se) = ~ treatment
 	} else {
@@ -101,7 +115,7 @@ calculate_deseq_stats = function(rna_se,
 		
 	}
 	
-	rna_deseq = DESeq(rna_se)
+	rna_deseq = DESeq(rna_se, fitType = fit_type)
 	rna_results = results(rna_deseq, contrast = contrast) |> as.data.frame()
 	rna_info = rowData(rna_se) |> as.data.frame()
 	rna_results = cbind(rna_results, rna_info)
@@ -348,37 +362,17 @@ compare_treatment_patient = function(de_treatment,
 	# de_treatment = tar_read(metabolomics_de_aov_treatment)
 	# de_patient = tar_read(metabolomics_de_aov_patient)
 	# 
-	if ("feature_org" %in% names(de_treatment)) {
-		if (all(c("n_cancerous", "n_normal_adjacent") %in% names(de_patient))) {
-			de_treatment_mod = de_treatment |>
-				dplyr::select(log2FoldChange, p.value, padj, feature_org, type, n_cancerous, n_normal_adjacent) |>
-				dplyr::distinct()
-			de_patient_mod = de_patient |>
-				dplyr::select(log2FoldChange, p.value, padj, feature_org, type, n_cancerous, n_normal_adjacent) |>
-				dplyr::distinct()
-		} else {
-			de_treatment_mod = de_treatment |>
-				dplyr::select(log2FoldChange, p.value, padj, feature_org, type) |>
-				dplyr::distinct()
-			de_patient_mod = de_patient |>
-				dplyr::select(log2FoldChange, p.value, padj, feature_org, type) |>
-				dplyr::distinct()
-		}
-		
-		de_merge = dplyr::left_join(de_treatment_mod, de_patient_mod,
-																by = "feature_org",
-																suffix = c(".treatment", ".patient"))
-	} else {
-		de_treatment_mod = de_treatment |>
-			dplyr::select(log2FoldChange, pvalue, padj, feature_id) |>
-			dplyr::distinct()
-		de_patient_mod = de_patient |>
-			dplyr::select(log2FoldChange, pvalue, padj, feature_id) |>
-			dplyr::distinct()
-		de_merge = dplyr::left_join(de_treatment_mod, de_patient_mod,
-																by = "feature_id",
-																suffix = c(".treatment", ".patient"))
-	}
+	
+	de_treatment_mod = de_treatment |>
+		dplyr::select(log2FoldChange, pvalue, padj, feature_id) |>
+		dplyr::distinct()
+	de_patient_mod = de_patient |>
+		dplyr::select(log2FoldChange, pvalue, padj, feature_id) |>
+		dplyr::distinct()
+	de_merge = dplyr::left_join(de_treatment_mod, de_patient_mod,
+															by = "feature_id",
+															suffix = c(".treatment", ".patient"))
+	
 	de_merge
 	
 }

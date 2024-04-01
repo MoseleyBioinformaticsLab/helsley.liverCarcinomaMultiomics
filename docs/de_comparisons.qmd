@@ -42,29 +42,26 @@ I think everything is relatively OK now.
 #| label: fig-bioamines
 #| fig-cap: Bioamines log-fold changes (A) and p-values (B) from treatment only (cancer vs normal) and paired patient statistical tests.
 b_1 = metabolomics_de_compare |>
-	dplyr::filter(type.treatment %in% "bioamines") |>
+	dplyr::filter(grepl("bioamine", feature_id)) |>
 	ggplot(aes(x = log2FoldChange.treatment, y = log2FoldChange.patient)) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5) +
-	labs(subtitle = "Bioamines")
+	geom_point(size = 0.1) +
+	labs(subtitle = "Bioamines") +
+	coord_equal()
 b_2 = metabolomics_de_compare |>
-	dplyr::filter(type.treatment %in% "bioamines") |>
-	ggplot(aes(x = -1*log10(p.value.treatment), y = -1*log10(p.value.patient))) +
+	dplyr::filter(grepl("bioamine", feature_id)) |>
+	ggplot(aes(x = -1*log10(pvalue.treatment), y = -1*log10(pvalue.patient))) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5)
+	geom_point(size = 0.1) +
+	coord_equal()
 (b_1 | b_2) + plot_annotation(tag_levels = "A")
-
-b3 = metabolomics_de_compare |>
-	dplyr::filter(type.treatment %in% "bioamines") |>
-	ggplot(aes(x = n_cancerous.treatment, y = n_cancerous.patient)) +
-	geom_point()
 ```
 
 ```{r}
 #| label: fig-bioamines-histogram
 #| fig-cap: Bioamines histogram of log-fold change differences of treatment only (cancer vs normal) - paired patient.
 metabolomics_de_compare |>
-	dplyr::filter(type.treatment %in% "bioamines") |>
+	dplyr::filter(grepl("bioamine", feature_id)) |>
 	ggplot(aes(x = (log2FoldChange.treatment - log2FoldChange.patient))) +
 	geom_vline(xintercept = 0, color = "red") +
 	geom_histogram(bins = 100) +
@@ -75,22 +72,24 @@ metabolomics_de_compare |>
 #| label: fig-bioamines-unpaired
 #| fig-cap: Bioamines log-fold changes (A) and p-values (B) from paired patient and un-paired patient statistical tests.
 tmp_bioamines = metabolomics_de_unpaired_compare |>
-	dplyr::filter(type.treatment %in% "bioamines") |>
+	dplyr::filter(grepl("bioamine", feature_id)) |>
 	dplyr::mutate(log2FoldChange_patient = log2FoldChange.treatment,
 								log2FoldChange_unpaired = log2FoldChange.patient,
-								p.value_patient = p.value.treatment,
-								p.value_unpaired = p.value.patient)
+								p.value_patient = pvalue.treatment,
+								p.value_unpaired = pvalue.patient)
 b_up_1 = tmp_bioamines |>
 	ggplot(aes(y = log2FoldChange_patient, x = log2FoldChange_unpaired)) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5) +
-	labs(subtitle = "Bioamines")
+	geom_point(size = 0.1) +
+	labs(subtitle = "Bioamines") +
+	coord_equal()
 b_up_2 = tmp_bioamines |>
-	dplyr::filter(type.treatment %in% "bioamines") |>
+	dplyr::filter(grepl("bioamine", feature_id)) |>
 	dplyr::mutate() |>
 	ggplot(aes(y = -1*log10(p.value_patient), x = -1*log10(p.value_unpaired))) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5)
+	geom_point(size = 0.1) +
+	coord_equal()
 (b_up_1 | b_up_2) + plot_annotation(tag_levels = "A")
 ```
 
@@ -98,16 +97,18 @@ b_up_2 = tmp_bioamines |>
 #| label: fig-primary-metabolism
 #| fig-cap: Primary Metabolism log-fold changes (A) and p-values (B) from treatment (cancer vs normal) and paired patient statistical tests.
 pm_1 = metabolomics_de_compare |>
-	dplyr::filter(type.treatment %in% "pm") |>
+	dplyr::filter(grepl("pm$", feature_id)) |>
 	ggplot(aes(x = log2FoldChange.treatment, y = log2FoldChange.patient)) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5) +
-	labs(subtitle = "Primary Metabolism")
+	geom_point(size = 0.1) +
+	labs(subtitle = "Primary Metabolism") +
+	coord_equal()
 pm_2 = metabolomics_de_compare |>
-	dplyr::filter(type.treatment %in% "pm") |>
-	ggplot(aes(x = -1*log10(p.value.treatment), y = -1*log10(p.value.patient))) +
+	dplyr::filter(grepl("pm$", feature_id)) |>
+	ggplot(aes(x = -1*log10(pvalue.treatment), y = -1*log10(pvalue.patient))) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5)
+	geom_point(size = 0.1) +
+	coord_equal()
 (pm_1 | pm_2) + plot_annotation(tag_levels = "A")
 ```
 
@@ -115,7 +116,7 @@ pm_2 = metabolomics_de_compare |>
 #| label: fig-primary-metabolism-histogram
 #| fig-cap: Primary metabolism log-fold change differences from treatment and paired-patient  statistical tests.
 metabolomics_de_compare |>
-	dplyr::filter(type.treatment %in% "pm") |>
+	dplyr::filter(grepl("pm$", feature_id)) |>
 	ggplot(aes(x = (log2FoldChange.treatment - log2FoldChange.patient))) +
 	geom_vline(xintercept = 0, color = "red") +
 	geom_histogram(bins = 100) +
@@ -126,20 +127,22 @@ metabolomics_de_compare |>
 #| label: fig-pm-unpaired
 #| fig-cap: Primary metabolism log-fold changes (A) and p-values (B) from paired patient and un-paired patient statistical tests.
 pm_up_1 = metabolomics_de_unpaired_compare |>
-	dplyr::filter(type.treatment %in% "pm") |>
+	dplyr::filter(grepl("pm$", feature_id)) |>
 	dplyr::mutate(log2FoldChange_patient = log2FoldChange.treatment,
 								log2FoldChange_unpaired = log2FoldChange.patient) |>
 	ggplot(aes(x = log2FoldChange_patient, log2FoldChange_unpaired)) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5) +
-	labs(subtitle = "Primary Metabolism")
+	geom_point(size = 0.1) +
+	labs(subtitle = "Primary Metabolism")  +
+	coord_equal()
 pm_up_2 = metabolomics_de_unpaired_compare |>
-	dplyr::filter(type.treatment %in% "pm") |>
-	dplyr::mutate(p.value_patient = p.value.treatment,
-								p.value_unpaired = p.value.patient) |>
-	ggplot(aes(x = p.value_patient, p.value_unpaired)) +
+	dplyr::filter(grepl("pm$", feature_id)) |>
+	dplyr::mutate(p.value_patient = pvalue.treatment,
+								p.value_unpaired = pvalue.patient) |>
+	ggplot(aes(x = -1*log10(p.value_patient), -1*log10(p.value_unpaired))) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5)
+	geom_point(size = 0.1) +
+	coord_equal()
 (pm_up_1 | pm_up_2) + plot_annotation(tag_levels = "A")
 ```
 
@@ -148,16 +151,18 @@ pm_up_2 = metabolomics_de_unpaired_compare |>
 #| label: fig-lipidomics
 #| fig-cap: Lipidomics log-fold changes (A) and p-values (B) from treatment (cancer vs normal) and paired patient statistical tests.
 l_1 = metabolomics_de_compare |>
-	dplyr::filter(type.treatment %in% "lipidomics") |>
+	dplyr::filter(grepl("lipids", feature_id)) |>
 	ggplot(aes(x = log2FoldChange.treatment, y = log2FoldChange.patient)) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5) +
-	labs(subtitle = "Lipidomics")
+	geom_point(size = 0.1) +
+	labs(subtitle = "Lipidomics") +
+	coord_equal()
 l_2 = metabolomics_de_compare |>
-	dplyr::filter(type.treatment %in% "lipidomics") |>
-	ggplot(aes(x = -1*log10(p.value.treatment), y = -1*log10(p.value.patient))) +
+	dplyr::filter(grepl("lipids", feature_id)) |>
+	ggplot(aes(x = -1*log10(pvalue.treatment), y = -1*log10(pvalue.patient))) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5)
+	geom_point(size = 0.1) +
+	coord_equal()
 (l_1 | l_2) + plot_annotation(tag_levels = "A")
 ```
 
@@ -165,7 +170,7 @@ l_2 = metabolomics_de_compare |>
 #| label: fig-lipidomics-histogram
 #| fig-cap: Lipidomics histogram of log-fold change differences between treatment (cancer vs normal) and paired patient statistical tests.
 metabolomics_de_compare |>
-	dplyr::filter(type.treatment %in% "lipidomics") |>
+	dplyr::filter(grepl("lipids", feature_id)) |>
 	ggplot(aes(x = (log2FoldChange.treatment - log2FoldChange.patient))) +
 	geom_vline(xintercept = 0, color = "red") +
 	geom_histogram(bins = 100) +
@@ -176,20 +181,22 @@ metabolomics_de_compare |>
 #| label: fig-lipidomics-unpaired
 #| fig-cap: Lipidomics log-fold changes (A) and p-values (B) from paired patient and un-paired patient statistical tests.
 l_up_1 = metabolomics_de_unpaired_compare |>
-	dplyr::filter(type.treatment %in% "lipidomics") |>
+	dplyr::filter(grepl("lipids", feature_id)) |>
 	dplyr::mutate(log2FoldChange_patient = log2FoldChange.treatment,
 								log2FoldChange_unpaired = log2FoldChange.patient) |>
 	ggplot(aes(x = log2FoldChange_patient, log2FoldChange_unpaired)) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5) +
-	labs(subtitle = "Lipidomics")
+	geom_point(size = 0.1) +
+	labs(subtitle = "Lipidomics") +
+	coord_equal()
 l_up_2 = metabolomics_de_unpaired_compare |>
-	dplyr::filter(type.treatment %in% "lipidomics") |>
-	dplyr::mutate(p.value_patient = p.value.treatment,
-								p.value_unpaired = p.value.patient) |>
-	ggplot(aes(x = p.value_patient, p.value_unpaired)) +
+	dplyr::filter(grepl("lipids", feature_id)) |>
+	dplyr::mutate(p.value_patient = pvalue.treatment,
+								p.value_unpaired = pvalue.patient) |>
+	ggplot(aes(x = -1*log10(p.value_patient), -1*log10(p.value_unpaired))) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5)
+	geom_point(size = 0.1) +
+	coord_equal()
 (l_up_1 | l_up_2) + plot_annotation(tag_levels = "A")
 ```
 
@@ -199,14 +206,16 @@ l_up_2 = metabolomics_de_unpaired_compare |>
 rna_1 = rna_de_compare |>
 	ggplot(aes(x = log2FoldChange.treatment, y = log2FoldChange.patient)) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5) +
-	labs(subtitle = "Transcriptomics")
+	geom_point(size = 0.1) +
+	labs(subtitle = "Transcriptomics") +
+	coord_equal()
 
 rna_2 = rna_de_compare |>
 	ggplot(aes(x = pvalue.treatment, y = pvalue.patient)) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5) +
-	labs(subtitle = "Transcriptomics")
+	geom_point(size = 0.1) +
+	labs(subtitle = "Transcriptomics") +
+	coord_equal()
 (rna_1 | rna_2) + plot_annotation(tag_levels = "A")
 ```
 
@@ -228,14 +237,16 @@ rna_up_1 = rna_de_unpaired_compare |>
 								log2FoldChange_unpaired = log2FoldChange.patient) |>
 	ggplot(aes(x = log2FoldChange_patient, log2FoldChange_unpaired)) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5) +
-	labs(subtitle = "Transcriptomics")
+	geom_point(size = 0.1) +
+	labs(subtitle = "Transcriptomics") +
+	coord_equal()
 
 rna_up_2 = rna_de_unpaired_compare |>
 	dplyr::mutate(p.value_patient = pvalue.treatment,
 								p.value_unpaired = pvalue.patient) |>
-	ggplot(aes(x = p.value_patient, p.value_unpaired)) +
+	ggplot(aes(x = -1*log10(p.value_patient), -1*log10(p.value_unpaired))) +
 	geom_abline(slope = 1, color = "red") +
-	geom_point(alpha = 0.5)
+	geom_point(size = 0.1) +
+	coord_equal()
 (rna_up_1 | rna_up_2) + plot_annotation(tag_levels = "A")
 ```

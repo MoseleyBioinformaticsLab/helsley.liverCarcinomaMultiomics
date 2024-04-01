@@ -112,61 +112,42 @@ tar_plan(
 	### Note that this function also *removes* the previously identified outliers before
 	### collapsing the replicates.
 	rna_collapsed = collapse_deseq_replicates(rna_outliers),
+	bioamines_collapsed = collapse_deseq_replicates(bioamines_outliers),
+	lipidomics_collapsed = collapse_deseq_replicates(lipidomics_outliers),
+	pm_collapsed = collapse_deseq_replicates(pm_outliers),
 	
 	### Unpaired t-test --------
 	rna_de_treatment = calculate_deseq_stats(rna_collapsed,
-																					 which = "treatment"),
+																					 which = "treatment",
+																					 fit_type = "parametric"),
+	bioamines_de_treatment = calculate_deseq_stats(bioamines_collapsed),
+	lipidomics_de_treatment = calculate_deseq_stats(lipidomics_collapsed),
+	pm_de_treatment = calculate_deseq_stats(pm_collapsed),
 	### Paired t-test --------
 	rna_paired = filter_to_pairs(rna_collapsed),
 	rna_de_patient = calculate_deseq_stats(rna_paired,
-																				 which = "patient"),
+																				 which = "patient",
+																				 fit_type = "parametric"),
 	
 	bioamines_paired = filter_to_pairs(bioamines_collapsed),
-	bioamines_de_patient = calculate_metabolomics_stats(bioamines_paired, paired = "patient"),
+	bioamines_de_patient = calculate_deseq_stats(bioamines_paired, which = "patient"),
 	lipidomics_paired = filter_to_pairs(lipidomics_collapsed),
-	lipidomics_de_patient = calculate_metabolomics_stats(lipidomics_paired, paired = "patient"),
+	lipidomics_de_patient = calculate_deseq_stats(lipidomics_paired, which = "patient"),
 	pm_paired = filter_to_pairs(pm_collapsed),
-	pm_de_patient = calculate_metabolomics_stats(pm_paired,
-																							 paired = "patient"),
+	pm_de_patient = calculate_deseq_stats(pm_paired,
+																							 which = "patient"),
 	
 	### Paired Samples, but unpaired stats --------
 	rna_de_patient_unpaired = calculate_deseq_stats(rna_paired,
-																				 which = "treatment"),
+																				 which = "treatment",
+																				 fit_type = "parametric"),
 	
-	bioamines_de_patient_unpaired = calculate_metabolomics_stats(bioamines_paired, paired = "treatment"),
-	lipidomics_de_patient_unpaired = calculate_metabolomics_stats(lipidomics_paired, paired = "treatment"),
-	pm_de_patient_unpaired = calculate_metabolomics_stats(pm_paired,
-																							 paired = "treatment"),
+	bioamines_de_patient_unpaired = calculate_deseq_stats(bioamines_paired, which = "treatment"),
+	lipidomics_de_patient_unpaired = calculate_deseq_stats(lipidomics_paired, which = "treatment"),
+	pm_de_patient_unpaired = calculate_deseq_stats(pm_paired,
+																							 which = "treatment"),
 
-	### Unpaired ANOVA --------
-	bioamines_de_aov_treatment = calculate_metabolomics_stats_aov(bioamines_collapsed),
-	lipidomics_de_aov_treatment = calculate_metabolomics_stats_aov(lipidomics_collapsed),
-	pm_de_aov_treatment = calculate_metabolomics_stats_aov(pm_collapsed),
 	
-	### Paired ANOVA --------
-	bioamines_de_aov_patient = calculate_metabolomics_stats_aov(bioamines_collapsed,
-																															paired = "patient"),
-	lipidomics_de_aov_patient = calculate_metabolomics_stats_aov(lipidomics_collapsed,
-																																 paired = "patient"),
-	pm_de_aov_patient = calculate_metabolomics_stats_aov(pm_collapsed,
-																												 paired = "patient"),
-	
-	### Comparing Metabolites AOV --------
-	metabolomics_de_aov_patient_list = list(bioamines = bioamines_de_aov_patient,
-																			lipidomics = lipidomics_de_aov_patient,
-																			pm = pm_de_aov_patient) |>
-		merge_list(),
-	metabolomics_de_aov_treatment_list = list(bioamines = bioamines_de_aov_treatment,
-																			lipidomics = lipidomics_de_aov_treatment,
-																			pm = pm_de_aov_treatment) |>
-		merge_list(),
-	
-	metabolomics_de_aov_treatment = map_metabolomics_chebi(metabolomics_de_aov_treatment_list,
-																														 chebi_inchikey),
-	metabolomics_de_aov_patient = map_metabolomics_chebi(metabolomics_de_aov_patient_list,
-																													 chebi_inchikey),
-	metabolomics_de_aov_compare = compare_treatment_patient(metabolomics_de_aov_treatment,
-																											metabolomics_de_aov_patient),
 	## Annotations --------
 	### Genes -------
 	ensembl_uniprot = get_ensembl_uniprot(version = "111"),
@@ -275,8 +256,8 @@ tar_plan(
 	rna_treatment_enrichment_kegg = run_enrichment(rna_de_treatment, ensembl_kegg),
 	
 	## Comparing Statistics Between Treatment and Paired ---------
-	metabolomics_de_compare = compare_treatment_patient(metabolomics_de_treatment,
-																											metabolomics_de_patient),
+	metabolomics_de_compare = compare_treatment_patient(metabolomics_de_treatment_list,
+																											metabolomics_de_patient_list),
 	
 	rna_de_compare = compare_treatment_patient(rna_de_treatment,
 																											rna_de_patient),
@@ -293,13 +274,14 @@ tar_plan(
 	),
 	
 	metabolomics_de_unpaired_compare = compare_treatment_patient(
-		metabolomics_de_patient,
-		metabolomics_de_patient_unpaired
+		metabolomics_de_patient_list,
+		metabolomics_de_patient_unpaired_list
 	),
 	
 	## documents -----------
-	tar_quarto(wcmc_imputed_value, "docs/wcmc_imputed_value.qmd"),
-	tar_quarto(mean_variance_relationships, "docs/mean_variance_relationships.qmd"),
+	#tar_quarto(wcmc_imputed_value, "docs/wcmc_imputed_value.qmd"),
+	#tar_quarto(mean_variance_relationships, "docs/mean_variance_relationships.qmd"),
+	tar_quarto(check_residuals, "docs/check_residuals.qmd"),
 	tar_quarto(qcqa, "docs/qcqa.qmd"),
 	
 	tar_quarto(de_comparisons, "docs/de_comparisons.qmd"),

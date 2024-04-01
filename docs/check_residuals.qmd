@@ -1,0 +1,88 @@
+---
+title: "Check Dispersion Residuals"
+author: "Robert M Flight"
+date: last-modified
+date-format: YYYY-MM-DD HH:mm
+format: 
+  html:
+    embed-resources: true
+    toc: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(echo = TRUE,
+											warning = FALSE,
+											message = FALSE)
+## target knits qmds in their own session, so load libraries here.
+targets::tar_source("./packages.R")
+targets::tar_source("R")
+library(patchwork)
+```
+
+```{r}
+#| label: load-targets
+#| include: false
+tar_load(c(rna_collapsed,
+					 bioamines_collapsed,
+					 lipidomics_collapsed,
+					 pm_collapsed))
+```
+
+## Purpose
+
+When calculating the relationship of dispersion of variances to mean, lipidomics and primary metabolism of the metabolomics datasets have issues using the parametric model, and instead revert to a local regression.
+We want to double check that the residuals of the dispersions are OK for these ones and not an actual issue.
+
+
+```{r}
+#| label: do-deseq
+run_list = list(rna = rna_collapsed,
+								bioamines = bioamines_collapsed,
+								lipidomics = lipidomics_collapsed,
+								primary = pm_collapsed)
+residuals_data = purrr::imap(run_list, \(in_data, id){
+	message(id)
+	out_de = DESeq(in_data)
+	tibble::tibble(residuals = abs(mcols(out_de)$dispGeneEst - mcols(out_de)$dispFit),
+								 dataset = id)
+}) |>
+	purrr::list_rbind()
+```
+
+In @fig-residuals we can see that the estimates for **lipidomics** and **primary metabolism** look OK.
+What is more interesting is that **bioamines** doesn't look so hot.
+Maybe we should try the `local` fit for that too?
+This is added in @fig-residuals-bioamines.
+It at least does look closer to the others, including the **rna**.
+
+I think this implies that we should specify the `local` fitting procedure for all of the metabolomics datasets.
+
+```{r}
+#| label: fig-residuals
+#| fig-cap: Residuals of estimated feature level dispersion estimates vs their fits for different datasets. Note that primary, and lipidomics here use the **local** estimator. Red line is the median value from the *rna* dataset.
+rna_median = residuals_data |>
+	dplyr::filter(dataset %in% "rna") |>
+	dplyr::pull(residuals) |>
+	log() |>
+	median()
+residuals_data |>
+	ggplot(aes(x = log(residuals), y = dataset)) +
+	geom_sina(size = 0.1) +
+	geom_vline(xintercept = rna_median, color = "red")
+```
+
+
+```{r}
+#| label: fig-residuals-bioamines
+#| fig-cap: Residuals of estimated feature level dispersion estimates vs their fits for different datasets. Note that primary, and lipidomics here use the **local** estimator, as well as a version of bioamines using the **local** estimator. Red line is the median from the *rna* dataset.
+bioamines_de_local = DESeq(bioamines_collapsed, fitType = "local")
+bioamines_residuals = tibble::tibble(residuals = abs(mcols(bioamines_de_local)$dispGeneEst - mcols(bioamines_de_local)$dispFit),
+								 dataset = "bioamines_local")
+residuals_data = rbind(residuals_data, bioamines_residuals)
+residuals_data |>
+	ggplot(aes(x = log(residuals), y = dataset)) +
+	geom_sina(size = 0.1) +
+	geom_vline(xintercept = rna_median, color = "red")
+```
