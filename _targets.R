@@ -201,6 +201,9 @@ tar_plan(
 	rna_patient_enrichment_grouped_go = group_annotations(rna_patient_enrichment_go,
 																													similarity_cutoff = 0.8),
 	
+	rna_patient_enrichment_grouped_eachgo = group_annotations_each(rna_patient_enrichment_go,
+																																 similarity_cutoff = 0.8),
+	
 	### Reactome ---------
 	rna_treatment_enrichment_reactome = run_enrichment(rna_de_treatment, ensembl_reactome),
 	rna_patient_enrichment_reactome = run_enrichment(rna_de_patient, ensembl_reactome),
@@ -209,6 +212,9 @@ tar_plan(
 																																similarity_cutoff = 0.8),
 	
 	rna_patient_enrichment_grouped_reactome = group_annotations(rna_patient_enrichment_reactome,
+																															similarity_cutoff = 0.8),
+	
+	rna_patient_enrichment_grouped_eachreactome = group_annotations_each(rna_patient_enrichment_reactome,
 																															similarity_cutoff = 0.8),
 	
 	metabolomics_de_treatment_list = list(bioamines = bioamines_de_treatment,
@@ -277,6 +283,10 @@ tar_plan(
 		metabolomics_de_patient_list,
 		metabolomics_de_patient_unpaired_list
 	),
+	
+	## excel output -------
+	excel_output = write_goeach_to_excel(rna_patient_enrichment_grouped_eachgo,
+																			 rna_patient_enrichment_grouped_eachreactome),
 	
 	## documents -----------
 	#tar_quarto(wcmc_imputed_value, "docs/wcmc_imputed_value.qmd"),

@@ -113,7 +113,7 @@ group_annotations = function(group_enrichment,
 	just_enrich = group_enrichment$enrich
 	
 	enrich_graph = generate_annotation_graph(just_enrich)
-	enrich_graph = remove_edges(enrich_graph, similarity_cutoff)
+	enrich_graph = suppressMessages(remove_edges(enrich_graph, similarity_cutoff))
 	enrich_assign = annotation_combinations(enrich_graph)
 	enrich_assign = assign_colors(enrich_assign)
 	
@@ -122,6 +122,50 @@ group_annotations = function(group_enrichment,
 	
 	enrich_table = table_from_graph(enrich_graph, enrich_assign, enrich_comm_labels)
 	enrich_table
+}
+
+group_annotations_each = function(group_enrichment,
+														 similarity_cutoff = 0.8)
+{
+	# group_enrichment = tar_read(rna_treatment_enrichment_go)
+	# similarity_cutoff = 0.8
+	just_enrich = group_enrichment$enrich
+	just_stats = group_enrichment$stats
+	
+	enrich_graph = generate_annotation_graph(just_enrich)
+	enrich_graph = remove_edges(enrich_graph, similarity_cutoff)
+	enrich_assign = annotation_combinations(enrich_graph)
+	enrich_assign = assign_colors(enrich_assign)
+	
+	enrich_communities = assign_communities(enrich_graph)
+	enrich_comm_labels = label_communities(enrich_communities, just_enrich@annotation)
+	
+	sig_each = just_enrich@statistics@significant@significant
+	
+	each_table = purrr::imap(just_stats, \(in_stat, stat_id){
+		# in_stat = just_stats[[1]]
+		# stat_id = names(just_stats)[1]
+		sig_tmp = rownames(sig_each)[sig_each[, stat_id]]
+		tmp_table = in_stat[in_stat$ID %in% sig_tmp, ]
+		
+		tmp_table
+	})
+	
+	enrich_comm_df = purrr::map(enrich_comm_labels, \(in_label){
+		data.frame(group = in_label$label, ID = in_label$members)
+	}) |>
+		purrr::list_rbind()
+	
+	each_table_group = purrr::map(each_table, \(in_table){
+		out_table = dplyr::left_join(in_table, enrich_comm_df, by = "ID")
+		out_table = out_table |>
+			dplyr::mutate(group = dplyr::case_when(
+				is.na(group) ~ "",
+				TRUE ~ group
+			))
+		out_table
+	})
+	each_table_group
 }
 
 
@@ -245,3 +289,43 @@ get_inchikey_hash = function(inchi_df,
 # ...
 # obabel [9]*.inchi -oinchikey -m -e
 # 
+
+write_goeach_to_excel = function(go_stuff,
+																 reactome_stuff)
+{
+	# go_stuff = tar_read(rna_patient_enrichment_grouped_eachgo)
+	# reactome_stuff = tar_read(rna_patient_enrichment_grouped_eachreactome)
+	data_dictionary = tibble::tribble(
+		~table, ~header, ~meaning,
+		"GO*", "p", "hypergeometric p-value",
+		"GO*", "odds", "hypergeometric odds ratio, roughly counts / expected",
+		"GO*", "expected", "expected number of genes based on number differential",
+		"GO*", "counts", "number of genes observed with that annotation in differential",
+		"GO*", "padjust", "Benjamini-Hochberg adjusted p-value",
+		"GO*", "ID", "identifier of the annotation",
+		"GO*", "description", "text description of the annotation",
+		"GO*", "group", "is the annotation part of a group of highly related annotations",
+		"Reactome*", "p", "hypergeometric p-value",
+		"Reactome*", "odds", "hypergeometric odds ratio, roughly counts / expected",
+		"Reactome*", "expected", "expected number of genes based on number differential",
+		"Reactome*", "counts", "number of genes observed with that annotation in differential",
+		"Reactome*", "padjust", "Benjamini-Hochberg adjusted p-value",
+		"Reactome*", "ID", "identifier of the annotation",
+		"Reactome*", "description", "text description of the annotation",
+		"Reactome*", "group", "is the annotation part of a group of highly related annotations")
+	
+	names(go_stuff) = paste0("GO-", names(go_stuff))
+	names(reactome_stuff) = paste0("Reactome-", names(reactome_stuff))
+	all_out = c(go_stuff, reactome_stuff)
+	all_out = purrr::map(all_out, \(x){
+		x = x |>
+			dplyr::arrange(dplyr::desc(group), padjust)
+		x
+	})
+	tab_out = c(list(dictionary = data_dictionary),
+							all_out)
+	tabular_output = openxlsx::write.xlsx(tab_out,
+																				"docs/transcriptomics_enrichments.xlsx",
+																				overwrite = TRUE)
+	tabular_output
+}

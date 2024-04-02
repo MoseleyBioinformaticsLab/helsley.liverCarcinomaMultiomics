@@ -37,7 +37,9 @@ tar_load(c(rna_de_treatment,
 					 metabolomics_treatment_enrichment_kegg,
 					 rna_patient_enrichment_grouped_go,
 					 rna_treatment_enrichment_grouped_go,
+					 rna_patient_enrichment_grouped_eachgo,
 					 rna_patient_enrichment_grouped_reactome,
+					 rna_patient_enrichment_grouped_eachreactome,
 					 rna_treatment_enrichment_grouped_reactome))
 
 ```
@@ -53,10 +55,9 @@ There is an [Executive Summar](#executive-summary) at the end of this document.
 Transcriptomics and metabolomics datasets from hepatocarcinoma.
 Transcriptomics samples are normalized and statistical results reported by {DESeq2}.
 Each metabolomics type were analyzed separately.
-Each sample was normalized by median abundance.
-Metabolomics statistics were calculated using both paired and un-paired t-tests (see below).
+Metabolomics samples are normalized and statistical results reported by {DESeq2}, using a `local` fit for the modeling of dispersions of variance to mean abundance.
 
-For all datasets, we merged the two replicate samples normal adjacent samples from Patient 6, either by adding the counts (transcriptomics) or averaging (metabolomics).
+For all datasets, we merged the two replicate samples normal adjacent samples from Patient 6, either by adding the abundances via {DESeq2}.
 
 For each dataset, we performed the differential calculations two ways:
 
@@ -148,23 +149,32 @@ So, it makes sense to only look at the results from incorporating the patients i
 ### Metabolomics
 
 The p-value histograms for the metabolomics datasets in @fig-metabolomics-comparisons also show definite biological differences.
-@fig-metabolomics-sina also shows that the p-values considering patient are **worse** than those from just treatment (we have independent confirmation of this).
+@fig-metabolomics-sina also shows that the p-values considering patient are better than just consideration of treatment, at least for the bioamines.
 @tbl-metabolomics-diffs counts how many metabolites have better or worse p-values with or without consideration of the patient.
-There are a larger number of worse p-values than better p-values when patient is included, i.e. when using a paired t-test, which is **not** expected.
-We think this is an issue caused by the use of a global value for the imputation of missing values within the context of a paired t-test.
+There are a larger number of worse p-values than better p-values when patient is included, for lipidomics and primary-metabolism, which is **not** expected.
+We are not sure why this is.
+It happens when using t-test statistics, ANOVA, and {DESeq2}.
+
+However, there are more things specifically significant in the patient considered results for both lipidomics (@fig-upset-lipidomics) and primary metabolism (@fig-upset-pm).
 
 ```{r}
 #| label: fig-metabolomics-comparisons
 #| fig-cap: P-Value histograms for treatment and patient differential analyses across each metabolomics platform using t-test.
+metabolomics_de_compare = metabolomics_de_compare |>
+	dplyr::mutate(type = dplyr::case_when(
+		grepl("bioamine", feature_id) ~ "bioamines",
+		grepl("pm$", feature_id) ~ "pm",
+		grepl("lipids", feature_id) ~ "lipidomics"
+	))
 metabolomics_pvalue_long = metabolomics_de_compare |>
-	dplyr::select(feature_org, p.value.patient, p.value.treatment, type.treatment) |>
-	tidyr::pivot_longer(c(-feature_org, -type.treatment), names_to = "pvalue_type",
+	dplyr::select(feature_id, pvalue.patient, pvalue.treatment, type) |>
+	tidyr::pivot_longer(c(-feature_id, -type), names_to = "pvalue_type",
 											values_to = "p.value") |>
-	dplyr::mutate(pvalue_type = gsub("p.value.", "", pvalue_type))
+	dplyr::mutate(pvalue_type = gsub("pvalue.", "", pvalue_type))
 metabolomics_pvalue_long |>
 	ggplot(aes(x = p.value)) +
 	geom_histogram(binwidth = 0.05) +
-	facet_grid(pvalue_type ~ type.treatment)
+	facet_grid(pvalue_type ~ type)
 ```
 
 
@@ -172,23 +182,22 @@ metabolomics_pvalue_long |>
 #| label: fig-metabolomics-sina
 #| fig-cap: Sina plot of comparisons of $-1 \times log_{10}(p-values)$ from differential calculations between patient vs treatment for all three metabolomics types using a t-test.
 metabolomics_diffs = metabolomics_de_compare |>
-	dplyr::mutate(patient_treatment = -1*log10(p.value.patient) - -1*log10(p.value.treatment)) |>
-	dplyr::select(type.treatment, feature_org, patient_treatment) |>
-	tidyr::pivot_longer(c(-type.treatment, -feature_org),
+	dplyr::mutate(patient_treatment = -1*log10(pvalue.patient) - -1*log10(pvalue.treatment)) |>
+	dplyr::select(type, feature_id, patient_treatment) |>
+	tidyr::pivot_longer(c(-type, -feature_id),
 											names_to = "comparison",
 											values_to = "difference")
 metabolomics_diffs |>
 	ggplot(aes(x = difference, y = comparison)) +
-	geom_sina(alpha = 0.5) +
+	geom_sina(size = 0.1) +
 	geom_vline(xintercept = 0, color = "red") +
-	facet_wrap(~ type.treatment, nrow = 1)
+	facet_wrap(~ type, nrow = 1)
 ```
 
 ```{r}
 #| label: tbl-metabolomics-diffs
 #| tbl-cap: Number of metabolites with better or worse p-values when including patient information using t-test.
 metabolomics_diff_summary = metabolomics_diffs |>
-	dplyr::mutate(type = type.treatment) |>
 	dplyr::group_by(type) |>
 	dplyr::summarise(`Patient Worse` = sum(difference <= 0),
 									 `Patient Better` = sum(difference > 0))
@@ -196,20 +205,40 @@ gt::gt(metabolomics_diff_summary)
 ```
 
 ```{r}
-#| label: fig-metabolomics-upset
-#| fig-cap: UpSet plots of significant features for each metabolite method, using either treatment or patient pairing calculated using t-test.
-diff_split_type = split(metabolomics_de_compare, metabolomics_de_compare$type.treatment)
-
-purrr::iwalk(diff_split_type, \(group, id){
-	compare_list = list(patient = group |>
+#| label: fig-upset-bioamines
+#| fig-cap: UpSet plot of significant features for bioamines, considering and ignoring patient.
+diff_split_type = split(metabolomics_de_compare, metabolomics_de_compare$type)
+bioamines_compare = list(patient = diff_split_type$bioamines |>
 													 	dplyr::filter(padj.patient <= 0.05) |>
-													 	dplyr::pull(feature_org),
-													 treatment = group |>
+													 	dplyr::pull(feature_id),
+													 treatment = diff_split_type$bioamines |>
 													 	dplyr::filter(padj.treatment <= 0.05) |>
-													 	dplyr::pull(feature_org))
-	
-	print(ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(compare_list), column_title = id))
-})
+													 	dplyr::pull(feature_id))
+ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(bioamines_compare), column_title = "Bioamines")
+```
+
+```{r}
+#| label: fig-upset-lipidomics
+#| fig-cap: UpSet plot of significant features for lipidomics, considering and ignoring patient.
+lipidomics_compare = list(patient = diff_split_type$lipidomics |>
+													 	dplyr::filter(padj.patient <= 0.05) |>
+													 	dplyr::pull(feature_id),
+													 treatment = diff_split_type$lipidomics |>
+													 	dplyr::filter(padj.treatment <= 0.05) |>
+													 	dplyr::pull(feature_id))
+ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(lipidomics_compare), column_title = "Lipidomics")
+```
+
+```{r}
+#| label: fig-upset-pm
+#| fig-cap: UpSet plot of significant features for primary metabolism, considering and ignoring patient.	
+pm_compare = list(patient = diff_split_type$pm |>
+													 	dplyr::filter(padj.patient <= 0.05) |>
+													 	dplyr::pull(feature_id),
+													 treatment = diff_split_type$pm |>
+													 	dplyr::filter(padj.treatment <= 0.05) |>
+													 	dplyr::pull(feature_id))
+ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(pm_compare), column_title = "Primary Metabolism")
 ```
 
 ## Enrichment Results
@@ -218,7 +247,7 @@ purrr::iwalk(diff_split_type, \(group, id){
 
 One way to try and integrate the results from the metabolomics and transcriptomics, is to look for pathway enrichment intersections from both the metabolomics and transcriptomics.
 Those results are shown in @fig-enrichment-intersections-reactome for Reactome and @fig-enrichment-intersections-kegg for KEGG.
-Zip, zero, nothing in the case of Reactome and 2 in the case of KEGG, and they do not seem to be very informative.
+Zip, zero, nothing in the case of Reactome and 1 in the case of KEGG, and it does not seem to be very informative.
 
 ```{r}
 #| label: fig-enrichment-intersections-reactome
@@ -290,68 +319,117 @@ gt::gt(rna_kegg_table |> dplyr::select(ID, description))
 
 ### Transcriptomics Enrichments
 
-For the transcriptomics experiment, we did Gene Ontology (GO) and Reactome pathway enrichment for **all** differentially expressed genes, as well as the **positively** and **negatively** fold-change differentially expressed genes.
+For the transcriptomics experiment, we did Gene Ontology (GO) and Reactome pathway enrichment for **all** differentially expressed genes (@tbl-rna-patient-go-all, @tbl-rna-patient-reactome-all), as well as the **negatively** (@tbl-rna-patient-go-neg, @tbl-rna-patient-reactome-neg) and **positively** (@tbl-rna-patient-go-pos, @tbl-rna-patient-reactome-pos) fold-change differentially expressed genes.
 
-Columns indicate:
+Columns are:
 
-  * name: the ID of the annotation (GO or Reactome ID);
-  * description: a text description, for GO includes which sub-ontology it is part of, either biological process (BP), molecular function (MF) or cellular component (CC);
-  * sig_group: which group of genes this annotation was significant in. Either **all**, **negatively** (neg) or **positively** differential;
-  
-The rest of the columns give statistical results for each group of genes:
-
-  * .p: p-value;
-  * .odds: odds ratio, roughly how many were observed vs expected;
-  * .expected: how many genes expected based on the size of the differential list and the universe of measured genes;
-  * .counts: how many genes were observed;
-  * .padjust: Benjamini-Hochberg adjusted p-value;
+  * p: p-value;
+  * odds: odds ratio, roughly how many were observed vs expected;
+  * expected: how many genes expected based on the size of the differential list and the universe of measured genes;
+  * counts: how many genes were observed;
+  * padjust: Benjamini-Hochberg adjusted p-value;
+  * ID: Gene Ontology or Reactome pathway ID;
+  * description: text description;
+  * group: group designation, denotes highly related annotations by shared annotated genes.
 
 Annotations are grouped based on the common genes between annotations.
 A similarity cutoff of 0.8 was used before determining communities of annotations.
 
-@tbl-rna-patient-go does highlight some GO terms related to lipid and vesicular processes from **all** and **negatively** differential genes.
+Full tables should have been provided in an Excel file.
 
 ```{r}
-#| label: tbl-rna-patient-go
-#| tbl-cap: Grouped GO terms for transcriptomics paired patient sample differential analysis.
-rna_patient_enrichment_grouped_go = rna_patient_enrichment_grouped_go |>
-	dplyr::mutate(description = gsub("\\**", "", description)) |>
-	dplyr::select(-group)
-weird_row = rna_patient_enrichment_grouped_go$name %in% "GO:0016098"
-desc_rows = is.na(rna_patient_enrichment_grouped_go$all.p)
-rna_pegg = gt::gt(rna_patient_enrichment_grouped_go) |>
+#| label: tbl-rna-patient-go-all
+#| tbl-cap: Grouped GO terms for transcriptomics paired patient sample differential analysis, irrespective of fold-change direction.
+go_all = rna_patient_enrichment_grouped_eachgo$all
+go_print_all = go_all |>
+	dplyr::filter(grepl("MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle", group)) |>
+	dplyr::arrange(group, padjust)
+weird_row = go_print_all$ID %in% "GO:0016098"
+go_all_out = gt::gt(go_print_all) |>
 	gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
 	gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
-	gt::fmt_scientific(columns = ends_with(c("odds")), rows = weird_row) |>
 	gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
-rna_pegg
+go_all_out
 ```
 
 ```{r}
-#| label: tbl-rna-patient-reactome
-#| tbl-cap: Grouped Reactome pathways for transcriptomics paired patient sample differential analysis.
-rna_patient_enrichment_grouped_reactome = rna_patient_enrichment_grouped_reactome |>
-	dplyr::mutate(description = gsub("\\**", "", description)) |>
-	dplyr::select(-group)
-weird_row_react = rna_patient_enrichment_grouped_reactome$name %in% c("R-HSA-5661231", "R-HSA-1247673")
-desc_rows = is.na(rna_patient_enrichment_grouped_go$all.p)
-rna_regg = gt::gt(rna_patient_enrichment_grouped_reactome) |>
+#| label: tbl-rna-patient-go-neg
+#| tbl-cap: Grouped GO terms for transcriptomics paired patient sample differential analysis, negative fold-change direction.
+go_neg = rna_patient_enrichment_grouped_eachgo$neg
+go_print_neg = go_neg |>
+	dplyr::filter(grepl("MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle", group)) |>
+	dplyr::arrange(group, padjust)
+weird_row = go_print_neg$ID %in% "GO:0016098"
+go_neg_out = gt::gt(go_print_all) |>
 	gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
 	gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
-	gt::fmt_scientific(columns = ends_with(c("odds")), rows = weird_row_react) |>
 	gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
-rna_regg
+go_neg_out
 ```
+
+```{r}
+#| label: tbl-rna-patient-go-pos
+#| tbl-cap: Grouped GO terms for transcriptomics paired patient sample differential analysis, positive fold-change direction.
+go_pos = rna_patient_enrichment_grouped_eachgo$pos
+go_print_pos = go_pos |>
+	dplyr::filter(grepl("MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle", group)) |>
+	dplyr::arrange(group, padjust)
+weird_row = go_print_pos$ID %in% "GO:0016098"
+go_pos_out = gt::gt(go_print_pos) |>
+	gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
+	gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
+	gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
+go_pos_out
+```
+
+```{r}
+#| label: tbl-rna-patient-reactome-all
+#| tbl-cap: Grouped Reactome pathways for transcriptomics paired patient sample differential analysis, for all differential genes.
+reactome_all = rna_patient_enrichment_grouped_eachreactome$all |>
+	dplyr::filter(!group %in% "") |>
+	dplyr::arrange(group, padjust)
+reactome_print_all = gt::gt(reactome_all) |>
+	gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
+	gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
+	gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
+reactome_print_all
+```
+
+```{r}
+#| label: tbl-rna-patient-reactome-neg
+#| tbl-cap: Grouped Reactome pathways for transcriptomics paired patient sample differential analysis, for negatively differential genes.
+reactome_neg = rna_patient_enrichment_grouped_eachreactome$all |>
+	dplyr::filter(!group %in% "") |>
+	dplyr::arrange(group, padjust)
+reactome_print_neg = gt::gt(reactome_neg) |>
+	gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
+	gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
+	gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
+reactome_print_neg
+```
+
+```{r}
+#| label: tbl-rna-patient-reactome-pos
+#| tbl-cap: Grouped Reactome pathways for transcriptomics paired patient sample differential analysis, for positively differential genes.
+reactome_pos = rna_patient_enrichment_grouped_eachreactome$pos |>
+	dplyr::filter(!group %in% "") |>
+	dplyr::arrange(group, padjust)
+reactome_print_pos = gt::gt(reactome_pos) |>
+	gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
+	gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
+	gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
+reactome_print_pos
+```
+
 
 ## Executive Summary
 
 * Considering patient definitively improves the transcriptomics analysis.
-* Considering patient worsens the metabolomics analysis, which has slowed down the analysis to be more rigorous.
-  * We have theories on why this is happening, and have ideas to hopefully fix it.
+* Considering patient definitively improves the bioamines, and we think it improves the lipidomics and primary metabolism metabolomics.
 * Comparing pathway enrichments between transcriptomics and metabolomics doesn't highlight anything interesting.
 * Gene ontology enrichment of the transcriptomics results highlight a variety of terms related to cell cycle in the positively differential genes (expected for cancer), as well as some related to lipid processing in the negatively differential genes (expected for this hepatocarcinoma).
 * Reactome pathway enrichment highlights many pathways that are likely heavily similar to the GO terms, with the exception of lipid related.
+* Full GO and Reactome pathways were provided in an Excel file (`helsley_hcc_transcriptomics_enrichment-2024-04-02.xlsx`).
 * Next steps include:
-  * Improving the paired patient metabolomics analysis.
   * Examining what classes and types of metabolites are over-represented in the differential results.
   * Looking for highly correlated metabolites and genes.
