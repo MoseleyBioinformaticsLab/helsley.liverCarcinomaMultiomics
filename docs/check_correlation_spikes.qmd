@@ -1,0 +1,148 @@
+---
+title: "Hepatocarcinoma Correlation Histogram Spikesd]"
+author: "Robert M Flight"
+date: last-modified
+date-format: YYYY-MM-DD HH:mm
+format: 
+  html:
+    embed-resources: true
+    toc: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(echo = FALSE,
+											warning = FALSE,
+											message = FALSE)
+## target knits qmds in their own session, so load libraries here.
+targets::tar_source("./packages.R")
+tar_source("./R")
+```
+
+```{r}
+#| label: load-targets
+#| include: false
+tar_load(c(rna_within_cor,
+					 metabolites_within_cor,
+					 rna_metabolites_cor,
+					 rna_collapsed,
+					 matched_samples))
+
+```
+
+## Purpose
+
+Initial feature-feature correlations of the transcriptomics to metabolites show spikes in the correlation and p-values.
+I want to be sure what is causing these spikes so we know how to prevent them.
+
+```{r}
+#| label: show-spikes
+#| fig-cap: Correlation and p-value histograms of the transcriptomics - metabolite ICI-Kt correlations.
+cor_plot = rna_metabolites_cor |>
+	ggplot(aes(x = cor)) +
+	geom_histogram(bins = 100)
+pvalue_plot = rna_metabolites_cor |>
+	ggplot(aes(x = pvalue)) +
+	geom_histogram(bins = 100)
+cor_plot | pvalue_plot
+```
+
+## Causes
+
+I can think of some causes of this phenomena, with most likely cause being highly correlated features within each list of features.
+
+```{r}
+#| label: chop-rna-cor
+breaks_cor = santoku::chop_evenly(rna_metabolites_cor$cor, 100)
+rna_metabolite_cor_chopped = data.frame(s1 = rna_metabolites_cor$s1, s2 = rna_metabolites_cor$s2,
+														 cor = rna_metabolites_cor$cor, breaks = breaks_cor)
+
+n_breaks = table(rna_metabolite_cor_chopped$breaks)
+
+hi_break = names(n_breaks[which.max(n_breaks)])
+
+large_member = rna_metabolite_cor_chopped |>
+	dplyr::filter(breaks %in% hi_break)
+
+large_genes = table(large_member$s1)
+large_metabolite = table(large_member$s2)
+
+rna_large_cor = rna_within_cor$cor |>
+	dplyr::filter((s1 %in% names(large_genes)) & (s2 %in% names(large_genes)))
+
+metabolite_large_cor = metabolites_within_cor$cor |>
+	dplyr::filter((s1 %in% names(large_metabolite)) & (s2 %in% names(large_metabolite)))
+```
+
+Still see the same patterns.
+
+Maybe missing values are causing this?
+
+```{r}
+#| label: check_missing
+all_genes = unique(unlist(rna_within_cor$cor[, c("s1", "s2")]))
+rna_counts = assays(rna_collapsed)$counts[all_genes, matched_samples]
+rna_0 = rowSums(rna_counts == 0)
+
+rna_0_df = data.frame(gene = rownames(rna_counts), n_zero = rna_0)
+
+rna_cor_1 = rna_within_cor$cor
+rna_cor_1 = dplyr::left_join(rna_cor_1, rna_0_df, by = c("s1" = "gene"))
+rna_cor_1 = rna_cor_1 |>
+	dplyr::mutate(s1_zero = n_zero,
+								n_zero = NULL)
+rna_cor_1 = dplyr::left_join(rna_cor_1, rna_0_df, by = c("s2" = "gene"))
+rna_cor_1 = rna_cor_1 |>
+	dplyr::mutate(s2_zero = n_zero,
+								n_zero = NULL)
+
+rna_cor_1$breaks = santoku::chop_evenly(rna_cor_1$cor, 100)
+
+rna_cor_counts = table(rna_cor_1$breaks)
+interesting_pairs = c('[0.4357, 0.4551)', '[0.4551, 0.4746)', '[0.494, 0.5135)')
+
+rna_cor_1_interesting = rna_cor_1 |>
+	dplyr::filter(breaks %in% interesting_pairs)
+
+rna_cor_1_interesting |>
+	dplyr::group_by(breaks) |>
+	dplyr::summarise(n1 = median(s1_zero), n2 = median(s2_zero))
+```
+
+OK, I think what is happening is we only have 12 samples to do the comparison, which gives 66 pairs, and throw in some zeros, and we end up with discrete sets of values.
+
+But we can test this a bit.
+We can make a large fake dataset, and then subsample to a small number of samples.
+
+```{r}
+#| label: check-large
+set.seed(1234)
+n_feature = 500
+n_sample = 200
+
+example_data = matrix(rnorm(n_feature * n_sample, mean = 0, sd = 1),
+                      nrow = n_sample,
+                      ncol = n_feature)
+
+kt_all = ICIKendallTau::kt_fast(example_data, return_matrix = FALSE)$tau
+kt_all = kt_all |>
+  dplyr::filter(!(s1 == s2))
+
+kt_all |>
+  ggplot(aes(x = tau)) +
+  geom_histogram(bins = 100)
+```
+
+```{r}
+#| label: check-small
+sample_rows = sample(nrow(example_data), 20)
+
+kt_small = ICIKendallTau::kt_fast(example_data[sample_rows, ], return_matrix = FALSE)$tau
+kt_small = kt_small |>
+  dplyr::filter(!(s1 == s2))
+
+kt_small |>
+  ggplot(aes(x = tau)) +
+  geom_histogram(bins = 100)
+```

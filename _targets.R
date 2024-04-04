@@ -284,6 +284,28 @@ tar_plan(
 		metabolomics_de_patient_unpaired_list
 	),
 	
+	## feature correlations ---------
+	matched_samples = get_matched_samples(rna_collapsed,
+																				bioamines_collapsed,
+																				lipidomics_collapsed,
+																				pm_collapsed),
+	
+	rna_within_cor = rna_within_correlation(rna_collapsed,
+																					rna_de_patient,
+																					matched_samples),
+	
+	metabolites_within_cor = metabolites_within_correlation(bioamines_collapsed,
+																													lipidomics_collapsed,
+																													pm_collapsed,
+																													matched_samples),
+	
+	rna_metabolites_cor = feature_correlations(rna_collapsed,
+																												rna_de_patient,
+																												bioamines_collapsed,
+																												lipidomics_collapsed,
+																												pm_collapsed,
+																												matched_samples),
+	
 	## excel output -------
 	excel_output = write_goeach_to_excel(rna_patient_enrichment_grouped_eachgo,
 																			 rna_patient_enrichment_grouped_eachreactome),
@@ -291,6 +313,7 @@ tar_plan(
 	## documents -----------
 	#tar_quarto(wcmc_imputed_value, "docs/wcmc_imputed_value.qmd"),
 	#tar_quarto(mean_variance_relationships, "docs/mean_variance_relationships.qmd"),
+	tar_quarto(check_correlation_spikes, "docs/check_correlation_spikes.qmd"),
 	tar_quarto(check_residuals, "docs/check_residuals.qmd"),
 	tar_quarto(qcqa, "docs/qcqa.qmd"),
 	
