@@ -101,6 +101,12 @@ tar_plan(
 	primary_metabolism_qcqa = create_qcqa_plots(primary_metabolism_cor_pca,
 																							color_scales),
 	
+	### Left Censoring ------
+	rna_left = ICIKendallTau::test_left_censorship(counts(rna_keep), rna_keep$treatment),
+	bioamines_left = ICIKendallTau::test_left_censorship(counts(bioamines_keep), bioamines_keep$treatment),
+	lipidomics_left = ICIKendallTau::test_left_censorship(counts(lipidomics_keep), lipidomics_keep$treatment),
+	pm_left = ICIKendallTau::test_left_censorship(counts(primary_metabolism_keep), primary_metabolism_keep$treatment),
+	
 	## Differential Analysis --------
 	### Determine Outliers --------
 	rna_outliers = determine_outliers(rna_keep),
@@ -136,6 +142,7 @@ tar_plan(
 	pm_paired = filter_to_pairs(pm_collapsed),
 	pm_de_patient = calculate_deseq_stats(pm_paired,
 																							 which = "patient"),
+	
 	
 	### Paired Samples, but unpaired stats --------
 	rna_de_patient_unpaired = calculate_deseq_stats(rna_paired,
@@ -304,6 +311,7 @@ tar_plan(
 																												bioamines_collapsed,
 																												lipidomics_collapsed,
 																												pm_collapsed,
+																						 metabolomics_de_patient_list,
 																												matched_samples),
 	
 	## excel output -------

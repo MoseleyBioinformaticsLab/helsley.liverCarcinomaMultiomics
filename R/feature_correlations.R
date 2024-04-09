@@ -3,14 +3,19 @@ feature_correlations = function(rna_collapsed,
 																bioamines_collapsed,
 																lipidomics_collapsed,
 																pm_collapsed,
+																metabolites_significant,
 																matched_samples)
 {
 	# tar_load(c(rna_collapsed,
 	# 				 bioamines_collapsed,
 	# 				 lipidomics_collapsed,
-	# 				 pm_collapsed))
+	# 				 pm_collapsed,
+	# 				 matched_samples))
 	# rna_significant = tar_read(rna_de_patient)
+	# metabolites_significant = tar_read(metabolomics_de_patient_list)
 	rna_sig = rna_significant |>
+		dplyr::filter(padj <= 0.05)
+	metabolites_sig = metabolites_significant |>
 		dplyr::filter(padj <= 0.05)
 	
 	rna_counts = assays(rna_collapsed)$counts[rna_sig$feature_id, matched_samples]
@@ -18,9 +23,11 @@ feature_correlations = function(rna_collapsed,
 	lipid_counts = assays(lipidomics_collapsed)$counts[, matched_samples]
 	pm_counts = assays(pm_collapsed)$counts[, matched_samples]
 	
-	all_counts = rbind(rna_counts, bio_counts, lipid_counts, pm_counts)
+	metabolite_counts = rbind(bio_counts, lipid_counts, pm_counts)
+	metabolite_counts = metabolite_counts[metabolites_sig$feature_id, ]
+	all_counts = rbind(rna_counts, metabolite_counts)
 	
-	metabolite_id = c(rownames(bio_counts), rownames(lipid_counts), rownames(pm_counts))
+	metabolite_id = metabolites_sig$feature_id
 	rna_id = rownames(rna_counts)
 	
 	use_comparison = tidyr::expand_grid(rna = rna_id, metabolite = metabolite_id)
