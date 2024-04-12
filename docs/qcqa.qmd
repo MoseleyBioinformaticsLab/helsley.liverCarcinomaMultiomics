@@ -29,7 +29,11 @@ tar_load(c(rna_qcqa,
 					 rna_n_qcqa,
 					 bioamines_n_qcqa,
 					 lipidomics_n_qcqa,
-					 pr_n_qcqa))
+					 pr_n_qcqa,
+					 rna_left,
+					 bioamines_left,
+					 lipidomics_left,
+					 pm_left))
 ```
 
 ## Purpose
@@ -207,6 +211,79 @@ lipidomics_qcqa$pca_noblanks
 lipidomics_qcqa$pca_nooutlier
 ```
 
+## Left Censoring of Abundances
+
+We suspect that most of the missing values are due to left censorship, or readings being below the limits of detection.
+We can actually test for this using functions in {ICIKendallTau}.
+
+P-values for the binomial test of missing features having values in each sample lower than the median in each sample are reported in @tbl-left-censorship.
+
+```{r}
+#| label: tbl-left-censorship
+#| tbl-cap: Results of binomial tests for left-censorship for each of the datasets.
+rna_test = broom::tidy(rna_left$test$binomial_test)
+rna_test$omics = "transcriptomics"
+pm_test = broom::tidy(pm_left$test$binomial_test)
+pm_test$omics = "primary metabolism"
+bioamines_test = broom::tidy(bioamines_left$test$binomial_test)
+bioamines_test$omics = "biogenic amines"
+lipidomics_test = broom::tidy(lipidomics_left$test$binomial_test)
+lipidomics_test$omics = "lipidomics"
+test_table = dplyr::bind_rows(rna_test, pm_test, bioamines_test, lipidomics_test)
+
+out_table = test_table |>
+	dplyr::transmute(omics = omics,
+									 p.value = p.value,
+									 n_under = statistic,
+									 n_test = parameter,
+									 under_test = estimate)
+gt_table = out_table |>
+	gt::gt() |>
+	gt::fmt_scientific(columns = p.value)
+gt_table
+```
+
+We can also plot the number of missing features vs their median rank across samples in @fig-missing-rank.
+
+```{r}
+#| label: fig-missing-rank
+#| fig-cap: Median rank as a function of the number of missing values for each data set.
+#| fig-width: 5
+#| fig-height: 15
+rna_rank = dplyr::bind_rows(rna_left$ranks$normal_adjacent$n_na_rank,
+														rna_left$ranks$cancerous$n_na_rank)
+rna_plot = rna_rank |>
+	ggplot(aes(x = n_na, y = median_rank)) +
+	geom_point(size = 0.1, position = "jitter") +
+	facet_wrap(~ split, nrow = 1) +
+	labs(subtitle = "RNA-Seq")
+
+pm_rank = dplyr::bind_rows(pm_left$ranks$normal_adjacent$n_na_rank,
+														pm_left$ranks$cancerous$n_na_rank)
+pm_plot = pm_rank |>
+	ggplot(aes(x = n_na, y = median_rank)) +
+	geom_point(size = 1, position = "jitter") +
+	facet_wrap(~ split, nrow = 1) +
+	labs(subtitle = "Primary Metabolism")
+
+bioamines_rank = dplyr::bind_rows(bioamines_left$ranks$normal_adjacent$n_na_rank,
+														bioamines_left$ranks$cancerous$n_na_rank)
+bioamines_plot = bioamines_rank |>
+	ggplot(aes(x = n_na, y = median_rank)) +
+	geom_point(size = 1, position = "jitter") +
+	facet_wrap(~ split, nrow = 1) +
+	labs(subtitle = "Biogenic Amines")
+
+lipidomics_rank = dplyr::bind_rows(lipidomics_left$ranks$normal_adjacent$n_na_rank,
+														lipidomics_left$ranks$cancerous$n_na_rank)
+lipidomics_plot = lipidomics_rank |>
+	ggplot(aes(x = n_na, y = median_rank)) +
+	geom_point(size = 1, position = "jitter") +
+	facet_wrap(~ split, nrow = 1) +
+	labs(subtitle = "Biogenic Amines")
+
+rna_plot / pm_plot / bioamines_plot / lipidomics_plot
+```
 
 ## Executive Summary
 

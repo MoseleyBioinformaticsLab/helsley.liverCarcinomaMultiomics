@@ -279,3 +279,14 @@ get_n_features = function(in_data)
 		return(nrow(in_data))
 	}
 }
+
+check_left_censoring = function(dds_obj)
+{
+	
+	left_test = ICIKendallTau::test_left_censorship(counts(dds_obj), sample_classes = dds_obj$treatment)
+	
+	left_ranks = ICIKendallTau::rank_order_data(counts(dds_obj), sample_classes = dds_obj$treatment)
+	
+	list(test = left_test,
+			 ranks = left_ranks)
+}

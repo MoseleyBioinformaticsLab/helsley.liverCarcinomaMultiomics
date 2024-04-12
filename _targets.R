@@ -102,10 +102,10 @@ tar_plan(
 																							color_scales),
 	
 	### Left Censoring ------
-	rna_left = ICIKendallTau::test_left_censorship(counts(rna_keep), rna_keep$treatment),
-	bioamines_left = ICIKendallTau::test_left_censorship(counts(bioamines_keep), bioamines_keep$treatment),
-	lipidomics_left = ICIKendallTau::test_left_censorship(counts(lipidomics_keep), lipidomics_keep$treatment),
-	pm_left = ICIKendallTau::test_left_censorship(counts(primary_metabolism_keep), primary_metabolism_keep$treatment),
+	rna_left = check_left_censoring(rna_dds),
+	bioamines_left = check_left_censoring(bioamines),
+	lipidomics_left = check_left_censoring(lipidomics),
+	pm_left = check_left_censoring(primary_metabolism),
 	
 	## Differential Analysis --------
 	### Determine Outliers --------
@@ -306,13 +306,12 @@ tar_plan(
 																													pm_collapsed,
 																													matched_samples),
 	
-	rna_metabolites_cor = feature_correlations(rna_collapsed,
+	rna_metabolites_icikt = feature_correlations(rna_collapsed,
 																												rna_de_patient,
 																												bioamines_collapsed,
 																												lipidomics_collapsed,
 																												pm_collapsed,
 																						 metabolomics_de_patient_list,
-																												matched_samples),
 	
 	## excel output -------
 	excel_output = write_goeach_to_excel(rna_patient_enrichment_grouped_eachgo,
