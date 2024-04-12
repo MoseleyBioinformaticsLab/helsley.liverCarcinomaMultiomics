@@ -312,6 +312,26 @@ tar_plan(
 																												lipidomics_collapsed,
 																												pm_collapsed,
 																						 metabolomics_de_patient_list,
+																												matched_samples,
+																						 method = "icikt"),
+	
+	rna_metabolites_pearson = feature_correlations(rna_collapsed,
+																							 rna_de_patient,
+																							 bioamines_collapsed,
+																							 lipidomics_collapsed,
+																							 pm_collapsed,
+																							 metabolomics_de_patient_list,
+																							 matched_samples,
+																							 method = "pearson"),
+	
+	rna_metabolites_spearman = feature_correlations(rna_collapsed,
+																							 rna_de_patient,
+																							 bioamines_collapsed,
+																							 lipidomics_collapsed,
+																							 pm_collapsed,
+																							 metabolomics_de_patient_list,
+																							 matched_samples,
+																							 method = "spearman"),
 	
 	## excel output -------
 	excel_output = write_goeach_to_excel(rna_patient_enrichment_grouped_eachgo,
