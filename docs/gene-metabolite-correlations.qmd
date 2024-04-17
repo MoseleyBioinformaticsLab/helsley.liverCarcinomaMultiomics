@@ -166,23 +166,16 @@ OK, can we cluster the metabolites by their correlations to the genes?
 
 ```{r}
 #| label: create-cor-matrix
-sig_matrix = matrix(0, nrow = length(unique(sig_cor$metabolite)),
-										ncol = length(unique(sig_cor$gene)))
-
-rownames(sig_matrix) = unique(sig_cor$metabolite)
-colnames(sig_matrix) = unique(sig_cor$gene)
-for (irow in seq_len(nrow(sig_cor))) {
-	sig_matrix[sig_cor[irow, "metabolite"], sig_cor[irow, "gene"]] = sig_cor[irow, "cor"]
-}
+all_matrix = ICIKendallTau:::long_df_2_cor_matrix(rna_metabolites_spearman, is_square = FALSE)
 ```
 
 ```{r}
 #| label: fig-cluster-metabolites
-metabolite_clusters = dbscan(sig_matrix, eps = 1)
-met_cluster_df = data.frame(name = rownames(sig_matrix), cluster = metabolite_clusters$cluster) |>
+metabolite_clusters = hdbscan(t(all_matrix), minPts = 5)
+met_cluster_df = data.frame(name = colnames(all_matrix), cluster = metabolite_clusters$cluster) |>
 	dplyr::mutate(cluster2 = paste0("met.", cluster))
 
-gene_clusters = dbscan(t(sig_matrix), eps = 1)
+gene_clusters = dbscan((all_matrix), eps = 1, minPts = 2)
 gene_cluster_df = data.frame(name = colnames(sig_matrix), cluster = gene_clusters$cluster) |>
 	dplyr::mutate(cluster2 = paste0("gene.", cluster))
 
