@@ -1,0 +1,213 @@
+---
+title: "Hepatocarcinoma Multi-Omics Differential Analysis"
+author: "Robert M Flight"
+date: last-modified
+date-format: YYYY-MM-DD HH:mm
+format: 
+  html:
+    embed-resources: true
+    toc: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(echo = FALSE,
+											message = FALSE,
+											dev = "ragg_png",
+											dpi = 300)
+targets::tar_source("./packages.R")
+tar_source("R")
+library(tidygraph)
+library(ggraph)
+library(dbscan)
+```
+
+```{r}
+#| label: load-targets
+#| include: false
+tar_load(c(rna_metabolites_spearman,
+					 rna_dds,
+					 bioamines,
+					 lipidomics,
+					 primary_metabolism,
+					 rna_patient_enrichment_grouped_go,
+					 rna_patient_enrichment_go))
+rna_significant = tar_read(rna_de_patient)
+metabolites_significant = tar_read(metabolomics_de_patient_list)
+```
+
+## Data
+
+Hepatocarcinoma transcriptomics significant entries, and metabolomics significant entries (p-adjusted <= 0.05), Spearman correlated between the genes and metabolites, using the 12 samples that are in common across all 4 datasets.
+
+## Significant Correlations
+
+P-adjusted correlations <= 0.01.
+@fig-examine-correlations shows the histogram of significant correlations between genes and metabolites.
+
+@tbl-n-genes-metabolites lists how many metabolites and genes are in the significant correlations.
+
+```{r}
+#| label: fig-examine-correlations
+#| fig-cap: Number of genes and metabolites having significant correlations.
+sig_cor = rna_metabolites_spearman |>
+	dplyr::filter(padjust <= 0.01) |>
+	dplyr::transmute(gene = s1, metabolite = s2, cor = cor,
+									 dir = sign(cor))
+
+rna_sig = rna_significant |>
+	dplyr::transmute(gene.lfc = sign(log2FoldChange),
+									 gene = feature_id)
+met_sig = metabolites_significant |>
+	dplyr::transmute(metabolite.lfc = sign(log2FoldChange),
+									 metabolite = feature_id)
+sig_cor = dplyr::left_join(sig_cor, rna_sig, by = "gene")
+sig_cor = dplyr::left_join(sig_cor, met_sig, by = "metabolite")
+sig_cor |>
+	ggplot(aes(x = cor)) +
+	geom_histogram(bins = 100)
+```
+
+```{r}
+#| label: tbl-n-genes-metabolites
+#| tbl-cap: Number of genes and metabolites after filtering to those with significant correlations (p-adjust <= 0.01).
+n_each = sig_cor |>
+	dplyr::summarise(n_gene = length(unique(gene)),
+									 n_metabolite = length(unique(metabolite)))
+gt::gt(n_each)
+```
+
+```{r}
+#| label: fig-n-to-each
+#| fig-cap: Histograms of number of metabolites with significant edges to genes (Genes -> Metabolites) and number of genes with significant edges to metabolites (Metabolites -> Genes), split out by direction of correlation and direction of log-fold-change of the first entry.
+#| fig-width: 8
+#| fig-height: 15
+gene_to_metabolite = sig_cor |>
+	dplyr::mutate(sign = sign(cor)) |>
+	dplyr::group_by(gene, sign, gene.lfc) |>
+	dplyr::summarise(g2m = dplyr::n())
+metabolite_to_gene = sig_cor |>
+	dplyr::mutate(sign = sign(cor)) |>
+	dplyr::group_by(metabolite, sign, metabolite.lfc) |>
+	dplyr::summarise(m2g = dplyr::n())
+
+gm_plot = gene_to_metabolite |>
+	dplyr::mutate(gene.lfc = paste0("lfc ", gene.lfc),
+								sign = paste0("cor ", sign)) |>
+	ggplot(aes(x = g2m)) +
+	geom_histogram(bins = 100) +
+	facet_grid(gene.lfc ~ sign) +
+	coord_cartesian(ylim = c(0, 250)) +
+	labs(subtitle = "Genes -> Metabolites")
+mg_plot = metabolite_to_gene |>
+	dplyr::mutate(metabolite.lfc = paste0("lfc ", metabolite.lfc),
+								sign = paste0("cor ", sign)) |>
+	ggplot(aes(x = m2g)) +
+	geom_histogram(bins = 100) +
+	facet_grid(metabolite.lfc ~ sign) +
+	coord_cartesian(ylim = c(0, 200)) +
+	labs(subtitle = "Metabolites -> Genes")
+gm_plot / mg_plot
+```
+
+
+We can consider this as a simple bipartite graph, and order the nodes by their number of edges and type, as shown in @fig-sig-cor-graph.
+We can also ignore the type of node, and just order them by whether the gene or metabolite had positive or negative LFC and the number of edges to the other type of node, see @fig-sig-cor-graph2.
+Both of these imply there are definite groups of metabolites all connected to one or more sets of genes.
+
+```{r}
+#| label: fig-sig-cor-graph
+#| fig-cap: Bipartite graphing of connected genes and metabolites, ordered by node type (gene or metabolite) and number of nodes.
+#| fig-width: 9
+#| fig-height: 8
+
+all_lfc = dplyr::bind_rows(rna_sig |>
+													 	dplyr::transmute(name = gene,
+													 									 lfc = gene.lfc),
+													 met_sig |>
+													 	dplyr::transmute(name = metabolite,
+													 									 lfc = metabolite.lfc))
+
+sig_cor_graph = as_tbl_graph(sig_cor, directed = FALSE) |>
+	dplyr::mutate(type = dplyr::case_when(
+		grepl("^ENS", name) ~ "gene",
+		TRUE ~ "metabolite"
+	),
+	n_connect = tidygraph::centrality_degree())
+
+sig_cor_graph = dplyr::left_join(sig_cor_graph, all_lfc, by = "name")
+
+sig_cor_graph = sig_cor_graph |>
+	arrange(type, n_connect)
+
+ggraph(sig_cor_graph, layout = "linear", circular = TRUE) +
+	geom_edge_arc(alpha = 0.1) +
+	geom_node_point(aes(color = type)) +
+	coord_fixed()
+```
+
+
+
+```{r}
+#| label: fig-sig-cor-graph2
+#| fig-cap: Ordered by up or down log-fold-change, and number of connections. Color of nodes indicate gene or metabolite, and color of edge is positive or negative correlation.
+#| fig-width: 9
+#| fig-height: 8
+sig_cor_graph = sig_cor_graph |>
+	arrange(lfc, n_connect)
+ggraph(sig_cor_graph, layout = "linear", circular = TRUE) +
+	geom_edge_arc(alpha = 0.1, aes(color = dir)) +
+	geom_node_point(size = 0.5, aes(color = type)) +
+	coord_fixed()
+```
+
+OK, can we cluster the metabolites by their correlations to the genes?
+
+```{r}
+#| label: create-cor-matrix
+sig_matrix = matrix(0, nrow = length(unique(sig_cor$metabolite)),
+										ncol = length(unique(sig_cor$gene)))
+
+rownames(sig_matrix) = unique(sig_cor$metabolite)
+colnames(sig_matrix) = unique(sig_cor$gene)
+for (irow in seq_len(nrow(sig_cor))) {
+	sig_matrix[sig_cor[irow, "metabolite"], sig_cor[irow, "gene"]] = sig_cor[irow, "cor"]
+}
+```
+
+```{r}
+#| label: fig-cluster-metabolites
+metabolite_clusters = dbscan(sig_matrix, eps = 1)
+met_cluster_df = data.frame(name = rownames(sig_matrix), cluster = metabolite_clusters$cluster) |>
+	dplyr::mutate(cluster2 = paste0("met.", cluster))
+
+gene_clusters = dbscan(t(sig_matrix), eps = 1)
+gene_cluster_df = data.frame(name = colnames(sig_matrix), cluster = gene_clusters$cluster) |>
+	dplyr::mutate(cluster2 = paste0("gene.", cluster))
+
+all_clusters = dplyr::bind_rows(met_cluster_df, gene_cluster_df)
+
+all_clusters_no0 = all_clusters |>
+	dplyr::filter(!(cluster == 0))
+
+
+```
+
+```{r}
+#| label: fig-sig-cor-clusters
+sig_cor_graph_cluster = dplyr::left_join(sig_cor_graph, all_clusters, by = "name")
+
+sig_cor_graph_cluster = sig_cor_graph_cluster |>
+	arrange(cluster2, n_connect) |>
+	activate(nodes) |>
+	mutate(is_0 = dplyr::case_when(
+		cluster == 0 ~ "is_0",
+		TRUE ~ "other"
+	))
+
+ggraph(sig_cor_graph_cluster, layout = "linear", circular = TRUE) +
+	geom_edge_arc(alpha = 0.1, aes(color = dir)) +
+	geom_node_point(size = 0.5, aes(color = is_0)) +
+	coord_fixed()
+```
