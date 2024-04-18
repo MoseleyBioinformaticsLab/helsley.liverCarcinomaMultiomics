@@ -299,12 +299,14 @@ tar_plan(
 	
 	rna_within_cor = rna_within_correlation(rna_collapsed,
 																					rna_de_patient,
-																					matched_samples),
+																					matched_samples,
+																					method = "spearman"),
 	
 	metabolites_within_cor = metabolites_within_correlation(bioamines_collapsed,
 																													lipidomics_collapsed,
 																													pm_collapsed,
-																													matched_samples),
+																													matched_samples,
+																													method = "spearman"),
 	
 	rna_metabolites_icikt = feature_correlations(rna_collapsed,
 																												rna_de_patient,
@@ -333,6 +335,15 @@ tar_plan(
 																							 matched_samples,
 																							 method = "spearman"),
 	
+	rna_abundances = just_rna_abundances(rna_collapsed,
+																			 rna_de_patient,
+																			 matched_samples),
+	
+	metabolite_abundances = just_metabolite_abundances(bioamines_collapsed,
+																										 lipidomics_collapsed,
+																										 pm_collapsed,
+																										 matched_samples),
+	
 	## excel output -------
 	excel_output = write_goeach_to_excel(rna_patient_enrichment_grouped_eachgo,
 																			 rna_patient_enrichment_grouped_eachreactome),
@@ -345,7 +356,8 @@ tar_plan(
 	tar_quarto(qcqa, "docs/qcqa.qmd"),
 	
 	tar_quarto(de_comparisons, "docs/de_comparisons.qmd"),
-	tar_quarto(differential_analysis, "docs/differential_analysis.qmd")
+	tar_quarto(differential_analysis, "docs/differential_analysis.qmd"),
+	tar_quarto(gene_metabolite_correlations, "docs/gene-metabolite-correlations.qmd")
 # target = function_to_make(arg), ## drake style
 
 # tar_target(target2, function_to_make2(arg)) ## targets style
