@@ -88,7 +88,8 @@ get_matched_samples = function(rna_collapsed,
 
 rna_within_correlation = function(rna_collapsed,
 																	rna_significant,
-																	matched_samples)
+																	matched_samples,
+																	method = "icikt")
 {
 	# tar_load(c(rna_collapsed,
 	# 		matched_samples))
@@ -98,14 +99,40 @@ rna_within_correlation = function(rna_collapsed,
 		dplyr::filter(padj <= 0.05)
 	rna_counts = assays(rna_collapsed)$counts[rna_sig$feature_id, matched_samples]
 	
-	rna_cor = ICIKendallTau::ici_kendalltau(t(rna_counts), global_na = 0, return_matrix = FALSE)
-	rna_cor
+	out_cor = switch(method,
+									 icikt = {
+									 	all_cor = ICIKendallTau::ici_kendalltau(t(rna_counts), global_na = 0,
+									 																					return_matrix = FALSE)
+									 	just_cor = all_cor$cor |>
+									 		dplyr::filter(s1 != s2)
+									 	just_cor
+									 },
+									 spearman = {
+									 	all_cor = run_correlation(t(rna_counts), include_only = NULL,
+									 														method = "spearman", use = "everything")
+									 	just_cor = all_cor |>
+									 		dplyr::filter(s1 != s2)
+									 	just_cor
+									 },
+									 pearson = {
+									 	all_counts_na = rna_counts
+									 	all_counts_na[rna_counts == 0] = NA
+									 	all_cor = run_correlation(t(all_counts_na), include_only = NULL,
+									 														method = "pearson", use = "pairwise.complete.obs")
+									 	just_cor = all_cor |>
+									 		dplyr::filter(s1 != s2)
+									 	just_cor
+									 })
+	out_cor$padjust = p.adjust(out_cor$pvalue, method = "BH")
+	out_cor$method = method
+	out_cor
 }
 
 metabolites_within_correlation = function(bioamines_collapsed,
 																					lipidomics_collapsed,
 																					pm_collapsed,
-																					matched_samples)
+																					matched_samples,
+																					method = "icikt")
 {
 	# tar_load(c(bioamines_collapsed,
 	# 							lipidomics_collapsed,
@@ -119,8 +146,34 @@ metabolites_within_correlation = function(bioamines_collapsed,
 	all_counts = rbind(bioamines_counts,
 										 lipidomics_counts,
 										 pm_counts)
-	all_cor = ICIKendallTau::ici_kendalltau(t(all_counts), global_na = 0, return_matrix = FALSE)
-	all_cor
+	out_cor = switch(method,
+									 icikt = {
+									 	all_cor = ICIKendallTau::ici_kendalltau(t(all_counts), global_na = 0,
+									 																					return_matrix = FALSE)
+									 	just_cor = all_cor$cor |>
+									 		dplyr::filter(s1 != s2)
+									 	just_cor
+									 },
+									 spearman = {
+									 	all_cor = run_correlation(t(all_counts), include_only = NULL,
+									 														method = "spearman", use = "everything")
+									 	just_cor = all_cor |>
+									 		dplyr::filter(s1 != s2)
+									 	just_cor
+									 },
+									 pearson = {
+									 	all_counts_na = all_counts
+									 	all_counts_na[all_counts == 0] = NA
+									 	all_cor = run_correlation(t(all_counts_na), include_only = NULL,
+									 														method = "pearson", use = "pairwise.complete.obs")
+									 	just_cor = all_cor |>
+									 		dplyr::filter(s1 != s2)
+									 	just_cor
+									 })
+	out_cor$padjust = p.adjust(out_cor$pvalue, method = "BH")
+	out_cor$method = method
+	out_cor
+	return(out_cor)
 }
 
 run_correlation = function(data_matrix, include_only, method, use = "everything")
@@ -214,4 +267,29 @@ run_correlation = function(data_matrix, include_only, method, use = "everything"
 	
 	all_cor = purrr::list_rbind(split_cor)
 	all_cor
+}
+
+just_rna_abundances = function(rna_collapsed,
+																rna_significant,
+																matched_samples)
+{
+	rna_sig = rna_significant |>
+		dplyr::filter(padj <= 0.05)
+	rna_counts = assays(rna_collapsed)$counts[rna_sig$feature_id, matched_samples]
+	rna_counts
+}
+
+just_metabolite_abundances = function(bioamines_collapsed,
+																			 lipidomics_collapsed,
+																			 pm_collapsed,
+																			 matched_samples)
+{
+	bioamines_counts = assays(bioamines_collapsed)$counts[, matched_samples]
+	lipidomics_counts = assays(lipidomics_collapsed)$counts[, matched_samples]
+	pm_counts = assays(pm_collapsed)$counts[, matched_samples]
+	
+	all_counts = rbind(bioamines_counts,
+										 lipidomics_counts,
+										 pm_counts)
+	all_counts
 }

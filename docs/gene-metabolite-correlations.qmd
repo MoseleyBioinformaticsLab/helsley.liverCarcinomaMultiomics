@@ -27,12 +27,14 @@ library(dbscan)
 #| label: load-targets
 #| include: false
 tar_load(c(rna_metabolites_spearman,
-					 rna_dds,
-					 bioamines,
-					 lipidomics,
-					 primary_metabolism,
-					 rna_patient_enrichment_grouped_go,
-					 rna_patient_enrichment_go))
+					 rna_patient_enrichment_grouped_eachgo,
+					 rna_patient_enrichment_go,
+					 rna_abundances,
+					 rna_de_patient,
+					 metabolite_abundances,
+					 rna_within_cor,
+					 metabolites_within_cor
+					 ))
 rna_significant = tar_read(rna_de_patient)
 metabolites_significant = tar_read(metabolomics_de_patient_list)
 ```
@@ -162,45 +164,80 @@ ggraph(sig_cor_graph, layout = "linear", circular = TRUE) +
 	coord_fixed()
 ```
 
-OK, can we cluster the metabolites by their correlations to the genes?
+## Check Correlations
+
+We should check what these significant correlations look like in practice, especially compared to gene - gene and metabolite - metabolite correlations.
 
 ```{r}
-#| label: create-cor-matrix
-all_matrix = ICIKendallTau:::long_df_2_cor_matrix(rna_metabolites_spearman, is_square = FALSE)
+#| label: grab-to-check
+set.seed(1134)
+check_cor = dplyr::bind_rows(rna_metabolites_spearman |>
+														 	dplyr::filter(dplyr::between(cor, -0.5, 0.5)) |>
+														 	dplyr::slice_sample(n = 10),
+														 rna_metabolites_spearman |>
+														 	dplyr::filter(padjust <= 0.01) |>
+														 	dplyr::filter(dplyr::between(abs(cor), 0.8, 0.9)) |>
+														 	dplyr::slice_sample(n = 10))
+check_cor = check_cor |>
+	dplyr::arrange(abs(cor))
+
+out_plots = purrr::map(seq_len(nrow(check_cor)), \(in_row){
+	use_gene = check_cor$s1[in_row]
+	use_met = check_cor$s2[in_row]
+	tmp_df = data.frame(gene = rna_abundances[use_gene, ],
+											metabolite = metabolite_abundances[use_met, ])
+	ggplot(tmp_df, aes(x = gene, y = metabolite)) +
+		geom_point() +
+		labs(x = use_gene, y = use_met, subtitle = paste0("Spearman: ", format(check_cor$cor[in_row], digits = 2)))
+	
+})
+
 ```
 
 ```{r}
-#| label: fig-cluster-metabolites
-metabolite_clusters = hdbscan(t(all_matrix), minPts = 5)
-met_cluster_df = data.frame(name = colnames(all_matrix), cluster = metabolite_clusters$cluster) |>
-	dplyr::mutate(cluster2 = paste0("met.", cluster))
-
-gene_clusters = dbscan((all_matrix), eps = 1, minPts = 2)
-gene_cluster_df = data.frame(name = colnames(sig_matrix), cluster = gene_clusters$cluster) |>
-	dplyr::mutate(cluster2 = paste0("gene.", cluster))
-
-all_clusters = dplyr::bind_rows(met_cluster_df, gene_cluster_df)
-
-all_clusters_no0 = all_clusters |>
-	dplyr::filter(!(cluster == 0))
-
-
+#| label: fig-check-cor
+#| fig-cap: Gene - metabolite plots for a random selection of non-significant and significant gene - metabolite pairs.
+patchwork::wrap_plots(out_plots, nrow = 5, ncol = 4, byrow = TRUE)
 ```
 
+## Groups of Interesting Genes
+
+We will take some of the interesting groups of gene ontology (GO) terms, and then all the genes annotated to them, verify their correlations among those genes, and then look for significantly correlated metabolites, and hopefully find something interesting.
+
 ```{r}
-#| label: fig-sig-cor-clusters
-sig_cor_graph_cluster = dplyr::left_join(sig_cor_graph, all_clusters, by = "name")
+#| label: define-groups
+go_neg = rna_patient_enrichment_grouped_eachgo$neg
+go_neg_interesting = go_neg |>
+	dplyr::filter(grepl("MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle", group))
 
-sig_cor_graph_cluster = sig_cor_graph_cluster |>
-	arrange(cluster2, n_connect) |>
-	activate(nodes) |>
-	mutate(is_0 = dplyr::case_when(
-		cluster == 0 ~ "is_0",
-		TRUE ~ "other"
-	))
+go_neg_split = split(go_neg_interesting$ID, go_neg_interesting$group)
 
-ggraph(sig_cor_graph_cluster, layout = "linear", circular = TRUE) +
-	geom_edge_arc(alpha = 0.1, aes(color = dir)) +
-	geom_node_point(size = 0.5, aes(color = is_0)) +
-	coord_fixed()
+rna_neg_sig = rna_de_patient |>
+	dplyr::filter(padj <= 0.01, log2FoldChange <= 0) |>
+	dplyr::pull(feature_id)
+rna_cor_sig = sig_cor |>
+	dplyr::pull(gene) |>
+	unique()
+annotation_list = rna_patient_enrichment_go$enrich@annotation@annotation_features
+
+go_neg_genes = purrr::map(go_neg_split, \(in_go){
+	go_genes = base::intersect(unique(unlist(annotation_list[in_go])), rna_neg_sig)
+	go_genes = base::intersect(go_genes, rna_cor_sig)
+	go_genes_cor = rna_within_cor |>
+		dplyr::filter((s1 %in% go_genes) & (s2 %in% go_genes))
+	
+	gene_metabolite = sig_cor |>
+		dplyr::filter(gene %in% go_genes)
+	
+	metabolite_cor = metabolites_within_cor |>
+		dplyr::filter((s1 %in% unique(gene_metabolite$metabolite)) & (s2 %in% unique(gene_metabolite$metabolite))) 
+	
+	list(genes = go_genes,
+			 gene_cor = go_genes_cor,
+			 metabolite_cor = metabolite_cor,
+			 gene_metabolite = gene_metabolite)
+	
+})
+
+go_neg_metabolites = purrr::map(go_neg_genes)
 ```
