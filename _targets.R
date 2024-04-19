@@ -344,6 +344,22 @@ tar_plan(
 																										 pm_collapsed,
 																										 matched_samples),
 	
+	rna_metabolite_groups_neg = find_interesting_gm_groups(rna_metabolites_spearman,
+																												 rna_within_cor,
+																												 metabolites_within_cor,
+																												 rna_patient_enrichment_grouped_eachgo,
+																												 rna_patient_enrichment_go,
+																												 cor_cutoff = 0.01,
+																												 direction = "neg"),
+	
+	rna_metabolite_groups_pos = find_interesting_gm_groups(rna_metabolites_spearman,
+																												 rna_within_cor,
+																												 metabolites_within_cor,
+																												 rna_patient_enrichment_grouped_eachgo,
+																												 rna_patient_enrichment_go,
+																												 cor_cutoff = 0.01,
+																												 direction = "pos"),
+	
 	## excel output -------
 	excel_output = write_goeach_to_excel(rna_patient_enrichment_grouped_eachgo,
 																			 rna_patient_enrichment_grouped_eachreactome),

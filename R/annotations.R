@@ -329,3 +329,62 @@ write_goeach_to_excel = function(go_stuff,
 																				overwrite = TRUE)
 	tabular_output
 }
+
+find_interesting_gm_groups = function(rna_metabolites_spearman,
+																			rna_within_cor,
+																			metabolites_within_cor,
+																			rna_patient_enrichment_grouped_eachgo,
+																			rna_patient_enrichment_go,
+																			cor_cutoff = 0.01,
+																			direction = "neg")
+{
+	# tar_load(c(
+	# 	rna_metabolites_spearman,
+	# 	rna_within_cor,
+	# 	metabolites_within_cor,
+	# 	rna_patient_enrichment_grouped_eachgo,
+	# 	rna_patient_enrichment_go
+	# ))
+	# cor_cutoff = 0.01
+	# direction = "pos"
+	
+	
+	
+	force(cor_cutoff)
+	match_str = "MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle"
+	
+	sig_cor = rna_metabolites_spearman |>
+		dplyr::filter(padjust <= cor_cutoff) |>
+		dplyr::transmute(gene = s1, metabolite = s2, cor = cor, pvalue = pvalue,
+										 padjust = padjust)
+	cor_genes = unique(sig_cor$gene)
+	
+	use_go = rna_patient_enrichment_grouped_eachgo[[direction]]
+	interesting_go = use_go |>
+		dplyr::filter(grepl(match_str, group))
+	
+	split_go = split(interesting_go$ID, interesting_go$group)
+	
+	rna_sig = rna_patient_enrichment_go$enrich@enriched[[direction]]@features
+	annotations = rna_patient_enrichment_go$enrich@annotation@annotation_features
+	
+	group_genes_metabolites = purrr::map(split_go, \(in_go){
+		go_set = purrr::map(annotations[in_go], base::intersect, rna_sig)
+		go_set = purrr::map(go_set, base::intersect, cor_genes)
+		go_genes = unique(unlist(go_set))
+		
+		go_genes_cor = rna_within_cor |>
+			dplyr::filter((s1 %in% go_genes) & (s2 %in% go_genes))
+		gene_metabolite = sig_cor |>
+			dplyr::filter(gene %in% go_genes)
+		metabolite_cor = metabolites_within_cor |>
+			dplyr::filter((s1 %in% unique(gene_metabolite$metabolite)) & (s2 %in% unique(gene_metabolite$metabolite)))
+		
+		list(go_set = go_set,
+				 gene_cor = go_genes_cor,
+				 metabolite_cor = metabolite_cor,
+				 gene_metabolite = gene_metabolite)
+	})
+	
+	group_genes_metabolites
+}
