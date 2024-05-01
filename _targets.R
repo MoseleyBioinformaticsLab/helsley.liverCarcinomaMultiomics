@@ -194,6 +194,9 @@ tar_plan(
 		dplyr::select(in_chi_key, kegg) |>
 		dplyr::filter(!(kegg %in% "NIL")),
 	
+	lipid_annotations = annotate_lipids(lipidomics_keep),
+	metabolite_type_annotations = annotate_metabolite_type(metabolomics_feature_list),
+	
 	## Enrichments --------
 	### GO --------
 	rna_treatment_enrichment_go = run_enrichment(rna_de_treatment, ensembl_go),

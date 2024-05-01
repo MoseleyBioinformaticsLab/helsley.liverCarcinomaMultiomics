@@ -33,7 +33,10 @@ tar_load(c(rna_metabolites_spearman,
 					 rna_de_patient,
 					 metabolite_abundances,
 					 rna_within_cor,
-					 metabolites_within_cor
+					 metabolites_within_cor,
+					 rna_metabolite_groups_neg,
+					 lipid_annotations,
+					 metabolite_type_annotations
 					 ))
 rna_significant = tar_read(rna_de_patient)
 metabolites_significant = tar_read(metabolomics_de_patient_list)
@@ -204,3 +207,29 @@ patchwork::wrap_plots(out_plots, nrow = 5, ncol = 4, byrow = TRUE)
 
 We will take some of the interesting groups of gene ontology (GO) terms, and then all the genes annotated to them, verify their correlations among those genes, and then look for significantly correlated metabolites, and hopefully find something interesting.
 
+```{r}
+#| label: gene-groups-annotations
+metabolite_universe = unique(sig_cor$metabolite)
+
+enrich_group = purrr::imap(rna_metabolite_groups_neg, \(in_group, group_id){
+	sig_metabolites = unique(in_group$gene_metabolite$metabolite)
+	type_enrich = hypergeometric_feature_enrichment(
+		new("hypergeom_features", significant = sig_metabolites,
+				universe = metabolite_universe, annotation = metabolite_type_annotations),
+		p_adjust = "BH"
+	)
+	lipid_enrich = hypergeometric_feature_enrichment(
+		new("hypergeom_features", significant = sig_metabolites,
+				universe = metabolite_universe, annotation = lipid_annotations),
+		p_adjust = "BH"
+	)
+	type_df = as.data.frame(type_enrich@statistics@statistic_data)
+	type_df$id = type_enrich@statistics@annotation_id
+	
+	lipid_df = as.data.frame(lipid_enrich@statistics@statistic_data)
+	lipid_df$id = lipid_enrich@statistics@annotation_id
+	lipid_df = lipid_df |>
+		dplyr::arrange(padjust)
+	list(type = type_df, lipid = lipid_df)
+})
+```

@@ -388,3 +388,185 @@ find_interesting_gm_groups = function(rna_metabolites_spearman,
 	
 	group_genes_metabolites
 }
+
+annotate_lipids = function(lipidomics_keep)
+{
+	# tar_load(lipidomics_keep)
+	lipid_data_df = rowData(lipidomics_keep) |> as.data.frame()
+	fixed_lipids = fix_lipids(lipid_data_df$metabolite_name)
+	annotated_lipids = rmf_annotate_lipids(fixed_lipids$Molecule)
+	
+	out_data = dplyr::left_join(fixed_lipids, annotated_lipids, by = "Molecule")
+	
+	lipids_2_annotation = dplyr::left_join(lipid_data_df[, c("feature_id", "metabolite_name")],
+																				 out_data, by = c("metabolite_name" = "lipid"))
+	
+	lipids_2_annotation = lipids_2_annotation |>
+		dplyr::filter(!is.na(not_matched) | !not_matched)
+	
+	lipids_2_annotation = lipids_2_annotation |>
+		dplyr::mutate(class = class_stub,
+									Class = NULL,
+									total_length = total_cs,
+									total_db = total_cs,
+									chain1_length = l_1,
+									chain2_length = l_2,
+									chain3_length = l_3,
+									chain1_db = s_1,
+									chain2_db = s_2,
+									chain3_db = s_3,
+									class_total_length = paste0(class_stub, "_", total_length),
+									class_total_db = paste0(class_stub, "_", total_db),
+									class_chain1_length = paste0(class_stub, "_", chain1_length),
+									class_chain2_length = paste0(class_stub, "_", chain2_length),
+									class_chain3_length = paste0(class_stub, "_", chain3_length))
+	
+	annotation_cols = c("total_length", "total_db", 
+											"chain1_length", "chain2_length", "chain3_length", "chain1_db", 
+											"chain2_db", "chain3_db", "class_total_length", "class_total_db", 
+											"class_chain1_length", "class_chain2_length", "class_chain3_length", 
+											"class")
+	
+	annotation_list = purrr::map(annotation_cols, \(in_col){
+		tmp_list = split(lipids_2_annotation$feature_id, lipids_2_annotation[[in_col]])
+		names(tmp_list) = paste0(in_col, ":", names(tmp_list))
+		tmp_list
+	})
+	
+	feature_annotations = unlist(annotation_list, recursive = FALSE)
+	na_annotations = grepl("_NA$", names(feature_annotations))
+	feature_annotations = feature_annotations[!na_annotations]
+	feature_annotations = purrr::map(feature_annotations, unique)
+	
+	lipid_annotation = categoryCompare2::annotation(feature_annotations, annotation_type = "lipids", feature_type = "lipids")
+	
+	lipid_annotation
+}
+
+choose_or = function(in_lipid)
+{
+	out_lipid = in_lipid |>
+		stringr::str_split(pattern = "\\|") |>
+		purrr::map_chr(\(in_split){
+			if (length(in_split) > 1) {
+				return(in_split[2])
+			} else {
+				return(in_split)
+			}
+		})
+	out_lipid
+}
+
+
+
+fix_lipids = function(lipid_ids)
+{
+	# lipid_ids = "TG 48:3;O|TG 17:1_17:1_14:1;O"
+	lipids_nona = lipid_ids[!is.na(lipid_ids)]
+	
+	lipid_ids2 = choose_or(lipids_nona) |>
+		stringr::str_replace_all(" O-", "O ") |>
+		stringr::str_replace_all("-O", "O") |>
+		stringr::str_replace_all(" P-", "P ") |>
+		stringr::str_replace_all("-N", "N") |>
+		stringr::str_replace_all("Isomer [A|B|C|D]", "") |>
+		stringr::str_replace_all("\\:\\:", ":")
+	
+	original_ids = data.frame(lipid = lipids_nona,
+														pass1 = lipid_ids2)
+	
+	split_space = stringr::str_split(lipid_ids2, " ")
+	names(split_space) = lipid_ids2
+	has_o3 = grepl(";O3|;3O", names(split_space))
+	
+	split_o3 = split_space[has_o3]
+	
+	split_space = split_space[!has_o3]
+	
+	split_o3 = purrr::map(split_o3, \(in_o3){
+		in_o3[1] = paste0(in_o3[1], "O3")
+		in_o3[2] = gsub(";O3|;3O", "", in_o3[2])
+		in_o3
+	})
+	
+	has_o2 = grepl(";O2|;2O|\\(2OH\\)", names(split_space))
+	split_o2 = split_space[has_o2]
+	split_o2 = purrr::map(split_o2, \(in_o2){
+		in_o2[1] = paste0(in_o2[1], "O2")
+		in_o2[2] = gsub(";O2|;2O|;\\(2OH\\)|;O", "", in_o2[2])
+		in_o2
+	})
+	
+	split_space = split_space[!has_o2]
+	
+	has_o = grepl(";O", names(split_space))
+	
+	split_o = split_space[has_o]
+	split_o = purrr::map(split_o, \(in_o){
+		in_o[1] = paste0(in_o[1], "O")
+		in_o[2] = gsub(";O", "", in_o[2])
+		in_o
+	})
+	split_space = split_space[!has_o]
+	split_all = c(split_space, split_o, split_o2, split_o3)
+	
+	split_all = purrr::map(split_all, \(in_split){
+		in_split[1] = gsub("-", "", in_split[1])
+		in_split
+	})
+	
+	merged = purrr::map_chr(split_all, \(in_split){
+		paste0(in_split, collapse = " ")
+	})
+	
+	merged_df = data.frame(lipid_id = names(merged),
+												 Molecule = merged)
+	
+	out_df = dplyr::left_join(original_ids, merged_df, by = c("pass1" = "lipid_id"),
+														relationship = "many-to-many")
+	out_df = out_df |>
+		dplyr::select(-pass1)
+	out_df
+}
+
+rmf_annotate_lipids = function(in_lipids)
+{
+	#in_lipids = fixed_lipids$Molecule
+	annotated_lipids = lipidr::annotate_lipids(in_lipids)
+	
+	is_annotated = annotated_lipids |>
+		dplyr::filter(!not_matched)
+	
+	has_multi = c("BMP", "Cer", "CerADS",
+								"CerAS", "CerNDS", "CerO2", "CerO3",
+								"DG", "FAHFA", "GalCer", "GlcCer",
+								"Hex3CerO2", "HexCerNS", "HexCerO3",
+								"MGDG", "PC", "PCO", "PE", "PECerO2",
+								"PEO", "PEtOH", "PG", "PI",
+								"PMeOH", "PS",
+								"SHexCer", "SMO2", "TG", "TGO")
+	is_annotated_should_multi = is_annotated |>
+		dplyr::filter(class_stub %in% has_multi)
+	
+	is_annotated_whatever = is_annotated |>
+		dplyr::filter(!(class_stub %in% has_multi))
+	
+	should_none_l1 = is_annotated_should_multi$l_1 == is_annotated_should_multi$total_cl
+	is_annotated_should_multi[should_none_l1, "chain1"] = ""
+	is_annotated_should_multi[should_none_l1, "l_1"] = NA
+	is_annotated_should_multi[should_none_l1, "s_1"] = NA
+	
+	out_annotated = dplyr::bind_rows(is_annotated_should_multi,
+																	 is_annotated_whatever)
+	out_annotated
+}
+
+annotate_metabolite_type = function(metabolomics_feature_list)
+{
+	# tar_load(metabolomics_feature_list)
+	split_type = split(metabolomics_feature_list$feature_id, metabolomics_feature_list$type)
+	split_type = purrr::map(split_type, unique)
+	annotation_type = categoryCompare2::annotation(split_type, annotation_type = "type",
+																								 feature_type = "metabolite")
+	annotation_type
+}
