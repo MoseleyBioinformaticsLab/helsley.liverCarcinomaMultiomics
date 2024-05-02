@@ -352,7 +352,7 @@ tar_plan(
 																												 metabolites_within_cor,
 																												 rna_patient_enrichment_grouped_eachgo,
 																												 rna_patient_enrichment_go,
-																												 cor_cutoff = 0.01,
+																												 cor_cutoff = 0.05,
 																												 direction = "neg"),
 	
 	rna_metabolite_groups_pos = find_interesting_gm_groups(rna_metabolites_spearman,
@@ -360,7 +360,7 @@ tar_plan(
 																												 metabolites_within_cor,
 																												 rna_patient_enrichment_grouped_eachgo,
 																												 rna_patient_enrichment_go,
-																												 cor_cutoff = 0.01,
+																												 cor_cutoff = 0.05,
 																												 direction = "pos"),
 	
 	## excel output -------
