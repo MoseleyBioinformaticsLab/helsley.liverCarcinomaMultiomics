@@ -150,6 +150,7 @@ create_qcqa_plots = function(cor_pca,
 {
 	# cor_pca = tar_read(bioamines_cor_pca)
 	# cor_pca = tar_read(primary_metabolism_cor_pca)
+	# cor_pca = tar_read(rna_cor_pca)
 	# tar_load(color_scales)
 	sample_info = cor_pca$info
 	cor_matrix = cor_pca$correlation$cor
@@ -254,7 +255,7 @@ create_qcqa_plots = function(cor_pca,
 	
 	list(heatmap = treatment_heatmap,
 			 heatmap_all = all_heatmap,
-			 median_cor = median_cor_treatment_plot,
+			 median_cor = sample_info_treatment,
 			 pca_all = all_pca_plot,
 			 pca_noblanks = noblanks_pca_plot,
 			 pca_nooutlier = nooutlier_pca_plot)

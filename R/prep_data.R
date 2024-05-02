@@ -84,9 +84,19 @@ setup_metabolomics = function(all_data,
 	if ("bin_base_name" %in% colnames(all_data)) {
 		feature_id = paste0(janitor::make_clean_names(all_data[["bin_base_name"]]), ".",
 												metabolite_type)
+		
+		non_id = grepl("^[[:digit:]]", all_data[["bin_base_name"]])
+		metabolite_id = all_data[["bin_base_name"]]
+		metabolite_id[non_id] = NA
 	} else {
 		feature_id = paste0(janitor::make_clean_names(all_data[["identifier"]]), ".",
 												metabolite_type)
+		
+		if ("metabolite_name" %in% colnames(all_data)) {
+			metabolite_id = all_data[["metabolite_name"]]
+		} else if ("annotation" %in% colnames(all_data)) {
+			metabolite_id = all_data[["annotation"]]
+		}
 	}
 	
 	if ("in_ch_i_key" %in% colnames(all_data)) {
@@ -111,6 +121,7 @@ setup_metabolomics = function(all_data,
 	
 	metadata$feature_id = feature_id
 	rownames(metadata) = metadata$feature_id
+	metadata$metabolite_id = metabolite_id
 	
 	out_data = DESeq2::DESeqDataSetFromMatrix(sample_matrix, sample_info_extra, design = ~ treatment)
 	
