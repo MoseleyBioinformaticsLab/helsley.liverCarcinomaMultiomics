@@ -150,6 +150,11 @@ tar_plan(
 	pm_de_patient_named = calculate_deseq_stats(pm_paired, which = "patient",
 																										 named_only = TRUE),
 	
+	metabolomics_de_patient_named_list = list(bioamines = bioamines_de_patient_named,
+																						lipidomics = lipidomics_de_patient_named,
+																						pm = pm_de_patient_named) |>
+		merge_list(),
+	
 	
 	### Paired Samples, but unpaired stats --------
 	rna_de_patient_unpaired = calculate_deseq_stats(rna_paired,
@@ -277,6 +282,11 @@ tar_plan(
 	metabolomics_treatment_enrichment_kegg = run_enrichment(metabolomics_de_treatment_kegg,
 																													compound_kegg),
 	rna_treatment_enrichment_kegg = run_enrichment(rna_de_treatment, ensembl_kegg),
+	
+	metabolomics_de_patient_kegg = map_metabolomics_kegg(metabolomics_de_patient_list,
+																											inchikey_kegg),
+	metabolomics_patient_enrichment_kegg = run_enrichment(metabolomics_de_patient_kegg,
+																												compound_kegg),
 	
 	## Comparing Statistics Between Treatment and Paired ---------
 	metabolomics_de_compare = compare_treatment_patient(metabolomics_de_treatment_list,
