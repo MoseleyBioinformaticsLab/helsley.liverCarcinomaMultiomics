@@ -94,7 +94,8 @@ calculate_deseq_stats = function(rna_se,
 																 which = "treatment",
 																 contrast = c("treatment", "cancerous", 
 																 						 "normal_adjacent"),
-																 fit_type = "local")
+																 fit_type = "local",
+																 named_only = FALSE)
 {
 	# rna_se = tar_read(rna_collapsed)
 	# which = "treatment"
@@ -119,6 +120,14 @@ calculate_deseq_stats = function(rna_se,
 	rna_results = results(rna_deseq, contrast = contrast) |> as.data.frame()
 	rna_info = rowData(rna_se) |> as.data.frame()
 	rna_results = cbind(rna_results, rna_info)
+	
+	if (named_only) {
+		if ("metabolite_id" %in% colnames(rna_results)) {
+			has_id = !is.na(rna_results[["metabolite_id"]])
+			rna_results = rna_results[has_id, ]
+			rna_results$padj = p.adjust(rna_results$pvalue)
+		}
+	}
 	rna_results
 }
 

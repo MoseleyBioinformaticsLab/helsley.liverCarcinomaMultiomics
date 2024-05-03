@@ -143,6 +143,13 @@ tar_plan(
 	pm_de_patient = calculate_deseq_stats(pm_paired,
 																							 which = "patient"),
 	
+	bioamines_de_patient_named = calculate_deseq_stats(bioamines_paired, which = "patient",
+																										named_only = TRUE),
+	lipidomics_de_patient_named = calculate_deseq_stats(lipidomics_paired, which = "patient",
+																										 named_only = TRUE),
+	pm_de_patient_named = calculate_deseq_stats(pm_paired, which = "patient",
+																										 named_only = TRUE),
+	
 	
 	### Paired Samples, but unpaired stats --------
 	rna_de_patient_unpaired = calculate_deseq_stats(rna_paired,
