@@ -46,6 +46,42 @@ metabolites_significant = tar_read(metabolomics_de_patient_list)
 
 Hepatocarcinoma transcriptomics significant entries, and metabolomics significant entries (p-adjusted <= 0.05), Spearman correlated between the genes and metabolites, using the 12 samples that are in common across all 4 datasets.
 
+## Named Metabolites?
+
+How many metabolites actually have any kind of useable name or identifier in the full dataset, and in the significant metabolites?
+
+```{r}
+#| label: named-metabolite-locs
+metabolites_significant = metabolites_significant |>
+	dplyr::mutate(has_name = dplyr::case_when(
+		!is.na(metabolite_id) ~ "named",
+		is.na(metabolite_id) ~ "unknown"
+	),
+	lfc_direction = dplyr::case_when(
+		log2FoldChange > 0 ~ "Positive",
+		log2FoldChange < 0 ~ "Negative"
+	))
+summary_names = metabolites_significant |>
+	dplyr::group_by(type, has_name, lfc_direction) |>
+	dplyr::summarise(n_entry.all = dplyr::n()) |>
+	dplyr::ungroup() |>
+	dplyr::mutate(perc_entry.all = n_entry.all / sum(n_entry.all))
+summary_sig = metabolites_significant |>
+	dplyr::filter(padj <= 0.05) |>
+	dplyr::group_by(type, has_name, lfc_direction) |>
+	dplyr::summarise(n_entry.sig = dplyr::n()) |>
+	dplyr::ungroup() |>
+	dplyr::mutate(perc_entry.sig = n_entry.sig / sum(n_entry.sig))
+
+summary_all = dplyr::bind_cols(summary_names[, c("type", "has_name", "lfc_direction", 
+																								 "n_entry.all", "perc_entry.all")],
+															 summary_sig[, c("n_entry.sig", "perc_entry.sig")])
+summary_all |>
+	dplyr::group_by(type) |>
+gt::gt() |>
+	gt::fmt_percent(c(perc_entry.all, perc_entry.sig), decimals = 0)
+```
+
 ## Significant Correlations
 
 P-adjusted correlations <= 0.01.
@@ -307,17 +343,3 @@ gene_group_metabolite_tables = purrr::imap(rna_metabolite_groups_neg, \(in_group
 })
 ```
 
-## Named Metabolites?
-
-So where are the named metabolites in the correlation histogram?
-
-```{r}
-#| label: named-metabolite-locs
-metabolites_names = metabolites_significant |>
-	dplyr::transmute(feature_id = feature_id,
-									 metabolite_id = dplyr::case_when(
-									 	!is.na(annotation) ~ annotation,
-									 	!is.na(metabolite_name) ~ metabolite_name,
-									 	TRUE ~ NA
-									 ))
-```

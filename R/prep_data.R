@@ -77,6 +77,15 @@ setup_metabolomics = function(all_data,
 	# rename_experimental_samples()
 	# tar_load(sample_info)
 	# metabolite_type = "lipidomics"
+	# 
+	# tar_load(bioamines_file)
+	# all_data = suppressMessages(readxl::read_excel(bioamines_file,
+	# sheet = "Data",
+	# skip = 9)) |>
+	# janitor::clean_names()  |>
+	# rename_experimental_samples()
+	# tar_load(sample_info)
+	# metabolite_type = "bioamines"
 	start_samples = which(grepl("^s[[:digit:]]", colnames(all_data)))[1]
 	sample_locs = seq(start_samples, ncol(all_data))
 	metadata_locs = seq_len(start_samples - 1)
@@ -106,7 +115,11 @@ setup_metabolomics = function(all_data,
 	sample_data = all_data[, sample_locs]
 	sample_data = purrr::map(sample_data, as.numeric) |>
 		dplyr::bind_cols()
-	metadata = all_data[, metadata_locs]
+	metadata = all_data[, metadata_locs] |> as.data.frame()
+	metadata$feature_id = feature_id
+	rownames(metadata) = metadata$feature_id
+	metadata$metabolite_id = metabolite_id
+	
 	sample_data$feature_id = feature_id
 	
 	sample_matrix = sample_data |>
@@ -119,9 +132,7 @@ setup_metabolomics = function(all_data,
 	
 	sample_matrix[is.na(sample_matrix)] = 0
 	
-	metadata$feature_id = feature_id
-	rownames(metadata) = metadata$feature_id
-	metadata$metabolite_id = metabolite_id
+	
 	
 	out_data = DESeq2::DESeqDataSetFromMatrix(sample_matrix, sample_info_extra, design = ~ treatment)
 	
