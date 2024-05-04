@@ -407,7 +407,7 @@ annotate_lipids = function(lipidomics_keep)
 	lipids_2_annotation = lipids_2_annotation |>
 		dplyr::mutate(class = class_stub,
 									Class = NULL,
-									total_length = total_cs,
+									total_length = total_cl,
 									total_db = total_cs,
 									chain1_length = l_1,
 									chain2_length = l_2,
@@ -569,4 +569,33 @@ annotate_metabolite_type = function(metabolomics_feature_list)
 	annotation_type = categoryCompare2::annotation(split_type, annotation_type = "type",
 																								 feature_type = "metabolite")
 	annotation_type
+}
+
+run_binomial = function(metabolomics_de_patient_list,
+												lipid_annotations)
+{
+	# tar_load(c(metabolomics_de_patient_list,
+	# 				 lipid_annotations))
+	pos_features = metabolomics_de_patient_list |>
+		dplyr::filter(log2FoldChange > 0) |>
+		dplyr::pull(feature_id)
+	neg_features = metabolomics_de_patient_list |>
+		dplyr::filter(log2FoldChange < 0) |>
+		dplyr::pull(feature_id)
+	
+	binomial_res = binomial_feature_enrichment(
+		new("binomial_features", positivefc = pos_features,
+				negativefc = neg_features, annotation = lipid_annotations),
+		p_adjust = "BH",
+		min_features = 6
+	)
+	res_df = as.data.frame(binomial_res@statistics@statistic_data)
+	res_df$id = binomial_res@statistics@annotation_id
+	
+	if (length(binomial_res@annotation@description) > 0) {
+		res_df$description = binomial_res@annotation@description[res_df$id]
+	}
+	
+	list(enrichment = binomial_res,
+			 stats = res_df)
 }

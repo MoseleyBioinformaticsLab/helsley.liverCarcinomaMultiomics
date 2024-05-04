@@ -210,7 +210,8 @@ tar_plan(
 	metabolite_type_annotations = annotate_metabolite_type(metabolomics_feature_list),
 	
 	## Enrichments --------
-	### GO --------
+	### Significant --------
+	#### GO --------
 	rna_treatment_enrichment_go = run_enrichment(rna_de_treatment, ensembl_go),
 	rna_patient_enrichment_go = run_enrichment(rna_de_patient, ensembl_go),
 	
@@ -226,7 +227,7 @@ tar_plan(
 	rna_patient_enrichment_grouped_eachgo = group_annotations_each(rna_patient_enrichment_go,
 																																 similarity_cutoff = 0.8),
 	
-	### Reactome ---------
+	#### Reactome ---------
 	rna_treatment_enrichment_reactome = run_enrichment(rna_de_treatment, ensembl_reactome),
 	rna_patient_enrichment_reactome = run_enrichment(rna_de_patient, ensembl_reactome),
 	
@@ -270,7 +271,7 @@ tar_plan(
 	metabolomics_patient_enrichment_reactome = run_enrichment(metabolomics_de_patient,
 																															chebi_reactome),
 	
-	### KEGG -----
+	#### KEGG -----
 	kegg_data = get_kegg_compound_data(),
 	
 	ensembl_kegg = create_kegg_annotations_genes(kegg_data, ensembl_entrez),
@@ -287,6 +288,14 @@ tar_plan(
 																											inchikey_kegg),
 	metabolomics_patient_enrichment_kegg = run_enrichment(metabolomics_de_patient_kegg,
 																												compound_kegg),
+	
+	### Binomial ---------
+	metabolomics_enrichment_lipid_binomial = run_binomial(metabolomics_de_patient_list,
+																												lipid_annotations),
+	metabolomics_enrichment_kegg_binomial = run_binomial(metabolomics_de_patient_kegg,
+																											 compound_kegg),
+	metabolomics_enrichment_reactome_binomial = run_binomial(metabolomics_de_patient,
+																														chebi_reactome),
 	
 	## Comparing Statistics Between Treatment and Paired ---------
 	metabolomics_de_compare = compare_treatment_patient(metabolomics_de_treatment_list,
