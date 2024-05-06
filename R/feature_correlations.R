@@ -5,7 +5,8 @@ feature_correlations = function(rna_collapsed,
 																pm_collapsed,
 																metabolites_significant,
 																matched_samples,
-																method = "icikt")
+																method = "icikt",
+																significant_only = TRUE)
 {
 	# tar_load(c(rna_collapsed,
 	# 				 bioamines_collapsed,
@@ -15,10 +16,16 @@ feature_correlations = function(rna_collapsed,
 	# rna_significant = tar_read(rna_de_patient)
 	# metabolites_significant = tar_read(metabolomics_de_patient_list)
 	# method = "icikt"
-	rna_sig = rna_significant |>
-		dplyr::filter(padj <= 0.05)
-	metabolites_sig = metabolites_significant |>
-		dplyr::filter(padj <= 0.05)
+	if (significant_only) {
+		rna_sig = rna_significant |>
+			dplyr::filter(padj <= 0.05)
+		metabolites_sig = metabolites_significant |>
+			dplyr::filter(padj <= 0.05)
+	} else {
+		rna_sig = rna_significant
+		metabolites_sig = metabolites_significant
+	}
+	
 	
 	rna_counts = assays(rna_collapsed)$counts[rna_sig$feature_id, matched_samples]
 	bio_counts = assays(bioamines_collapsed)$counts[, matched_samples]
