@@ -57,7 +57,7 @@ Transcriptomics samples are normalized and statistical results reported by {DESe
 Each metabolomics type were analyzed separately.
 Metabolomics samples are normalized and statistical results reported by {DESeq2}, using a `local` fit for the modeling of dispersions of variance to mean abundance.
 
-For all datasets, we merged the two replicate samples normal adjacent samples from Patient 6, either by adding the abundances via {DESeq2}.
+For all datasets, we merged the two replicate samples normal adjacent samples from Patient 6, by adding the abundances via {DESeq2}.
 
 For each dataset, we performed the differential calculations two ways:
 
@@ -65,6 +65,16 @@ For each dataset, we performed the differential calculations two ways:
   1. Incorporating pairing information of the patients (patient).
   
 Gene ontology (GO) and Reactome pathway enrichments were run on the transcriptomics differentially expressed genes (p-adjust <= 0.01).
+
+Ensembl gene IDs were mapped to Uniprot and Entrez gene IDs using version 111 of Ensembl annotations, accessed via the {biomaRt} package.
+Uniprot genes were remapped to GO terms with consideration of *is_a*, *part_of* and *has_part*, with proper handling of the directionality of the *has_part* relationships using the {gocats} python package.
+
+West Coast Metabolomics provides InChiKey IDs for their identified compounds, providing the ability to map them to other databases.
+For reactome pathways, which provides ChEBI to reactome pathways, all ChEBI compound InChI strings (downloaded from ChEBI) were converted to InChiKey's using OpenBabel chemical conversion software (v 3.1.1), and then we could complete mapping from InChiKey to reactome pathway.
+For KEGG pathways, we used translations of InChiKey to KEGG compounds provided by the MetaCyc translation service.
+
+Lipid features such as lipid class, chain length, and unsaturation were provided by the {lipidr} package after cleaning the lipid identifier strings.
+
 
 ## P-Value Checks
 
