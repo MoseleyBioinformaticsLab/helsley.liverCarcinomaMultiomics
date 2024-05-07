@@ -308,23 +308,26 @@ check_metabolite_correlations = function(metabolites_within_cor,
 	# 					 metabolomics_de_patient_list))
 	
 	metabolomics_de_patient_list = metabolomics_de_patient_list |>
-		dplyr::mutate(id2 = tolower(metabolite_id)) |>
-		dplyr::filter(!is.na(metabolite_id))
+		dplyr::filter(!is.na(in_chi_key))
 	has_multiple = metabolomics_de_patient_list |>
-		dplyr::group_by(id2) |>
+		dplyr::group_by(in_chi_key) |>
 		dplyr::summarise(n_metabolite = dplyr::n()) |>
 		dplyr::filter(n_metabolite > 1)
 	
 	multiple_ids = metabolomics_de_patient_list |>
-		dplyr::filter(id2 %in% has_multiple$id2)
+		dplyr::filter(in_chi_key %in% has_multiple$in_chi_key)
 	
-	split_features = split(multiple_ids$feature_id, multiple_ids$id2)
+	split_features = split(multiple_ids$feature_id, multiple_ids$in_chi_key)
 	
 	correlations = purrr::imap(split_features, \(in_features, id){
 		tmp_cor = metabolites_within_cor |>
 			dplyr::filter(((s1 %in% in_features[1]) & (s2 %in% in_features[2])) | ((s1 %in% in_features[2]) & (s2 %in% in_features[1])))
-		tmp_cor$id2 = id
+		tmp_cor$in_chi_key = id
 		tmp_cor
 	}) |> 
 		purrr::list_rbind()
+	correlations
+}
+
+
 }

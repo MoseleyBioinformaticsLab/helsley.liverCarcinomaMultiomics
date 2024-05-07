@@ -259,14 +259,25 @@ ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(pm_compare), column_title = 
 
 WCMC has several metabolites that are measured in multiple assays of *primary metabolism*, *biogenic amines (bioamines)* and *lipidomics*.
 Ideally, we would expect that the same metabolites measures in multiple assays would be highly correlated.
-A histogram of Spearman correlations are shown in @fig-multi-assay-correlations.
+A histogram of Spearman correlations are shown in @fig-multi-assay-correlations, with lines indicating those correlations with raw or adjusted p-values less than 0.05.
+This shows that significant correlations do have relatively high correlation values.
 
 ```{r}
 #| label: fig-multi-assay-correlations
-#| fig-cap: Metabolite - metabolite Spearman correlations for those metabolites measured in multiple measurement or assay types. 
+#| fig-cap: Metabolite - metabolite Spearman correlations for those metabolites measured in multiple measurement or assay types. Blue line indicates those correlations with a p-value < 0.05, and the red line indicates those with an adjusted p-value < 0.05.
+p_limit = metabolites_multi_assay_correlations |>
+	dplyr::filter(pvalue <= 0.05) |>
+	dplyr::slice_min(cor, n = 1) |>
+	dplyr::pull(cor)
+padjust_limit = metabolites_multi_assay_correlations |>
+	dplyr::filter(padjust <= 0.05) |>
+	dplyr::slice_min(cor, n = 1) |>
+	dplyr::pull(cor)
 metabolites_multi_assay_correlations |>
 	ggplot(aes(x = cor)) +
 	geom_histogram(bins = 60) +
+	geom_vline(xintercept = p_limit[1], color = "blue") +
+	geom_vline(xintercept = padjust_limit[1], color = "red") +
 	labs(x = "Metabolite - metabolite Spearman correlations")
 ```
 
