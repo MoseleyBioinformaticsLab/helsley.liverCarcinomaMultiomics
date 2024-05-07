@@ -40,7 +40,11 @@ tar_load(c(rna_de_treatment,
 					 rna_patient_enrichment_grouped_eachgo,
 					 rna_patient_enrichment_grouped_reactome,
 					 rna_patient_enrichment_grouped_eachreactome,
-					 rna_treatment_enrichment_grouped_reactome))
+					 rna_treatment_enrichment_grouped_reactome,
+					 metabolomics_de_patient_list,
+					 compound_kegg,
+					 metabolomics_de_patient_kegg,
+					 metabolites_multi_assay_correlations))
 
 ```
 
@@ -251,7 +255,95 @@ pm_compare = list(patient = diff_split_type$pm |>
 ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(pm_compare), column_title = "Primary Metabolism")
 ```
 
+## Multi-Assay Metabolite Comparisons
+
+WCMC has several metabolites that are measured in multiple assays of *primary metabolism*, *biogenic amines (bioamines)* and *lipidomics*.
+Ideally, we would expect that the same metabolites measures in multiple assays would be highly correlated.
+A histogram of Spearman correlations are shown in @fig-multi-assay-correlations.
+
+```{r}
+#| label: fig-multi-assay-correlations
+#| fig-cap: Metabolite - metabolite Spearman correlations for those metabolites measured in multiple measurement or assay types. 
+metabolites_multi_assay_correlations |>
+	ggplot(aes(x = cor)) +
+	geom_histogram(bins = 60) +
+	labs(x = "Metabolite - metabolite Spearman correlations")
+```
+
 ## Enrichment Results
+
+For hypergeometric enrichment of the metabolites to work, we need the significant metabolites to have some kind of identifier outside of the WCMC ID in an existing database or pathway annotations.
+Simply looking at whether they are named, and then if they map to a pathway can help determine if any useable results will be found using hypergeometric enrichment.
+@tbl-named-metabolite-locs shows that there are very few named metabolites in general, and in the significant set.
+@tbl-bioamines-pathway shows that even amongst the bioamines, the set with the most significant and named entries, there is only a small fraction with annotations to pathways.
+
+
+```{r}
+#| label: tbl-named-metabolite-locs
+#| tbl-cap: Number of named and unknown metabolites by overall metabolite class and direction, for all and significant metabolites. *has_name* indicates whether the metabolite is named or unknown; *lfc_direction* indicates what direction the log-fold-change was; *n_entry.all* is how many metabolites were present across all metabolites; *perc_entry.all* is what percentage of metabolites across all metabolites; *n_entry.sig* is how many were present in the significant set; *perc_entry.sig* is what percentage of the significant set.
+metabolites_significant = metabolomics_de_patient_list |>
+	dplyr::mutate(has_name = dplyr::case_when(
+		!is.na(metabolite_id) ~ "named",
+		is.na(metabolite_id) ~ "unknown"
+	),
+	lfc_direction = dplyr::case_when(
+		log2FoldChange > 0 ~ "Positive",
+		log2FoldChange < 0 ~ "Negative"
+	))
+summary_names = metabolites_significant |>
+	dplyr::group_by(type, has_name, lfc_direction) |>
+	dplyr::summarise(n_entry.all = dplyr::n()) |>
+	dplyr::ungroup() |>
+	dplyr::mutate(perc_entry.all = n_entry.all / sum(n_entry.all))
+summary_sig = metabolites_significant |>
+	dplyr::filter(padj <= 0.05) |>
+	dplyr::group_by(type, has_name, lfc_direction) |>
+	dplyr::summarise(n_entry.sig = dplyr::n()) |>
+	dplyr::ungroup() |>
+	dplyr::mutate(perc_entry.sig = n_entry.sig / sum(n_entry.sig))
+
+summary_all = dplyr::bind_cols(summary_names[, c("type", "has_name", "lfc_direction", 
+																								 "n_entry.all", "perc_entry.all")],
+															 summary_sig[, c("n_entry.sig", "perc_entry.sig")])
+summary_all |>
+	dplyr::group_by(type) |>
+gt::gt() |>
+	gt::fmt_percent(c(perc_entry.all, perc_entry.sig), decimals = 0)
+```
+
+Concentrating on those **bioamines**, how many of the named ones are annotated to a pathway?
+
+```{r}
+#| label: tbl-bioamines-pathway
+#| tbl-cap: Number of bioamines that are named, can be mapped to a KEGG compound, and then to a KEGG pathway.
+bioamines_sig = metabolites_significant |>
+	dplyr::filter(padj <= 0.05, type %in% "bioamines") |>
+	dplyr::select(feature_id, metabolite_id, log2FoldChange)
+bioamines_sig_merge = dplyr::left_join(bioamines_sig, metabolomics_de_patient_kegg[, c("feature_id", "feature_org")],
+																			 by = c("feature_id" = "feature_org"))
+all_kegg_annotated = unique(unlist(compound_kegg@annotation_features))
+
+bioamines_sig_merge = bioamines_sig_merge |>
+	dplyr::mutate(pathway = dplyr::case_when(
+		feature_id.y %in% all_kegg_annotated ~ "in_pathway",
+		TRUE ~ "unknown"
+	),
+	kegg = dplyr::case_when(
+		!is.na(feature_id.y) ~ "in_kegg",
+		TRUE ~ "unknown"
+	),
+	lfc_direction = dplyr::case_when(
+		log2FoldChange > 0 ~ "Positive",
+		log2FoldChange < 0 ~ "Negative"
+	))
+
+bioamines_kegg_n = bioamines_sig_merge |>
+	dplyr::group_by(lfc_direction, kegg, pathway) |>
+	dplyr::summarise(n_compound = dplyr::n()) |>
+	dplyr::ungroup()
+gt::gt(bioamines_kegg_n)
+```
+
 
 ### Comparing -Omics
 

@@ -399,6 +399,9 @@ tar_plan(
 																												 cor_cutoff = 0.05,
 																												 direction = "pos"),
 	
+	metabolites_multi_assay_correlations = check_metabolite_correlations(metabolites_within_cor,
+																																			 metabolomics_de_patient_list),
+	
 	## excel output -------
 	excel_output = write_goeach_to_excel(rna_patient_enrichment_grouped_eachgo,
 																			 rna_patient_enrichment_grouped_eachreactome),

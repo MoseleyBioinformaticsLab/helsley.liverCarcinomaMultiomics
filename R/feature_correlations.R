@@ -300,3 +300,31 @@ just_metabolite_abundances = function(bioamines_collapsed,
 										 pm_counts)
 	all_counts
 }
+
+check_metabolite_correlations = function(metabolites_within_cor,
+															metabolomics_de_patient_list)
+{
+	# tar_load(c(metabolites_within_cor,
+	# 					 metabolomics_de_patient_list))
+	
+	metabolomics_de_patient_list = metabolomics_de_patient_list |>
+		dplyr::mutate(id2 = tolower(metabolite_id)) |>
+		dplyr::filter(!is.na(metabolite_id))
+	has_multiple = metabolomics_de_patient_list |>
+		dplyr::group_by(id2) |>
+		dplyr::summarise(n_metabolite = dplyr::n()) |>
+		dplyr::filter(n_metabolite > 1)
+	
+	multiple_ids = metabolomics_de_patient_list |>
+		dplyr::filter(id2 %in% has_multiple$id2)
+	
+	split_features = split(multiple_ids$feature_id, multiple_ids$id2)
+	
+	correlations = purrr::imap(split_features, \(in_features, id){
+		tmp_cor = metabolites_within_cor |>
+			dplyr::filter(((s1 %in% in_features[1]) & (s2 %in% in_features[2])) | ((s1 %in% in_features[2]) & (s2 %in% in_features[1])))
+		tmp_cor$id2 = id
+		tmp_cor
+	}) |> 
+		purrr::list_rbind()
+}
