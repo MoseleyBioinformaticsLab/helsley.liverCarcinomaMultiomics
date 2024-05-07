@@ -297,6 +297,11 @@ tar_plan(
 	metabolomics_enrichment_reactome_binomial = run_binomial(metabolomics_de_patient,
 																														chebi_reactome),
 	
+	
+	### Look for genes correlated with Binomial groups -----
+	rna_correlated_interesting_lipids = find_genes_correlated_lipids(metabolomics_enrichment_lipid_binomial,
+																																	 rna_metabolites_all_spearman),
+	
 	## Comparing Statistics Between Treatment and Paired ---------
 	metabolomics_de_compare = compare_treatment_patient(metabolomics_de_treatment_list,
 																											metabolomics_de_patient_list),

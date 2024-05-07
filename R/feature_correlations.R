@@ -330,4 +330,33 @@ check_metabolite_correlations = function(metabolites_within_cor,
 }
 
 
+find_genes_correlated_lipids = function(metabolomics_enrichment_lipid_binomial,
+																				rna_metabolites_all_spearman,
+																				binomial_padj = 0.1,
+																				cor_padj = 0.05)
+{
+	# tar_load(c(metabolomics_enrichment_lipid_binomial,
+	# 					 rna_metabolites_all_spearman))
+	# binomial_padj = 0.1
+	# cor_padj = 0.05
+	force(binomial_padj)
+	force(cor_padj)
+	sig_cor = rna_metabolites_all_spearman |>
+		dplyr::filter(padjust <= cor_padj) |>
+		dplyr::mutate(transcript = s1, metabolite = s2)
+	
+	sig_binomial = metabolomics_enrichment_lipid_binomial$stats |>
+		dplyr::filter(padjust <= binomial_padj)
+	
+	sig_binomial_id = sig_binomial$id
+	annotated_lipids = metabolomics_enrichment_lipid_binomial$enrichment@annotation@annotation_features[sig_binomial_id]
+	
+	out_genes = purrr::imap(annotated_lipids, \(lipids, id){
+		lipid_cor = sig_cor |>
+			dplyr::filter(metabolite %in% lipids)
+		lipid_cor$lipid_annotation = id
+		lipid_cor
+	}) |>
+		purrr::list_rbind()
+	out_genes
 }
