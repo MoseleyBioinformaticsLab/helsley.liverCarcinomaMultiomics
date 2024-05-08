@@ -622,4 +622,66 @@ enrich_genes_correlated_lipids = function(rna_correlated_interesting_lipids,
 	
 }
 
+binomial_genes_correlated_lipids = function(rna_correlated_interesting_lipids,
+																						rna_de_patient,
+																						ensembl_go)
+{
+	# tar_load(c(rna_correlated_interesting_lipids,
+	# 					 rna_de_patient,
+	# 					 ensembl_go))
+	
+	# do this two ways:
+	# 1 - Setup each group of genes as an annotation, and then just do up-down
+	#   from the full set of LFC.
+	# 2 - Use GO as an annotation, and then within each group of genes, get the
+	#   up-down within the group, and do the binomial enrichment.
+	#   
+	all_up = rna_de_patient |>
+		dplyr::filter(log2FoldChange > 0) |>
+		dplyr::pull(feature_id)
+	all_down = rna_de_patient |>
+		dplyr::filter(log2FoldChange < 0) |>
+		dplyr::pull(feature_id)
+	
+	group_transcripts = purrr::map(rna_correlated_interesting_lipids$groups, \(in_group){unique(in_group$transcript)})
+	group_annotations = categoryCompare2::annotation(group_transcripts, annotation_type = "lipidGroup",
+																									 feature_type = "ensembl")
+	
+	group_binomial = binomial_feature_enrichment(
+		new("binomial_features", positivefc = all_up, negativefc = all_down,
+				annotation = group_annotations), min_features = 6,
+		p_adjust = "bonferroni"
+	)
+	
+	group_binomial_stats = group_binomial@statistics@statistic_data |> as.data.frame()
+	group_binomial_stats$id = rownames(group_binomial_stats)
+	
+	go_binomial = purrr::map(rna_correlated_interesting_lipids$groups, \(in_group){
+		lfc_values = rna_de_patient |> 
+			dplyr::filter(feature_id %in% in_group$transcript)
+		lfc_up = lfc_values |>
+			dplyr::filter(log2FoldChange > 0) |>
+			dplyr::pull(feature_id)
+		lfc_down = lfc_values |>
+			dplyr::filter(log2FoldChange < 0) |>
+			dplyr::pull(feature_id)
+		
+		binom_enrich = binomial_feature_enrichment(
+			new("binomial_features", positivefc = lfc_up,
+					negativefc = lfc_down, annotation = ensembl_go),
+			min_features = 6, p_adjust = "BH"
+		)
+		
+		tmp_df = as.data.frame(binom_enrich@statistics@statistic_data)
+		tmp_df$id = rownames(tmp_df)
+		tmp_df$description = ensembl_go@description[tmp_df$id]
+		list(rna_lfc = lfc_values,
+				 enrich = binom_enrich,
+				 stats = tmp_df)
+	})
+	
+	list(groups = list(interesting = rna_correlated_interesting_lipids,
+										 enrich = group_binomial,
+										 stats = group_binomial_stats),
+			 go = go_binomial)
 }
