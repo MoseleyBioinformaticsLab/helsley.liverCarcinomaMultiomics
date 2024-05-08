@@ -356,7 +356,8 @@ find_genes_correlated_lipids = function(metabolomics_enrichment_lipid_binomial,
 			dplyr::filter(metabolite %in% lipids)
 		lipid_cor$lipid_annotation = id
 		lipid_cor
-	}) |>
-		purrr::list_rbind()
-	out_genes
+	})
+	list(groups = out_genes,
+			 measured = unique(sig_cor$transcript),
+			 universe = unique(rna_metabolites_all_spearman$s1))
 }

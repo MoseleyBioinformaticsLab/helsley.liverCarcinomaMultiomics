@@ -599,3 +599,27 @@ run_binomial = function(metabolomics_de_patient_list,
 	list(enrichment = binomial_res,
 			 stats = res_df)
 }
+
+enrich_genes_correlated_lipids = function(rna_correlated_interesting_lipids,
+																					ensembl_go)
+{
+	# tar_load(c(rna_correlated_interesting_lipids,
+	# 					 ensembl_go))
+	
+	enrich_each = purrr::map(rna_correlated_interesting_lipids$groups, \(in_group){
+		tmp_enrich = hypergeometric_feature_enrichment(
+			new("hypergeom_features", significant = in_group$transcript,
+					universe = rna_correlated_interesting_lipids$universe,
+					annotation = ensembl_go),
+			p_adjust = "BH", min_features = 2
+		)
+		tmp_df = as.data.frame(tmp_enrich@statistics@statistic_data)
+		tmp_df$id = rownames(tmp_df)
+		tmp_df$description = ensembl_go@description[tmp_df$id]
+		list(enrich = tmp_enrich,
+				 stats = tmp_df)
+	})
+	
+}
+
+}

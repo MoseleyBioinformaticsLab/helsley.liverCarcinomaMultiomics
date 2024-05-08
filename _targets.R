@@ -302,6 +302,9 @@ tar_plan(
 	rna_correlated_interesting_lipids = find_genes_correlated_lipids(metabolomics_enrichment_lipid_binomial,
 																																	 rna_metabolites_all_spearman),
 	
+	rna_enriched_interesting_lipids = enrich_genes_correlated_lipids(rna_correlated_interesting_lipids,
+																																	 ensembl_go),
+	
 	## Comparing Statistics Between Treatment and Paired ---------
 	metabolomics_de_compare = compare_treatment_patient(metabolomics_de_treatment_list,
 																											metabolomics_de_patient_list),
