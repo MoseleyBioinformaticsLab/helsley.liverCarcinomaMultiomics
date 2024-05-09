@@ -60,9 +60,11 @@ create_reactome_gene_annotations = function(reactome_file,
 }
 
 create_reactome_chebi_annotations = function(chebi_reactome_file,
+																						 feature_to_kegg_chebi,
 																						 target_species = "Homo sapiens")
 {
 	# tar_load(chebi_reactome_file)
+	# tar_load(feature_to_kegg_chebi)
 	# target_species = "Homo sapiens"
 	all_reactome = readr::read_tsv(chebi_reactome_file, col_names = FALSE)
 	names(all_reactome) = c("chebi", "pathway", "link", "description", "evidence", "species")
@@ -70,7 +72,10 @@ create_reactome_chebi_annotations = function(chebi_reactome_file,
 	all_reactome = all_reactome |>
 		dplyr::filter(species %in% target_species)
 	
-	split_reactome = split(all_reactome$chebi, all_reactome$pathway)
+	all_reactome = dplyr::left_join(all_reactome, feature_to_kegg_chebi, by = c("chebi" = "chebi_id"), relationship = "many-to-many")
+	all_reactome = all_reactome |>
+		dplyr::filter(!is.na(feature_id))
+	split_reactome = split(all_reactome$feature_id, all_reactome$pathway)
 	split_reactome = purrr::map(split_reactome, unique)
 	
 	reactome_descriptions = all_reactome$description
@@ -80,7 +85,7 @@ create_reactome_chebi_annotations = function(chebi_reactome_file,
 	out_annotation = categoryCompare2::annotation(annotation_features = split_reactome,
 																								annotation_type = "reactome",
 																								description = reactome_descriptions,
-																								feature_type = "chebi")	
+																								feature_type = "feature_id")	
 	return(out_annotation)
 }
 
@@ -177,6 +182,7 @@ run_enrichment = function(de_values,
 	# de_values = tar_read(rna_de_treatment)
 	# annotation_obj = tar_read(ensembl_go)
 	# padj_cutoff = 0.01
+	force(padj_cutoff)
 	de_entries = de_values |>
 		dplyr::filter(padj <= padj_cutoff)
 	
@@ -389,17 +395,17 @@ find_interesting_gm_groups = function(rna_metabolites_spearman,
 	group_genes_metabolites
 }
 
-annotate_lipids = function(lipidomics_keep)
+annotate_lipids = function(metabolomics_feature_list)
 {
-	# tar_load(lipidomics_keep)
-	lipid_data_df = rowData(lipidomics_keep) |> as.data.frame()
-	fixed_lipids = fix_lipids(lipid_data_df$metabolite_name)
+	# tar_load(metabolomics_feature_list)
+	fixed_lipids = fix_lipids(metabolomics_feature_list$metabolite_id)
 	annotated_lipids = rmf_annotate_lipids(fixed_lipids$Molecule)
 	
 	out_data = dplyr::left_join(fixed_lipids, annotated_lipids, by = "Molecule")
 	
-	lipids_2_annotation = dplyr::left_join(lipid_data_df[, c("feature_id", "metabolite_name")],
-																				 out_data, by = c("metabolite_name" = "lipid"))
+	lipids_2_annotation = dplyr::left_join(metabolomics_feature_list[, c("feature_id", "metabolite_id")],
+																				 out_data, by = c("metabolite_id" = "lipid"),
+																				 relationship = "many-to-many")
 	
 	lipids_2_annotation = lipids_2_annotation |>
 		dplyr::filter(!is.na(not_matched) | !not_matched)
@@ -684,4 +690,20 @@ binomial_genes_correlated_lipids = function(rna_correlated_interesting_lipids,
 										 enrich = group_binomial,
 										 stats = group_binomial_stats),
 			 go = go_binomial)
+}
+
+map_features_kegg_chebi= function(metabolomics_feature_list,
+																	inchikey_kegg,
+																	chebi_inchikey)
+{
+	# tar_load(c(metabolomics_feature_list,
+	# 					 inchikey_kegg,
+	# 					 chebi_inchikey))
+	feature_inchikey = metabolomics_feature_list |>
+		dplyr::select(feature_id, in_chi_key) |>
+		dplyr::filter(!is.na(in_chi_key))
+	feature_other = dplyr::left_join(feature_inchikey, inchikey_kegg, by = "in_chi_key")
+	feature_other = dplyr::left_join(feature_other, chebi_inchikey[, c("chebi_id", "in_ch_i_key")], by = c("in_chi_key" = "in_ch_i_key"), relationship = "many-to-many")
+	feature_other$chebi_id = as.character(feature_other$chebi_id)
+	feature_other
 }

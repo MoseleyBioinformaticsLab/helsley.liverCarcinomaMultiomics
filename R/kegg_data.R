@@ -113,15 +113,19 @@ create_kegg_annotations_genes = function(kegg_data,
 	kegg_annotation
 }
 
-create_kegg_annotations_compounds = function(kegg_data)
+create_kegg_annotations_compounds = function(kegg_data,
+																						 feature_to_kegg_chebi)
 {
 	# tar_load(kegg_data)
+	# tar_load(feature_to_kegg_chebi)
 	human_maps = kegg_data$pathway_human_id |>
 		dplyr::mutate(pathway_description = gsub("-.*", "", pathway),
 									pathway = gsub("hsa", "map", hsa))
 	compounds = kegg_data$compound_2_pathway |>
 		dplyr::filter(pathway %in% human_maps$pathway)
-	split_maps = split(compounds$compound, compounds$pathway)
+	compounds = dplyr::left_join(compounds, feature_to_kegg_chebi, by = c("compound" = "kegg"), 
+															 relationship = "many-to-many")
+	split_maps = split(compounds$feature_id, compounds$pathway)
 	split_maps = purrr::map(split_maps, unique)
 	pathway_descriptions = human_maps$pathway_description
 	names(pathway_descriptions) = human_maps$pathway
@@ -129,6 +133,6 @@ create_kegg_annotations_compounds = function(kegg_data)
 	kegg_annotation = categoryCompare2::annotation(split_maps,
 																								 annotation_type = "kegg",
 																								 description = pathway_descriptions,
-																								 feature_type = "COMPOUND")
+																								 feature_type = "feature_id")
 	kegg_annotation
 }

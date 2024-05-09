@@ -189,7 +189,8 @@ tar_plan(
 	tar_target(chebi_reactome_file,
 						 "data/ChEBI2Reactome_All_Levels.txt",
 						 format = "file"),
-	chebi_reactome = create_reactome_chebi_annotations(chebi_reactome_file),
+	feature_reactome = create_reactome_chebi_annotations(chebi_reactome_file,
+																										 feature_to_kegg_chebi),
 	tar_target(chebi_inchi_file,
 						 "data/chebiId_inchi.tsv.gz",
 						 format = "file"),
@@ -206,8 +207,12 @@ tar_plan(
 		dplyr::select(in_chi_key, kegg) |>
 		dplyr::filter(!(kegg %in% "NIL")),
 	
-	lipid_annotations = annotate_lipids(lipidomics_keep),
+	feature_lipid = annotate_lipids(metabolomics_feature_list),
 	metabolite_type_annotations = annotate_metabolite_type(metabolomics_feature_list),
+	
+	feature_to_kegg_chebi = map_features_kegg_chebi(metabolomics_feature_list,
+																									inchikey_kegg,
+																									chebi_inchikey),
 	
 	## Enrichments --------
 	### Significant --------
@@ -250,52 +255,42 @@ tar_plan(
 																	 pm = rowData(pm_collapsed) |> as.data.frame()) |>
 		merge_list(),
 	
-	feature_to_kegg = dplyr::left_join(metabolomics_feature_list |>
-																		 	dplyr::select(feature_id, in_chi_key),
-																		 inchikey_kegg, by = "in_chi_key"),
 	
-	metabolomics_de_treatment = map_metabolomics_chebi(metabolomics_de_treatment_list,
-																												 chebi_inchikey),
-	
-	metabolomics_treatment_enrichment_reactome = run_enrichment(metabolomics_de_treatment,
-																															chebi_reactome),
+	metabolomics_treatment_enrichment_reactome = run_enrichment(metabolomics_de_treatment_list,
+																															feature_reactome),
 	
 	
 	metabolomics_de_patient_list = list(bioamines = bioamines_de_patient,
 																			lipidomics = lipidomics_de_patient,
 																				pm = pm_de_patient) |>
 		merge_list(),
-	metabolomics_de_patient = map_metabolomics_chebi(metabolomics_de_patient_list,
-																												 chebi_inchikey),
 	
-	metabolomics_patient_enrichment_reactome = run_enrichment(metabolomics_de_patient,
-																															chebi_reactome),
+	metabolomics_patient_enrichment_reactome = run_enrichment(metabolomics_de_patient_list,
+																															feature_reactome),
 	
 	#### KEGG -----
 	kegg_data = get_kegg_compound_data(),
 	
 	ensembl_kegg = create_kegg_annotations_genes(kegg_data, ensembl_entrez),
-	compound_kegg = create_kegg_annotations_compounds(kegg_data),
+	feature_kegg = create_kegg_annotations_compounds(kegg_data,
+																									 feature_to_kegg_chebi),
 	
-	metabolomics_de_treatment_kegg = map_metabolomics_kegg(metabolomics_de_treatment_list,
-																												 inchikey_kegg),
 	
-	metabolomics_treatment_enrichment_kegg = run_enrichment(metabolomics_de_treatment_kegg,
-																													compound_kegg),
+	metabolomics_treatment_enrichment_kegg = run_enrichment(metabolomics_de_treatment_list,
+																													feature_kegg),
 	rna_treatment_enrichment_kegg = run_enrichment(rna_de_treatment, ensembl_kegg),
 	
-	metabolomics_de_patient_kegg = map_metabolomics_kegg(metabolomics_de_patient_list,
-																											inchikey_kegg),
-	metabolomics_patient_enrichment_kegg = run_enrichment(metabolomics_de_patient_kegg,
-																												compound_kegg),
+	
+	metabolomics_patient_enrichment_kegg = run_enrichment(metabolomics_de_patient_list,
+																												feature_kegg),
 	
 	### Binomial ---------
 	metabolomics_enrichment_lipid_binomial = run_binomial(metabolomics_de_patient_list,
-																												lipid_annotations),
-	metabolomics_enrichment_kegg_binomial = run_binomial(metabolomics_de_patient_kegg,
-																											 compound_kegg),
-	metabolomics_enrichment_reactome_binomial = run_binomial(metabolomics_de_patient,
-																														chebi_reactome),
+																												feature_lipid),
+	metabolomics_enrichment_kegg_binomial = run_binomial(metabolomics_de_patient_list,
+																											 feature_kegg),
+	metabolomics_enrichment_reactome_binomial = run_binomial(metabolomics_de_patient_list,
+																														feature_reactome),
 	
 	
 	### Look for genes correlated with Binomial groups -----
@@ -308,6 +303,9 @@ tar_plan(
 	rna_binomial_interesting_lipids = binomial_genes_correlated_lipids(rna_correlated_interesting_lipids,
 																							rna_de_patient,
 																							ensembl_go),
+	
+	rna_correlated_interesting_compounds = find_genes_correlated_lipids(metabolomics_enrichment_reactome_binomial,
+																																			rna_metabolites_all_spearman),
 	
 	## Comparing Statistics Between Treatment and Paired ---------
 	metabolomics_de_compare = compare_treatment_patient(metabolomics_de_treatment_list,
