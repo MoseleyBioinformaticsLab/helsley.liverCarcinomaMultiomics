@@ -305,7 +305,12 @@ tar_plan(
 																							ensembl_go),
 	
 	rna_correlated_interesting_compounds = find_genes_correlated_lipids(metabolomics_enrichment_reactome_binomial,
-																																			rna_metabolites_all_spearman),
+																																			rna_metabolites_all_spearman,
+																																			binomial_padj = 0.05),
+	
+	rna_binomial_interesting_compounds = binomial_genes_correlated_lipids(rna_correlated_interesting_compounds,
+																																		 rna_de_patient,
+																																		 ensembl_go),
 	
 	## Comparing Statistics Between Treatment and Paired ---------
 	metabolomics_de_compare = compare_treatment_patient(metabolomics_de_treatment_list,

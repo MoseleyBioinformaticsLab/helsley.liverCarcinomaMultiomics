@@ -339,6 +339,11 @@ find_genes_correlated_lipids = function(metabolomics_enrichment_lipid_binomial,
 	# 					 rna_metabolites_all_spearman))
 	# binomial_padj = 0.1
 	# cor_padj = 0.05
+	# 
+	# metabolomics_enrichment_lipid_binomial = tar_read(metabolomics_enrichment_reactome_binomial)
+	# tar_load(rna_metabolites_all_spearman)
+	# binomial_padj = 0.1
+	# cor_padj = 0.05
 	force(binomial_padj)
 	force(cor_padj)
 	sig_cor = rna_metabolites_all_spearman |>
@@ -354,8 +359,14 @@ find_genes_correlated_lipids = function(metabolomics_enrichment_lipid_binomial,
 	out_genes = purrr::imap(annotated_lipids, \(lipids, id){
 		lipid_cor = sig_cor |>
 			dplyr::filter(metabolite %in% lipids)
-		lipid_cor$lipid_annotation = id
-		lipid_cor
+		if (nrow(lipid_cor) > 0) {
+			lipid_cor$annotation = id
+			return(lipid_cor)
+		} else {
+			return(NULL)
+		}
+		
+		
 	})
 	list(groups = out_genes,
 			 measured = unique(sig_cor$transcript),
