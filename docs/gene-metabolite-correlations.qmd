@@ -35,19 +35,28 @@ tar_load(c(rna_metabolites_spearman,
 					 rna_within_cor,
 					 metabolites_within_cor,
 					 rna_metabolite_groups_neg,
-					 lipid_annotations,
+					 feature_lipid,
 					 metabolite_type_annotations,
-					 compound_kegg,
-					 metabolomics_de_patient_kegg
+					 feature_to_kegg_chebi
 					 ))
 rna_significant = tar_read(rna_de_patient)
 metabolites_significant = tar_read(metabolomics_de_patient_list)
-metabolites_significant_named = tar_read(metabolomics_de_patient_named_list)
 ```
 
 ## Data
 
 Hepatocarcinoma transcriptomics significant entries, and metabolomics significant entries (p-adjusted <= 0.05), Spearman correlated between the genes and metabolites, using the 12 samples that are in common across all 4 datasets.
+
+## Methods
+
+Correlations of all metabolites were calculated with all of the genes, using Spearman correlation method, with zero representing a missing value.
+
+Hypergeometric enrichment tests if a particular annotation is represented more in a group (i.e. significant entries) than expected by chance compared to the presence among all those measured.
+Binomial enrichment tests if the ratio of positive and negative fold-changes for a group of annotated features differs significantly from an expected ratio (generally 0.5).
+The advantage of binomial enrichment is that it uses **all** of the annotated features, instead of comparing significant to all.
+Binomial enrichment of metabolites were calculated based on both reactome pathways and lipid annotations of lipid class, total and individual chain length, total and individual number of unsaturations, as well as their combinations.
+For significant binomial enrichments of metabolites (p-adjusted < 0.1 for lipids or 0.05 for pathways), genes with significant correlation to the group of metabolites were extracted, and then binomial enrichment of the genes with significant correlation calculated, as well as for those genes annotated to GO terms.
+Binomial enrichment was restricted to those annotations with six or more features annotated to it.
 
 ## Named Metabolites?
 
@@ -59,8 +68,8 @@ We show this in @tbl-named-metabolite-locs.
 #| tbl-cap: Number of named and unknown metabolites by overall metabolite class and direction, for all and significant metabolites. *has_name* indicates whether the metabolite is named or unknown; *lfc_direction* indicates what direction the log-fold-change was; *n_entry.all* is how many metabolites were present across all metabolites; *perc_entry.all* is what percentage of metabolites across all metabolites; *n_entry.sig* is how many were present in the significant set; *perc_entry.sig* is what percentage of the significant set.
 metabolites_significant = metabolites_significant |>
 	dplyr::mutate(has_name = dplyr::case_when(
-		!is.na(metabolite_id) ~ "named",
-		is.na(metabolite_id) ~ "unknown"
+		!is.na(in_chi_key) ~ "named",
+		is.na(in_chi_key) ~ "unknown"
 	),
 	lfc_direction = dplyr::case_when(
 		log2FoldChange > 0 ~ "Positive",
@@ -88,24 +97,25 @@ gt::gt() |>
 ```
 
 Concentrating on those **bioamines**, how many of the named ones are annotated to a pathway?
+These are shown in @tbl-bioamines-pathway.
 
 ```{r}
 #| label: tbl-bioamines-pathway
 #| tbl-cap: Number of bioamines that are named, can be mapped to a KEGG compound, and then to a KEGG pathway.
 bioamines_sig = metabolites_significant |>
 	dplyr::filter(padj <= 0.05, type %in% "bioamines") |>
-	dplyr::select(feature_id, metabolite_id, log2FoldChange)
-bioamines_sig_merge = dplyr::left_join(bioamines_sig, metabolomics_de_patient_kegg[, c("feature_id", "feature_org")],
-																			 by = c("feature_id" = "feature_org"))
-all_kegg_annotated = unique(unlist(compound_kegg@annotation_features))
+	dplyr::select(feature_id, metabolite_id, in_chi_key, log2FoldChange)
+bioamines_sig_merge = dplyr::left_join(bioamines_sig, feature_to_kegg_chebi[, -2],
+																			 by = "feature_id")
+all_kegg_annotated = unique(unlist(feature_kegg@annotation_features))
 
 bioamines_sig_merge = bioamines_sig_merge |>
 	dplyr::mutate(pathway = dplyr::case_when(
-		feature_id.y %in% all_kegg_annotated ~ "in_pathway",
+		feature_id %in% all_kegg_annotated ~ "in_pathway",
 		TRUE ~ "unknown"
 	),
 	kegg = dplyr::case_when(
-		!is.na(feature_id.y) ~ "in_kegg",
+		!is.na(kegg) ~ "in_kegg",
 		TRUE ~ "unknown"
 	),
 	lfc_direction = dplyr::case_when(
@@ -119,6 +129,9 @@ bioamines_kegg_n = bioamines_sig_merge |>
 	dplyr::ungroup()
 gt::gt(bioamines_kegg_n)
 ```
+
+This becomes really, really important, because we wanted to initially restrict the correlative analysis to the significant genes and significant metabolites.
+However, because there are so few named metabolites in the significant set, we don't see anything in the enrichment results that appears useful.
 
 ## Significant Correlations
 
@@ -319,7 +332,7 @@ enrich_hypergeom_group = purrr::imap(rna_metabolite_groups_neg, \(in_group, grou
 	)
 	lipid_enrich = hypergeometric_feature_enrichment(
 		new("hypergeom_features", significant = sig_metabolites,
-				universe = metabolite_universe, annotation = lipid_annotations),
+				universe = metabolite_universe, annotation = feature_lipid),
 		p_adjust = "BH"
 	)
 	type_df = as.data.frame(type_enrich@statistics@statistic_data)
@@ -348,8 +361,8 @@ enrich_binomial_group = purrr::imap(rna_metabolite_groups_neg, \(in_group, group
 	
 	lipid_binomial_enrich = binomial_feature_enrichment(
 		new("binomial_features", positivefc = positive_fc, negativefc = negative_fc,
-				annotation = lipid_annotations),
-		p_adjust = "BH", min_features = 2
+				annotation = feature_lipid),
+		p_adjust = "BH", min_features = 6
 	)
 	if (!is.null(lipid_binomial_enrich)) {
 		lipid_df = as.data.frame(lipid_binomial_enrich@statistics@statistic_data)
@@ -381,3 +394,15 @@ gene_group_metabolite_tables = purrr::imap(rna_metabolite_groups_neg, \(in_group
 })
 ```
 
+## Groups of Interesting Metabolites
+
+Finally, we can perform binomial enrichment of the log-fold-change of annotated metabolites, look for significantly enriched groups, and then extract the significantly correlated genes with those groups of metabolites, and subsequently look at the binomial enrichment of the genes as well.
+
+For the metabolites, we primarily 
+
+@tbl-metabolite-binomial lists the 
+
+```{r}
+#| label: tbl-metabolite-binomial
+
+```
