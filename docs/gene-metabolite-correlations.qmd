@@ -26,21 +26,18 @@ library(dbscan)
 ```{r}
 #| label: load-targets
 #| include: false
-tar_load(c(rna_metabolites_spearman,
-					 rna_patient_enrichment_grouped_eachgo,
-					 rna_patient_enrichment_go,
-					 rna_abundances,
-					 rna_de_patient,
-					 metabolite_abundances,
+tar_load(c(rna_de_patient,
+					 metabolomics_de_patient_list,
+					 rna_metabolites_all_spearman,
 					 rna_within_cor,
 					 metabolites_within_cor,
-					 rna_metabolite_groups_neg,
 					 feature_lipid,
+					 feature_kegg,
 					 metabolite_type_annotations,
-					 feature_to_kegg_chebi
+					 feature_to_kegg_chebi,
+					 metabolomics_enrichment_lipid_binomial,
+					 metabolomics_enrichment_reactome_binomial
 					 ))
-rna_significant = tar_read(rna_de_patient)
-metabolites_significant = tar_read(metabolomics_de_patient_list)
 ```
 
 ## Data
@@ -66,7 +63,7 @@ We show this in @tbl-named-metabolite-locs.
 ```{r}
 #| label: tbl-named-metabolite-locs
 #| tbl-cap: Number of named and unknown metabolites by overall metabolite class and direction, for all and significant metabolites. *has_name* indicates whether the metabolite is named or unknown; *lfc_direction* indicates what direction the log-fold-change was; *n_entry.all* is how many metabolites were present across all metabolites; *perc_entry.all* is what percentage of metabolites across all metabolites; *n_entry.sig* is how many were present in the significant set; *perc_entry.sig* is what percentage of the significant set.
-metabolites_significant = metabolites_significant |>
+metabolites_significant = metabolomics_de_patient_list |>
 	dplyr::mutate(has_name = dplyr::case_when(
 		!is.na(in_chi_key) ~ "named",
 		is.na(in_chi_key) ~ "unknown"
@@ -136,22 +133,22 @@ However, because there are so few named metabolites in the significant set, we d
 ## Significant Correlations
 
 P-adjusted correlations <= 0.01.
-@fig-examine-correlations shows the histogram of significant correlations between genes and metabolites.
+@fig-examine-correlations shows the histogram of significant correlations between all genes and metabolites.
 
 @tbl-n-genes-metabolites lists how many metabolites and genes are in the significant correlations.
 
 ```{r}
 #| label: fig-examine-correlations
 #| fig-cap: Number of genes and metabolites having significant correlations.
-sig_cor = rna_metabolites_spearman |>
+sig_cor = rna_metabolites_all_spearman |>
 	dplyr::filter(padjust <= 0.01) |>
 	dplyr::transmute(gene = s1, metabolite = s2, cor = cor,
 									 dir = sign(cor))
 
-rna_sig = rna_significant |>
+rna_sig = rna_de_patient |>
 	dplyr::transmute(gene.lfc = sign(log2FoldChange),
 									 gene = feature_id)
-met_sig = metabolites_significant |>
+met_sig = metabolomics_de_patient_list |>
 	dplyr::transmute(metabolite.lfc = sign(log2FoldChange),
 									 metabolite = feature_id)
 sig_cor = dplyr::left_join(sig_cor, rna_sig, by = "gene")
@@ -190,7 +187,6 @@ gm_plot = gene_to_metabolite |>
 	ggplot(aes(x = g2m)) +
 	geom_histogram(bins = 100) +
 	facet_grid(gene.lfc ~ sign) +
-	coord_cartesian(ylim = c(0, 250)) +
 	labs(subtitle = "Genes -> Metabolites")
 mg_plot = metabolite_to_gene |>
 	dplyr::mutate(metabolite.lfc = paste0("lfc ", metabolite.lfc),
@@ -198,7 +194,6 @@ mg_plot = metabolite_to_gene |>
 	ggplot(aes(x = m2g)) +
 	geom_histogram(bins = 100) +
 	facet_grid(metabolite.lfc ~ sign) +
-	coord_cartesian(ylim = c(0, 200)) +
 	labs(subtitle = "Metabolites -> Genes")
 gm_plot / mg_plot
 ```
@@ -234,7 +229,7 @@ sig_cor_graph = sig_cor_graph |>
 	arrange(type, n_connect)
 
 ggraph(sig_cor_graph, layout = "linear", circular = TRUE) +
-	geom_edge_arc(alpha = 0.1) +
+	geom_edge_arc(alpha = 0.01) +
 	geom_node_point(aes(color = type)) +
 	coord_fixed()
 ```
@@ -249,160 +244,39 @@ ggraph(sig_cor_graph, layout = "linear", circular = TRUE) +
 sig_cor_graph = sig_cor_graph |>
 	arrange(lfc, n_connect)
 ggraph(sig_cor_graph, layout = "linear", circular = TRUE) +
-	geom_edge_arc(alpha = 0.1, aes(color = dir)) +
+	geom_edge_arc(alpha = 0.01, aes(color = dir)) +
 	geom_node_point(size = 0.5, aes(color = type)) +
 	coord_fixed()
 ```
 
-## Check Correlations
+That is a lot of correlations to try and follow up on!
 
-We should check what these significant correlations look like in practice, especially compared to gene - gene and metabolite - metabolite correlations.
+## Binomial Enriched Metabolites
+
+To find potentially **interesting** metabolite to gene correlations, we will use binomial enrichment of the metabolite pathways (@tbl-metabolite-binomial-compounds) and lipid annotations (@tbl-metabolite-binomial-lipids) (see Methods).
 
 ```{r}
-#| label: grab-to-check
-set.seed(1134)
-check_cor = dplyr::bind_rows(rna_metabolites_spearman |>
-														 	dplyr::filter(dplyr::between(cor, -0.5, 0.5)) |>
-														 	dplyr::slice_sample(n = 10),
-														 rna_metabolites_spearman |>
-														 	dplyr::filter(padjust <= 0.01) |>
-														 	dplyr::filter(dplyr::between(abs(cor), 0.8, 0.9)) |>
-														 	dplyr::slice_sample(n = 10))
-check_cor = check_cor |>
-	dplyr::arrange(abs(cor))
-
-out_plots = purrr::map(seq_len(nrow(check_cor)), \(in_row){
-	use_gene = check_cor$s1[in_row]
-	use_met = check_cor$s2[in_row]
-	tmp_df = data.frame(gene = rna_abundances[use_gene, ],
-											metabolite = metabolite_abundances[use_met, ])
-	ggplot(tmp_df, aes(x = gene, y = metabolite)) +
-		geom_point() +
-		labs(x = use_gene, y = use_met, subtitle = paste0("Spearman: ", format(check_cor$cor[in_row], digits = 2)))
-	
-})
-
+#| label: tbl-metabolite-binomial-compounds
+#| tbl-cap: Binomial enrichments for compound reactome pathway annotations, for those annotations with an adjusted p-value <= 0.05.
+compound_enrich_table = metabolomics_enrichment_reactome_binomial$stats |>
+	dplyr::arrange(padjust) |>
+	dplyr::filter(padjust <= 0.05) |>
+	dplyr::select(description, num_positive, num_negative, p, padjust) |>
+	gt::gt() |>
+	gt::fmt_integer(columns = c(num_positive, num_negative)) |>
+	gt::fmt_number(columns = c(p, padjust), n_sigfig = 2)
+compound_enrich_table	
 ```
 
 ```{r}
-#| label: fig-check-cor
-#| fig-cap: Gene - metabolite plots for a random selection of non-significant and significant gene - metabolite pairs.
-patchwork::wrap_plots(out_plots, nrow = 5, ncol = 4, byrow = TRUE)
+#| label: tbl-metabolite-binomial-lipids
+#| tbl-cap: Binomial enrichments for lipid annotations, for those annotations with an adjusted p-value <= 0.1.
+lipid_enrich_table = metabolomics_enrichment_lipid_binomial$stats |>
+	dplyr::arrange(padjust) |>
+	dplyr::filter(padjust <= 0.1) |>
+	dplyr::select(id, num_positive, num_negative, p, padjust) |>
+	gt::gt() |>
+	gt::fmt_number(columns = c(p, padjust), n_sigfig = 2)
+lipid_enrich_table
 ```
 
-## Enrichment of All Significantly Correlating Metabolites
-
-We can examine the enrichment for all of the significantly correlated metabolites and see if any of the lipid features show enrichment.
-
-```{r}
-#| label: all-significant-enrichment
-metabolite_universe = unique(rna_metabolites_spearman$s2)
-metabolite_sig = unique(sig_cor$metabolite)
-
-all_metabolite_enrich = hypergeometric_feature_enrichment(
-		new("hypergeom_features", significant = metabolite_sig,
-				universe = metabolite_universe, annotation = lipid_annotations),
-		p_adjust = "BH"
-	)
-enrich_metabolite_all_df = as.data.frame(all_metabolite_enrich@statistics@statistic_data)
-enrich_metabolite_all_df$id = all_metabolite_enrich@statistics@annotation_id
-range(enrich_metabolite_all_df$padjust)
-```
-
-## Groups of Interesting Genes
-
-We will take some of the interesting groups of gene ontology (GO) terms, the genes annotated to them, and then the significantly correlated metabolites within each group.
-
-### Enrichment
-
-For each group, we look for the significantly correlated metabolites, and then examine various lipid attributes to see if they are present more than expected (hypergeometric), or if their log-fold-changes go in a direction more than expected (binomial).
-Unfortunately, there is no enrichment, neither hypergeometric or binomial.
-
-```{r}
-#| label: gene-groups-enrichment-hypergeometric
-metabolite_universe = unique(rna_metabolites_spearman$s2)
-# metabolite_universe = unique(sig_cor$metabolite)
-
-enrich_hypergeom_group = purrr::imap(rna_metabolite_groups_neg, \(in_group, group_id){
-	sig_metabolites = unique(in_group$gene_metabolite$metabolite)
-	type_enrich = hypergeometric_feature_enrichment(
-		new("hypergeom_features", significant = sig_metabolites,
-				universe = metabolite_universe, annotation = metabolite_type_annotations),
-		p_adjust = "BH"
-	)
-	lipid_enrich = hypergeometric_feature_enrichment(
-		new("hypergeom_features", significant = sig_metabolites,
-				universe = metabolite_universe, annotation = feature_lipid),
-		p_adjust = "BH"
-	)
-	type_df = as.data.frame(type_enrich@statistics@statistic_data)
-	type_df$id = type_enrich@statistics@annotation_id
-	
-	lipid_df = as.data.frame(lipid_enrich@statistics@statistic_data)
-	lipid_df$id = lipid_enrich@statistics@annotation_id
-	lipid_df = lipid_df |>
-		dplyr::arrange(padjust)
-	list(type = type_df, lipid = lipid_df)
-})
-```
-
-
-```{r}
-#| label: gene-groups-enrichment-binomial
-enrich_binomial_group = purrr::imap(rna_metabolite_groups_neg, \(in_group, group_id){
-	positive_fc = metabolites_significant |>
-		dplyr::filter(feature_id %in% in_group$gene_metabolite$metabolite, log2FoldChange > 0) |>
-		dplyr::filter(feature_id %in% metabolite_universe) |>
-		dplyr::pull(feature_id)
-	negative_fc = metabolites_significant |>
-		dplyr::filter(feature_id %in% in_group$gene_metabolite$metabolite, log2FoldChange < 0) |>
-		dplyr::filter(feature_id %in% metabolite_universe) |>
-		dplyr::pull(feature_id)
-	
-	lipid_binomial_enrich = binomial_feature_enrichment(
-		new("binomial_features", positivefc = positive_fc, negativefc = negative_fc,
-				annotation = feature_lipid),
-		p_adjust = "BH", min_features = 6
-	)
-	if (!is.null(lipid_binomial_enrich)) {
-		lipid_df = as.data.frame(lipid_binomial_enrich@statistics@statistic_data)
-		lipid_df$id = lipid_binomial_enrich@statistics@annotation_id
-		lipid_df = lipid_df |> dplyr::arrange(padjust)
-		return(lipid_df)
-	} else {
-		return(NULL)
-	}
-	
-})
-```
-
-### Metabolites With Significant Correlations
-
-OK, what metabolites are significantly correlated with each gene group?
-When I examined these tables, there were very few named metabolites.
-That seems to be a general problem with the significant metabolites, maybe?
-
-```{r}
-#| label: gene-group-metabolite-tables
-gene_group_metabolite_tables = purrr::imap(rna_metabolite_groups_neg, \(in_group, group_id){
-	tmp_metabolites = metabolites_significant |>
-		dplyr::filter(feature_id %in% in_group$gene_metabolite$metabolite) |>
-		dplyr::select(feature_id, annotation, metabolite_name, log2FoldChange, pvalue, padj) |>
-		dplyr::arrange(log2FoldChange, padj) |>
-		dplyr::mutate(gene_group = group_id)
-	tmp_metabolites
-})
-```
-
-## Groups of Interesting Metabolites
-
-Finally, we can perform binomial enrichment of the log-fold-change of annotated metabolites, look for significantly enriched groups, and then extract the significantly correlated genes with those groups of metabolites, and subsequently look at the binomial enrichment of the genes as well.
-
-For the metabolites, we primarily 
-
-@tbl-metabolite-binomial lists the 
-
-```{r}
-#| label: tbl-metabolite-binomial
-
-```
