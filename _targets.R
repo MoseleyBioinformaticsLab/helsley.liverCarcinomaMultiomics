@@ -295,6 +295,7 @@ tar_plan(
 	
 	### Look for genes correlated with Binomial groups -----
 	rna_correlated_interesting_lipids = find_genes_correlated_lipids(metabolomics_enrichment_lipid_binomial,
+																																	 metabolomics_de_patient_list,
 																																	 rna_metabolites_all_spearman),
 	
 	rna_enriched_interesting_lipids = enrich_genes_correlated_lipids(rna_correlated_interesting_lipids,
@@ -305,6 +306,7 @@ tar_plan(
 																							ensembl_go),
 	
 	rna_correlated_interesting_compounds = find_genes_correlated_lipids(metabolomics_enrichment_reactome_binomial,
+																																			metabolomics_de_patient_list,
 																																			rna_metabolites_all_spearman,
 																																			binomial_padj = 0.05),
 	

@@ -332,11 +332,13 @@ check_metabolite_correlations = function(metabolites_within_cor,
 
 find_genes_correlated_lipids = function(metabolomics_enrichment_lipid_binomial,
 																				rna_metabolites_all_spearman,
+																				metabolomics_de_patient_list,
 																				binomial_padj = 0.1,
 																				cor_padj = 0.05)
 {
 	# tar_load(c(metabolomics_enrichment_lipid_binomial,
-	# 					 rna_metabolites_all_spearman))
+	# 					 rna_metabolites_all_spearman,
+	# 					 metabolomics_de_patient_list))
 	# binomial_padj = 0.1
 	# cor_padj = 0.05
 	# 
@@ -354,19 +356,26 @@ find_genes_correlated_lipids = function(metabolomics_enrichment_lipid_binomial,
 		dplyr::filter(padjust <= binomial_padj)
 	
 	sig_binomial_id = sig_binomial$id
+	sig_direction = sig_binomial$direction
+	names(sig_direction) = sig_binomial$id
 	annotated_lipids = metabolomics_enrichment_lipid_binomial$enrichment@annotation@annotation_features[sig_binomial_id]
 	
+	metabolomics_de_patient_list = metabolomics_de_patient_list |>
+		dplyr::mutate(direction = sign(log2FoldChange))
+	
 	out_genes = purrr::imap(annotated_lipids, \(lipids, id){
+		use_direction = sig_direction[id]
+		lipid_direction = metabolomics_de_patient_list |>
+			dplyr::filter(feature_id %in% lipids, direction == use_direction) |>
+			dplyr::pull(feature_id)
 		lipid_cor = sig_cor |>
-			dplyr::filter(metabolite %in% lipids)
+			dplyr::filter(metabolite %in% lipid_direction)
 		if (nrow(lipid_cor) > 0) {
 			lipid_cor$annotation = id
 			return(lipid_cor)
 		} else {
 			return(NULL)
 		}
-		
-		
 	})
 	list(groups = out_genes,
 			 measured = unique(sig_cor$transcript),
