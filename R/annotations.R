@@ -68,9 +68,11 @@ create_reactome_chebi_annotations = function(chebi_reactome_file,
 	# target_species = "Homo sapiens"
 	all_reactome = readr::read_tsv(chebi_reactome_file, col_names = FALSE)
 	names(all_reactome) = c("chebi", "pathway", "link", "description", "evidence", "species")
+	
 	all_reactome$chebi = as.character(all_reactome$chebi)
 	all_reactome = all_reactome |>
-		dplyr::filter(species %in% target_species)
+		dplyr::filter(species %in% target_species) |>
+		dplyr::filter(!(description %in% "Metabolism"))
 	
 	all_reactome = dplyr::left_join(all_reactome, feature_to_kegg_chebi, by = c("chebi" = "chebi_id"), relationship = "many-to-many")
 	all_reactome = all_reactome |>
