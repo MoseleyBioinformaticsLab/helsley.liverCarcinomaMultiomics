@@ -307,8 +307,7 @@ tar_plan(
 	
 	rna_correlated_interesting_compounds = find_genes_correlated_lipids(metabolomics_enrichment_reactome_binomial,
 																																			rna_metabolites_all_spearman,
-																																			metabolomics_de_patient_list,
-																																			binomial_padj = 0.05),
+																																			metabolomics_de_patient_list),
 	
 	rna_binomial_interesting_compounds = binomial_genes_correlated_lipids(rna_correlated_interesting_compounds,
 																																		 rna_de_patient,

@@ -339,13 +339,14 @@ find_genes_correlated_lipids = function(metabolomics_enrichment_lipid_binomial,
 	# tar_load(c(metabolomics_enrichment_lipid_binomial,
 	# 					 rna_metabolites_all_spearman,
 	# 					 metabolomics_de_patient_list))
-	# binomial_padj = 0.1
+	# binomial_padj = 0.05
 	# cor_padj = 0.05
 	# 
 	# metabolomics_enrichment_lipid_binomial = tar_read(metabolomics_enrichment_reactome_binomial)
 	# tar_load(rna_metabolites_all_spearman)
 	# binomial_padj = 0.1
 	# cor_padj = 0.05
+	extra_keep = "class:PS"
 	force(binomial_padj)
 	force(cor_padj)
 	sig_cor = rna_metabolites_all_spearman |>
@@ -353,7 +354,7 @@ find_genes_correlated_lipids = function(metabolomics_enrichment_lipid_binomial,
 		dplyr::mutate(transcript = s1, metabolite = s2)
 	
 	sig_binomial = metabolomics_enrichment_lipid_binomial$stats |>
-		dplyr::filter(padjust <= binomial_padj)
+		dplyr::filter((padjust <= binomial_padj) | (id %in% extra_keep))
 	
 	sig_binomial_id = sig_binomial$id
 	sig_direction = sig_binomial$direction

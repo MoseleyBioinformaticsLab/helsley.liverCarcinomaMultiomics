@@ -335,7 +335,7 @@ upset_go
 
 These show a whole lot of various things going on, but a lot of the GO terms are heavily shared by the various lipid annotations.
 
-### 
+### Compound / Lipid - Gene Correlations
 
 ```{r}
 #| label: fig-compound-correlation
