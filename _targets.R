@@ -314,6 +314,13 @@ tar_plan(
 																																		 rna_de_patient,
 																																		 ensembl_go),
 	
+	### Heatmap of RNA and metabolites ------
+	rna_compounds_matrix = create_rna_compounds_matrix(rna_correlated_interesting_compounds,
+																										 rna_correlated_interesting_lipids,
+																										 metabolomics_feature_list,
+																										 ensembl_uniprot,
+																										 rna_metabolites_all_spearman),
+	
 	## Comparing Statistics Between Treatment and Paired ---------
 	metabolomics_de_compare = compare_treatment_patient(metabolomics_de_treatment_list,
 																											metabolomics_de_patient_list),

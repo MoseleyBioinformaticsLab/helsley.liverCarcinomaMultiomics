@@ -381,3 +381,65 @@ find_genes_correlated_lipids = function(metabolomics_enrichment_lipid_binomial,
 			 measured = unique(sig_cor$transcript),
 			 universe = unique(rna_metabolites_all_spearman$s1))
 }
+
+create_rna_compounds_matrix = function(compounds = rna_correlated_interesting_compounds,
+																			 lipids = rna_correlated_interesting_lipids,
+																			 compound_annotation = metabolomics_feature_list,
+																			 rna_annotation = ensembl_uniprot,
+																			 all_correlation = rna_metabolites_all_spearman)
+{
+	# compounds = tar_read(rna_correlated_interesting_compounds)
+	# lipids = tar_read(rna_correlated_interesting_lipids)
+	# compound_annotation = tar_read(metabolomics_feature_list)
+	# rna_annotation = tar_read(ensembl_uniprot)
+	# all_correlation = tar_read(rna_metabolites_all_spearman)
+	
+	all_compounds = purrr::map(compounds$groups, \(in_group){
+		in_group |> dplyr::select(transcript, metabolite)
+	}) |> 
+		purrr::list_rbind()
+	
+	rna_annotation = rna_annotation |>
+		dplyr::transmute(s1 = ensembl_gene_id,
+										 symbol = hgnc_symbol) |>
+		dplyr::distinct()
+	
+	compound_annotation = compound_annotation |>
+		dplyr::transmute(s2 = feature_id,
+										 metabolite = metabolite_id) |>
+		dplyr::distinct()
+	
+	compound_df = all_correlation |>
+		dplyr::filter(s1 %in% unique(all_compounds$transcript), s2 %in% unique(all_compounds$metabolite))
+	compound_df = dplyr::left_join(compound_df, rna_annotation, by = "s1")
+	compound_df = dplyr::left_join(compound_df, compound_annotation, by = "s2")
+	compound_df = compound_df |>
+		dplyr::mutate(symbol2 = dplyr::case_when(
+			nchar(symbol) > 0 ~ symbol,
+			nchar(symbol) == 0 ~ s1
+		))
+	compound_matrix = ICIKendallTau::long_df_2_cor_matrix(compound_df |>
+																													dplyr::transmute(s1 = symbol2, 
+																																					 s2 = metabolite,
+																																					 cor = cor), is_square = FALSE)
+	all_lipids = purrr::map(lipids$groups, \(in_group){
+		in_group |> dplyr::select(transcript, metabolite)
+	}) |> 
+		purrr::list_rbind()
+	lipid_df = all_correlation |>
+		dplyr::filter(s1 %in% unique(all_lipids$transcript), s2 %in% unique(all_lipids$metabolite))
+	lipid_df = dplyr::left_join(lipid_df, rna_annotation, by = "s1")
+	lipid_df = dplyr::left_join(lipid_df, compound_annotation, by = "s2")
+	lipid_df = lipid_df |>
+		dplyr::mutate(symbol2 = dplyr::case_when(
+			nchar(symbol) > 0 ~ symbol,
+			nchar(symbol) == 0 ~ s1
+		))
+	lipid_matrix = ICIKendallTau::long_df_2_cor_matrix(lipid_df |>
+																													dplyr::transmute(s1 = symbol2, 
+																																					 s2 = metabolite,
+																																					 cor = cor), is_square = FALSE)
+	list(compounds = compound_matrix,
+			 lipids = lipid_matrix)
+	
+}

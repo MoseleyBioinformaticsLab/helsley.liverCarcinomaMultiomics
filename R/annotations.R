@@ -397,6 +397,25 @@ find_interesting_gm_groups = function(rna_metabolites_spearman,
 	group_genes_metabolites
 }
 
+replace_lipid_ids = function(metabolomics_feature_list)
+{
+	# tar_load(metabolomics_feature_list)
+	fixed_lipids = fix_lipids(metabolomics_feature_list$metabolite_id)
+	
+	tmp_data = dplyr::left_join(metabolomics_feature_list, fixed_lipids, by = c("metabolite_id" = "lipid"),
+															relationship = "many-to-many")
+	tmp_data = tmp_data |>
+		dplyr::mutate(metabolite_id2 = dplyr::case_when(
+			is.na(Molecule) ~ metabolite_id,
+			!is.na(Molecule) ~ Molecule
+		))
+	tmp_data$metabolite_id = tmp_data$metabolite_id2
+	tmp_data = tmp_data |>
+		dplyr::select(-metabolite_id2, -Molecule)
+	tmp_data
+}
+
+
 annotate_lipids = function(metabolomics_feature_list)
 {
 	# tar_load(metabolomics_feature_list)
@@ -471,6 +490,10 @@ fix_lipids = function(lipid_ids)
 {
 	# lipid_ids = "TG 48:3;O|TG 17:1_17:1_14:1;O"
 	lipids_nona = lipid_ids[!is.na(lipid_ids)]
+	lipid_reg = "^TAG|^SM|^PC|^PE|^LPE|^CER|^Cer|^DG|^LPA|^LPC|^LPG|^LPI|^LPS|^PC|^PE|^PG|^PI|^PS|^CAR|^CL|^FA|^GalCer|^GlcCer|^GM|^LN|^Hex|^LP|^MG|^PM|^SHex|^TG"
+	is_lipid = grepl(lipid_reg, lipids_nona, ignore.case = FALSE)
+	has_or = grepl(" or |mass error", lipids_nona)
+	lipids_nona = lipids_nona[is_lipid & !has_or]
 	
 	lipid_ids2 = choose_or(lipids_nona) |>
 		stringr::str_replace_all(" O-", "O ") |>
@@ -680,6 +703,9 @@ binomial_genes_correlated_lipids = function(rna_correlated_interesting_lipids,
 			min_features = 6, p_adjust = "BH"
 		)
 		
+		if (is.null(binom_enrich)) {
+			return(NULL)
+		}
 		tmp_df = as.data.frame(binom_enrich@statistics@statistic_data)
 		tmp_df$id = rownames(tmp_df)
 		tmp_df$description = ensembl_go@description[tmp_df$id]
@@ -688,13 +714,16 @@ binomial_genes_correlated_lipids = function(rna_correlated_interesting_lipids,
 				 stats = tmp_df)
 	})
 	
+	null_group = is.null(go_binomial)
+	go_binomial = go_binomial[!null_group]
+	
 	list(groups = list(interesting = rna_correlated_interesting_lipids,
 										 enrich = group_binomial,
 										 stats = group_binomial_stats),
 			 go = go_binomial)
 }
 
-map_features_kegg_chebi= function(metabolomics_feature_list,
+map_features_kegg_chebi = function(metabolomics_feature_list,
 																	inchikey_kegg,
 																	chebi_inchikey)
 {

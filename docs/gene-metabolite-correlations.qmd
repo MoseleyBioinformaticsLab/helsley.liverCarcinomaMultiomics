@@ -33,10 +33,14 @@ tar_load(c(rna_de_patient,
 					 metabolites_within_cor,
 					 feature_lipid,
 					 feature_kegg,
+					 feature_reactome,
 					 metabolite_type_annotations,
 					 feature_to_kegg_chebi,
 					 metabolomics_enrichment_lipid_binomial,
-					 metabolomics_enrichment_reactome_binomial
+					 metabolomics_enrichment_reactome_binomial,
+					 rna_binomial_interesting_lipids,
+					 rna_binomial_interesting_compounds,
+					 rna_compounds_matrix
 					 ))
 ```
 
@@ -52,8 +56,8 @@ Hypergeometric enrichment tests if a particular annotation is represented more i
 Binomial enrichment tests if the ratio of positive and negative fold-changes for a group of annotated features differs significantly from an expected ratio (generally 0.5).
 The advantage of binomial enrichment is that it uses **all** of the annotated features, instead of comparing significant to all.
 Binomial enrichment of metabolites were calculated based on both reactome pathways and lipid annotations of lipid class, total and individual chain length, total and individual number of unsaturations, as well as their combinations.
-For significant binomial enrichments of metabolites (p-adjusted < 0.1 for lipids or 0.05 for pathways), genes with significant correlation to the group of metabolites were extracted, and then binomial enrichment of the genes with significant correlation calculated, as well as for those genes annotated to GO terms.
-Binomial enrichment was restricted to those annotations with six or more features annotated to it.
+For significant binomial enrichments of metabolites (p-adjusted < 0.1 for lipids or 0.05 for pathways), genes with significant correlation to the group of metabolites with log-fold-change in the majority direction were extracted, and then binomial enrichment of the genes with significant correlation calculated, as well as for those genes annotated to GO terms.
+Binomial enrichment was restricted to those annotations with six or more features.
 
 ## Named Metabolites?
 
@@ -255,13 +259,14 @@ That is a lot of correlations to try and follow up on!
 
 To find potentially **interesting** metabolite to gene correlations, we will use binomial enrichment of the metabolite pathways (@tbl-metabolite-binomial-compounds) and lipid annotations (@tbl-metabolite-binomial-lipids) (see Methods).
 
+
 ```{r}
 #| label: tbl-metabolite-binomial-compounds
 #| tbl-cap: Binomial enrichments for compound reactome pathway annotations, for those annotations with an adjusted p-value <= 0.05.
 compound_enrich_table = metabolomics_enrichment_reactome_binomial$stats |>
 	dplyr::arrange(padjust) |>
 	dplyr::filter(padjust <= 0.05) |>
-	dplyr::select(description, num_positive, num_negative, p, padjust) |>
+	dplyr::select(description, direction, num_positive, num_negative, p, padjust) |>
 	gt::gt() |>
 	gt::fmt_integer(columns = c(num_positive, num_negative)) |>
 	gt::fmt_number(columns = c(p, padjust), n_sigfig = 2)
@@ -274,9 +279,116 @@ compound_enrich_table
 lipid_enrich_table = metabolomics_enrichment_lipid_binomial$stats |>
 	dplyr::arrange(padjust) |>
 	dplyr::filter(padjust <= 0.1) |>
-	dplyr::select(id, num_positive, num_negative, p, padjust) |>
+	dplyr::select(id, direction, num_positive, num_negative, p, padjust) |>
 	gt::gt() |>
 	gt::fmt_number(columns = c(p, padjust), n_sigfig = 2)
 lipid_enrich_table
 ```
 
+For each of these metabolite groups, we can choose those that are in the majority direction, and then find those genes with significant correlations to the metabolites, and calculate binomial enrichments for annotated Gene Ontology terms.
+
+We found that the pathways enriched for the compounds (@tbl-metabolite-binomial-compounds) fell into mostly two groups, disease or metabolism, and subsequently the genes correlated across them and the GO terms enriched for them were also highly shared, so there is not much more analysis there outside of the metabolite - gene correlation heatmap.
+
+I'm actually really curious about the metabolite overlap amongst the various enriched lipid groups, as well as the significantly correlated genes with each of them, and then finally the significant GO terms from binomial enrichment.
+
+```{r}
+#| label: fig-rna-interesting-lipids-metabolites
+#| fig-cap: UpSet plot of the lipid features from each significant binomial enriched group.
+lipids_each = purrr::map(rna_binomial_interesting_lipids$groups$interesting$groups, \(in_group){
+	unique(in_group$metabolite)
+})
+
+upset_lipids = ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(lipids_each))
+upset_lipids
+```
+
+```{r}
+#| label: fig-rna-interesting-lipids-genes
+#| fig-cap: UpSet plot of genes with significant correlations to the lipids from each significant binomial enriched group.
+rna_each = purrr::map(rna_binomial_interesting_lipids$groups$interesting$groups, \(in_group){
+	unique(in_group$transcript)
+})
+upset_rna = ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(rna_each))
+upset_rna
+```
+
+```{r}
+#| label: fig-rna-interesting-lipids-go
+#| fig-cap: UpSet plot of enriched GO terms (adjusted p-value <= 0.01) from the genes of each significant binomial enriched group.
+go_each = purrr::map(rna_binomial_interesting_lipids$go, \(in_group){
+	if (is.null(in_group)) {
+		return(NULL)
+	}
+	out_go = in_group$stats |>
+		dplyr::filter(padjust <= 0.01) |>
+		dplyr::pull(id)
+	if (length(out_go) == 0) {
+		return(NULL)
+	}
+	return(out_go)
+})
+null_go = purrr::map_lgl(go_each, is.null)
+go_each = go_each[!null_go]
+upset_go = ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(go_each))
+upset_go
+```
+
+These show a whole lot of various things going on, but a lot of the GO terms are heavily shared by the various lipid annotations.
+
+### 
+
+```{r}
+#| label: fig-compound-correlation
+cor_map = circlize::colorRamp2(seq(-1, 1, length.out = 20), scico::scico(20, palette = "vik"))
+compound_map = rna_compounds_matrix$compounds
+
+gene_dist = hclust(dist((compound_map))) |> dendsort::dendsort()
+compound_dist = hclust(dist(t(compound_map))) |> dendsort::dendsort()
+
+compound_show_plot = ComplexHeatmap::Heatmap(compound_map, col = cor_map, name = "Spearman",
+																		column_title = "Compound - Gene Correlations",
+												cluster_columns = compound_dist,
+												cluster_rows = gene_dist,
+												show_row_names = FALSE,
+												show_column_names = FALSE)
+
+compound_save_plot = ComplexHeatmap::Heatmap(compound_map, col = cor_map, name = "Spearman",
+																		column_title = "Compound - Gene Correlations",
+												cluster_columns = compound_dist,
+												cluster_rows = gene_dist,
+												row_names_gp = gpar(fontsize = 4),
+												column_names_gp = gpar(fontsize = 10))
+ragg::agg_png("docs/compound_genes.png", width = 10, height = 20, units = "in",
+							res = 300)
+compound_save_plot
+dev.off()
+
+compound_show_plot
+```
+
+```{r}
+#| label: fig-lipid-correlation
+lipid_map = rna_compounds_matrix$lipids
+lipid_gene_dist = hclust(dist((lipid_map))) |> dendsort::dendsort()
+lipid_dist = hclust(dist(t(lipid_map))) |> dendsort::dendsort()
+
+lipid_show_plot = ComplexHeatmap::Heatmap(lipid_map, col = cor_map, name = "Spearman",
+																		column_title = "Lipid - Gene Correlations",
+												cluster_columns = lipid_dist,
+												cluster_rows = lipid_gene_dist,
+												show_row_names = FALSE,
+												show_column_names = FALSE)
+
+lipid_save_plot = ComplexHeatmap::Heatmap(lipid_map, col = cor_map, name = "Spearman",
+																		column_title = "Lipid - Gene Correlations",
+												cluster_columns = lipid_dist,
+												cluster_rows = lipid_gene_dist,
+												row_names_gp = gpar(fontsize = 2),
+												column_names_gp = gpar(fontsize = 6))
+ragg::agg_png("docs/lipid_genes.png", width = 20, height = 40, units = "in",
+							res = 300)
+lipid_save_plot
+dev.off()
+
+lipid_show_plot
+```
