@@ -476,3 +476,149 @@ ragg::agg_png("docs/compound_genes.png", width = 10, height = 20, units = "in",
 compound_save_plot
 dev.off()
 ```
+
+### Lipids
+
+For the lipids, we can generate annotations including lipid class, total number of carbons, total number of unsaturations, as well as those for each chain, and then their combinations.
+And then perform the same binomial enrichment test for the various annotations.
+The significant binomial results are shown in @tbl-metabolite-binomial-lipids.
+Although the lipid class phosphatidylserine is **not** technically significant, we are including it due to them being known to be involved in apoptosis.
+
+```{r}
+#| label: tbl-metabolite-binomial-lipids
+#| tbl-cap: 'Binomial enrichments for lipid annotations, for those annotations with an adjusted p-value <= 0.05, and phosphatidylserine lipids. total_db: total number of double bonds or unsaturation; total_length: total chain length; chain1_db: number of double bonds or unsaturation in chain 1.'
+lipid_enrich_table = metabolomics_enrichment_lipid_binomial$stats |>
+        dplyr::arrange(padjust) |>
+        dplyr::filter((padjust <= 0.05) | (id %in% "class:PS")) |>
+        dplyr::select(id, direction, num_positive, num_negative, p, padjust) |>
+        gt::gt() |>
+        gt::fmt_number(columns = c(p, padjust), n_sigfig = 2)
+lipid_enrich_table
+```
+
+```{r}
+#| label: fig-rna-interesting-lipids-metabolites
+#| fig-cap: UpSet plot of the lipid features from each significant binomial enriched group.
+lipids_each = purrr::map(rna_binomial_interesting_lipids$groups$interesting$groups, \(in_group){
+        unique(in_group$metabolite)
+})
+
+upset_lipids = ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(lipids_each),
+
+                                                 column_title = "Lipid Metabolites")
+draw(upset_lipids, padding = unit(c(2, 10, 2, 2), "mm"))
+```
+
+```{r}
+#| label: fig-rna-interesting-lipids-genes
+#| fig-cap: UpSet plot of genes with significant correlations to the lipids from each significant binomial enriched group.
+rna_each_df = purrr::imap(rna_binomial_interesting_lipids$groups$interesting$groups, \(in_group, group_id){
+        med_cor = in_group |>
+                dplyr::group_by(transcript) |>
+                dplyr::summarise(med_cor = median(cor),
+                                                                                 dir = sign(med_cor),
+                                                                                 id = group_id)
+        med_cor = med_cor |>
+                dplyr::mutate(id2 = dplyr::case_when(
+                        dir == 1 ~ paste0("pos-", id),
+                        dir == -1 ~ paste0("neg-", id)
+                ))
+        med_cor
+}) |>
+        purrr::list_rbind()
+rna_each = split(rna_each_df$transcript, rna_each_df$id)
+upset_rna = ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(rna_each),
+
+                                        column_title = "Lipid Genes")
+draw(upset_rna, padding = unit(c(2, 10, 2, 2), "mm"))
+```
+
+```{r}
+#| label: fig-rna-interesting-lipids-go
+#| fig-cap: UpSet plot of enriched GO terms (adjusted p-value <= 0.01) from the genes of each significant binomial enriched group.
+go_each_df = purrr::imap(rna_binomial_interesting_lipids$go, \(in_group, group_id){
+        if (is.null(in_group)) {
+                return(NULL)
+        }
+        out_go = in_group$stats |>
+                dplyr::filter(padjust <= 0.01) |>
+                dplyr::mutate(dir_go = dplyr::case_when(
+                        direction == -1 ~ paste0("neg-", group_id),
+                        direction == 1 ~ paste0("pos-", group_id)
+                ),
+                group = group_id)
+        if (length(out_go) == 0) {
+                return(NULL)
+        }
+        return(out_go)
+}) |>
+        purrr::list_rbind()
+go_each = split(go_each_df$id, go_each_df$group)
+upset_go = ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(go_each),
+
+                                 column_title = "Lipid GO Terms")
+draw(upset_go, padding = unit(c(2, 10, 2, 2), "mm"))
+```
+
+#### Correlation Heatmap
+
+For all the lipids from the binomial enriched groups and their significantly correlated genes, we can get all of the Spearman correlations, and plot a heatmap of them, with hierarchical clustering.
+This is shown in @fig-lipid-correlation, with lipids on the columns, and genes on the rows.
+This image has no text labels, but you should have been provided with a copy that does have them.
+There are definite groupings of compounds and genes.
+
+```{r}
+#| label: fig-lipid-correlation
+lipid_map = rna_compounds_matrix$lipids
+lipid_gene_dist = hclust(dist((lipid_map))) |> dendsort::dendsort()
+lipid_dist = hclust(dist(t(lipid_map))) |> dendsort::dendsort()
+
+lipid_show_plot = ComplexHeatmap::Heatmap(lipid_map, col = cor_map, name = "Spearman",
+                                                column_title = "Lipids",
+                                                row_title = "Genes",
+cluster_columns = lipid_dist,
+cluster_rows = lipid_gene_dist,
+show_row_names = FALSE,
+show_column_names = FALSE)
+
+lipid_save_plot = ComplexHeatmap::Heatmap(lipid_map, col = cor_map, name = "Spearman",
+                                                column_title = "Lipids",
+                                                row_title = "Genes",
+																							cluster_columns = lipid_dist,
+																							cluster_rows = lipid_gene_dist,
+																							row_names_gp = gpar(fontsize = 4),
+																							column_names_gp = gpar(fontsize = 10))
+
+lipid_show_plot
+```
+
+```{r}
+#| label: save-lipid
+#| include: false
+ragg::agg_png("docs/lipid_genes.png", width = 20, height = 40, units = "in",
+                                                        res = 300)
+lipid_save_plot
+dev.off()
+
+```
+
+## Executive Summary
+
+* Named significant metabolites are few and far between, so we did not restrict correlations to the significant metabolites.
+* Binomial enrichment of metabolites provides some interesting pathways and enriched lipid annotations.
+* Enriched pathway annotations (see @tbl-metabolite-binomial-compounds) include transport, lipid oxidation, and disease.
+These are all enriched from metabolites having a negative log-fold-change.
+* Enriched lipid annotations (see @tbl-metabolite-binomial-lipids) include ceramides, phosphatidylserines, lipids with a total carbon count of 18 and 34, zero unsaturations, and triglycerides with a single unsaturation.
+The triglycerides are enriched in the positive direction, whereas all others are negative.
+* Correlation heatmaps of compound to gene correlations show distinct groups of genes with positive and negative correlations to the various compounds.
+* Correlation heatmaps of lipid to gene correlations show distinct groups of genes with positive and negative correlations to the various lipids.
+* Outputs provided:
+  * This report, in HTML and Word form.
+  * Differential results for transcriptomics and metabolomics as two sheets in an Excel file.
+  * Full set of transcript to metabolite correlations in an Excel file.
+  * Genes and metabolites with significant correlations from the binomial tables, as sheets in two Excel files, one for pathways and one for lipid annotations.
+  * Full versions of the compound and lipid correlation heatmap figures.
+
+## Possible Todo
+
+* Extract clusters of compounds, lipids, and genes from heatmaps.
