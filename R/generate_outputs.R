@@ -59,4 +59,41 @@ generate_correlation_output = function(rna_metabolites_all_spearman,
 	tar_load(c(rna_metabolites_all_spearman,
 						 rna_de_patient,
 						 metabolomics_de_patient_list))
+	
+	
+	rna_metabolites_all_spearman = rna_metabolites_all_spearman |>
+		dplyr::rename(gene = s1, metabolite = s2)
+	rna_info = rna_de_patient |>
+		dplyr::transmute(gene = feature_id, gene_symbol = name, description = description)
+	rna_metabolites_all_spearman = dplyr::left_join(rna_metabolites_all_spearman, rna_info, by = "gene",
+																									relationship = "many-to-many")
+	metabolites_info = metabolomics_de_patient_list |>
+		dplyr::transmute(metabolite = feature_id, metabolite_name = metabolite_id, metabolite_type = type)
+	rna_metabolites_all_spearman = dplyr::left_join(rna_metabolites_all_spearman, metabolites_info, by = "metabolite")
+	
+	data_dictionary = tibble::tribble(
+		~header, ~meaning,
+		"gene", "Ensembl gene id",
+		"metabolite", "internal metabolite feature id",
+		"core", "what compute core was the correlation calculated with",
+		"cor", "Spearman correlation value",
+		"pvalue", "correlation p-value",
+		"padjust", "correlation adjusted p-value by Benjamini-Hochberg",
+		"method", "correlation method",
+		"gene_symbol", "Gene symbol",
+		"description", "gene name",
+		"metabolite_name", "the metabolite id",
+		"metabolite_type", "what type of metabolite was it"
+	)
+	tab_out = list(dictionary = data_dictionary,
+								 correlation = rna_metabolites_all_spearman)
+	tabular_output = openxlsx::write.xlsx(tab_out,
+																				"docs/rna_metabolomics_correlations.xlsx",
+																				overwrite = TRUE)
+	tabular_output
+}
+
+generate_groups_output = function()
+{
+	
 }
