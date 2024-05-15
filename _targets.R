@@ -434,6 +434,14 @@ tar_plan(
 	excel_output = write_goeach_to_excel(rna_patient_enrichment_grouped_eachgo,
 																			 rna_patient_enrichment_grouped_eachreactome),
 	
+	metabolomics_de_excel = generate_metabolomics_de_output(metabolomics_de_patient_list),
+	transcriptomics_de_excel = generate_transcriptomics_de_output(rna_de_patient),
+	rna_metabolomics_correlation_excel = generate_correlation_output(rna_metabolites_all_spearman,
+																																	 rna_de_patient,
+																																	 metabolomics_de_patient_list),
+	
+	rna_interesting_compounds_excel = generate_groups_output(),
+	
 	## documents -----------
 	#tar_quarto(wcmc_imputed_value, "docs/wcmc_imputed_value.qmd"),
 	#tar_quarto(mean_variance_relationships, "docs/mean_variance_relationships.qmd"),
