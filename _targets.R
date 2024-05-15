@@ -397,6 +397,11 @@ tar_plan(
 																									method = "spearman",
 																									significant_only = FALSE),
 	
+	rna_metabolites_all_spearman_sig = rna_metabolites_all_spearman |>
+		dplyr::filter(padjust <= 0.01) |>
+		dplyr::transmute(gene = s1, metabolite = s2, cor = cor,
+										 dir = sign(cor)),
+	
 	rna_abundances = just_rna_abundances(rna_collapsed,
 																			 rna_de_patient,
 																			 matched_samples),

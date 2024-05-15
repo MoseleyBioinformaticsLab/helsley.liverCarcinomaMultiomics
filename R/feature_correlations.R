@@ -333,8 +333,8 @@ check_metabolite_correlations = function(metabolites_within_cor,
 find_genes_correlated_lipids = function(metabolomics_enrichment_lipid_binomial,
 																				rna_metabolites_all_spearman,
 																				metabolomics_de_patient_list,
-																				binomial_padj = 0.1,
-																				cor_padj = 0.05)
+																				binomial_padj = 0.05,
+																				cor_padj = 0.01)
 {
 	# tar_load(c(metabolomics_enrichment_lipid_binomial,
 	# 					 rna_metabolites_all_spearman,
@@ -343,7 +343,7 @@ find_genes_correlated_lipids = function(metabolomics_enrichment_lipid_binomial,
 	# cor_padj = 0.05
 	# 
 	# metabolomics_enrichment_lipid_binomial = tar_read(metabolomics_enrichment_reactome_binomial)
-	# tar_load(rna_metabolites_all_spearman)
+	# tar_load(rna_metabolites_all_spearman_sig)
 	# binomial_padj = 0.1
 	# cor_padj = 0.05
 	extra_keep = "class:PS"
@@ -442,5 +442,10 @@ create_rna_compounds_matrix = function(compounds = rna_correlated_interesting_co
 																																					 cor = cor), is_square = FALSE)
 	list(compounds = compound_matrix,
 			 lipids = lipid_matrix)
+	
+}
+
+generate_grouped_correlative_output = function()
+{
 	
 }
