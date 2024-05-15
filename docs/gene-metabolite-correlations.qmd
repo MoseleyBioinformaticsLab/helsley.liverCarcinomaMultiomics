@@ -1,5 +1,5 @@
 ---
-title: "Hepatocarcinoma Multi-Omics Differential Analysis"
+title: "Hepatocarcinoma Multi-Omics Correlation Analysis"
 author: "Robert M Flight"
 date: last-modified
 date-format: YYYY-MM-DD HH:mm
@@ -7,15 +7,19 @@ format:
   html:
     embed-resources: true
     toc: true
+  docx:
+    keep-md: false
 ---
 
 ```{r}
 #| label: setup
 #| include: false
 knitr::opts_chunk$set(echo = FALSE,
-											message = FALSE,
-											dev = "ragg_png",
-											dpi = 300)
+	                    message = FALSE,
+	                    fig.width = 10,
+	                    fig.height = 8,
+	                    dev = "ragg_png",
+	                    dpi = 300)
 targets::tar_source("./packages.R")
 tar_source("R")
 library(tidygraph)
@@ -27,26 +31,32 @@ library(dbscan)
 #| label: load-targets
 #| include: false
 tar_load(c(rna_de_patient,
-					 metabolomics_de_patient_list,
-					 rna_metabolites_all_spearman,
-					 rna_within_cor,
-					 metabolites_within_cor,
-					 feature_lipid,
-					 feature_kegg,
-					 feature_reactome,
-					 metabolite_type_annotations,
-					 feature_to_kegg_chebi,
-					 metabolomics_enrichment_lipid_binomial,
-					 metabolomics_enrichment_reactome_binomial,
-					 rna_binomial_interesting_lipids,
-					 rna_binomial_interesting_compounds,
-					 rna_compounds_matrix
-					 ))
+           metabolomics_de_patient_list,
+           rna_metabolites_all_spearman_sig,
+           rna_within_cor,
+           metabolites_within_cor,
+           feature_lipid,
+           feature_kegg,
+           feature_reactome,
+           metabolite_type_annotations,
+           feature_to_kegg_chebi,
+           metabolomics_enrichment_lipid_binomial,
+           metabolomics_enrichment_reactome_binomial,
+           rna_binomial_interesting_lipids,
+           rna_binomial_interesting_compounds,
+           rna_compounds_matrix
+                                         ))
 ```
+
+## Purpose
+
+Analyze the hepatocarcinoma transcriptomics and metabolomics correlations.
+The [executive summary](#executive-summary) is at the end of this document.
+
 
 ## Data
 
-Hepatocarcinoma transcriptomics significant entries, and metabolomics significant entries (p-adjusted <= 0.05), Spearman correlated between the genes and metabolites, using the 12 samples that are in common across all 4 datasets.
+Hepatocarcinoma transcriptomics from the paired analysis, and metabolomics from the paired sample analysis, Spearman correlated between the genes and metabolites, using the 12 samples that are in common across all 4 datasets.
 
 ## Methods
 
@@ -56,46 +66,52 @@ Hypergeometric enrichment tests if a particular annotation is represented more i
 Binomial enrichment tests if the ratio of positive and negative fold-changes for a group of annotated features differs significantly from an expected ratio (generally 0.5).
 The advantage of binomial enrichment is that it uses **all** of the annotated features, instead of comparing significant to all.
 Binomial enrichment of metabolites were calculated based on both reactome pathways and lipid annotations of lipid class, total and individual chain length, total and individual number of unsaturations, as well as their combinations.
-For significant binomial enrichments of metabolites (p-adjusted < 0.1 for lipids or 0.05 for pathways), genes with significant correlation to the group of metabolites with log-fold-change in the majority direction were extracted, and then binomial enrichment of the genes with significant correlation calculated, as well as for those genes annotated to GO terms.
-Binomial enrichment was restricted to those annotations with six or more features.
+For significant binomial enrichments of metabolites (p-adjusted <= 0.05), genes with significant correlation to the group of metabolites (p-adjusted <= 0.01) with log-fold-change in the majority direction were extracted, and then binomial enrichment of the genes with significant correlation calculated, as well as for those genes annotated to GO terms.
+Binomial enrichment was restricted to those annotations with six or more compounds, lipids, or genes.
 
 ## Named Metabolites?
 
 How many metabolites actually have any kind of useable name or identifier in the full dataset, and in the significant metabolites?
 We show this in @tbl-named-metabolite-locs.
 
+
+
 ```{r}
 #| label: tbl-named-metabolite-locs
 #| tbl-cap: Number of named and unknown metabolites by overall metabolite class and direction, for all and significant metabolites. *has_name* indicates whether the metabolite is named or unknown; *lfc_direction* indicates what direction the log-fold-change was; *n_entry.all* is how many metabolites were present across all metabolites; *perc_entry.all* is what percentage of metabolites across all metabolites; *n_entry.sig* is how many were present in the significant set; *perc_entry.sig* is what percentage of the significant set.
 metabolites_significant = metabolomics_de_patient_list |>
-	dplyr::mutate(has_name = dplyr::case_when(
-		!is.na(in_chi_key) ~ "named",
-		is.na(in_chi_key) ~ "unknown"
-	),
-	lfc_direction = dplyr::case_when(
-		log2FoldChange > 0 ~ "Positive",
-		log2FoldChange < 0 ~ "Negative"
-	))
+        dplyr::mutate(has_name = dplyr::case_when(
+                !is.na(in_chi_key) ~ "named",
+                is.na(in_chi_key) ~ "unknown"
+        ),
+        lfc_direction = dplyr::case_when(
+                log2FoldChange > 0 ~ "Positive",
+                log2FoldChange < 0 ~ "Negative"
+        ))
 summary_names = metabolites_significant |>
-	dplyr::group_by(type, has_name, lfc_direction) |>
-	dplyr::summarise(n_entry.all = dplyr::n()) |>
-	dplyr::ungroup() |>
-	dplyr::mutate(perc_entry.all = n_entry.all / sum(n_entry.all))
+        dplyr::group_by(type, has_name, lfc_direction) |>
+        dplyr::summarise(n_entry.all = dplyr::n()) |>
+        dplyr::ungroup() |>
+        dplyr::mutate(perc_entry.all = n_entry.all / sum(n_entry.all))
 summary_sig = metabolites_significant |>
-	dplyr::filter(padj <= 0.05) |>
-	dplyr::group_by(type, has_name, lfc_direction) |>
-	dplyr::summarise(n_entry.sig = dplyr::n()) |>
-	dplyr::ungroup() |>
-	dplyr::mutate(perc_entry.sig = n_entry.sig / sum(n_entry.sig))
+        dplyr::filter(padj <= 0.05) |>
+        dplyr::group_by(type, has_name, lfc_direction) |>
+        dplyr::summarise(n_entry.sig = dplyr::n()) |>
+        dplyr::ungroup() |>
+        dplyr::mutate(perc_entry.sig = n_entry.sig / sum(n_entry.sig))
 
-summary_all = dplyr::bind_cols(summary_names[, c("type", "has_name", "lfc_direction", 
-																								 "n_entry.all", "perc_entry.all")],
-															 summary_sig[, c("n_entry.sig", "perc_entry.sig")])
+summary_all = dplyr::bind_cols(summary_names[, c("type", "has_name", "lfc_direction",
+
+
+       "n_entry.all", "perc_entry.all")],
+
+                            summary_sig[, c("n_entry.sig", "perc_entry.sig")])
 summary_all |>
-	dplyr::group_by(type) |>
+        dplyr::group_by(type) |>
 gt::gt() |>
-	gt::fmt_percent(c(perc_entry.all, perc_entry.sig), decimals = 0)
+        gt::fmt_percent(c(perc_entry.all, perc_entry.sig), decimals = 0)
 ```
+
 
 Concentrating on those **bioamines**, how many of the named ones are annotated to a pathway?
 These are shown in @tbl-bioamines-pathway.
@@ -104,35 +120,38 @@ These are shown in @tbl-bioamines-pathway.
 #| label: tbl-bioamines-pathway
 #| tbl-cap: Number of bioamines that are named, can be mapped to a KEGG compound, and then to a KEGG pathway.
 bioamines_sig = metabolites_significant |>
-	dplyr::filter(padj <= 0.05, type %in% "bioamines") |>
-	dplyr::select(feature_id, metabolite_id, in_chi_key, log2FoldChange)
+        dplyr::filter(padj <= 0.05, type %in% "bioamines") |>
+        dplyr::select(feature_id, metabolite_id, in_chi_key, log2FoldChange)
 bioamines_sig_merge = dplyr::left_join(bioamines_sig, feature_to_kegg_chebi[, -2],
-																			 by = "feature_id")
+
+                                                            by = "feature_id")
 all_kegg_annotated = unique(unlist(feature_kegg@annotation_features))
 
 bioamines_sig_merge = bioamines_sig_merge |>
-	dplyr::mutate(pathway = dplyr::case_when(
-		feature_id %in% all_kegg_annotated ~ "in_pathway",
-		TRUE ~ "unknown"
-	),
-	kegg = dplyr::case_when(
-		!is.na(kegg) ~ "in_kegg",
-		TRUE ~ "unknown"
-	),
-	lfc_direction = dplyr::case_when(
-		log2FoldChange > 0 ~ "Positive",
-		log2FoldChange < 0 ~ "Negative"
-	))
+        dplyr::mutate(pathway = dplyr::case_when(
+                feature_id %in% all_kegg_annotated ~ "in_pathway",
+                TRUE ~ "unknown"
+        ),
+        kegg = dplyr::case_when(
+                !is.na(kegg) ~ "in_kegg",
+                TRUE ~ "unknown"
+        ),
+        lfc_direction = dplyr::case_when(
+                log2FoldChange > 0 ~ "Positive",
+                log2FoldChange < 0 ~ "Negative"
+        ))
 
 bioamines_kegg_n = bioamines_sig_merge |>
-	dplyr::group_by(lfc_direction, kegg, pathway) |>
-	dplyr::summarise(n_compound = dplyr::n()) |>
-	dplyr::ungroup()
+        dplyr::group_by(lfc_direction, kegg, pathway) |>
+        dplyr::summarise(n_compound = dplyr::n()) |>
+        dplyr::ungroup()
 gt::gt(bioamines_kegg_n)
 ```
 
 This becomes really, really important, because we wanted to initially restrict the correlative analysis to the significant genes and significant metabolites.
-However, because there are so few named metabolites in the significant set, we don't see anything in the enrichment results that appears useful.
+However, because there are so few named metabolites in the significant set, we don't see anything in the enrichment results that appears informative.
+
+**Therefore, we calculated correlations between all transcripts and all metabolites.**
 
 ## Significant Correlations
 
@@ -144,32 +163,29 @@ P-adjusted correlations <= 0.01.
 ```{r}
 #| label: fig-examine-correlations
 #| fig-cap: Number of genes and metabolites having significant correlations.
-sig_cor = rna_metabolites_all_spearman |>
-	dplyr::filter(padjust <= 0.01) |>
-	dplyr::transmute(gene = s1, metabolite = s2, cor = cor,
-									 dir = sign(cor))
-
 rna_sig = rna_de_patient |>
-	dplyr::transmute(gene.lfc = sign(log2FoldChange),
-									 gene = feature_id)
+        dplyr::transmute(gene.lfc = sign(log2FoldChange),
+                                                                         gene = feature_id)
 met_sig = metabolomics_de_patient_list |>
-	dplyr::transmute(metabolite.lfc = sign(log2FoldChange),
-									 metabolite = feature_id)
-sig_cor = dplyr::left_join(sig_cor, rna_sig, by = "gene")
+        dplyr::transmute(metabolite.lfc = sign(log2FoldChange),
+                                                                         metabolite = feature_id)
+sig_cor = dplyr::left_join(rna_metabolites_all_spearman_sig, rna_sig, by = "gene")
 sig_cor = dplyr::left_join(sig_cor, met_sig, by = "metabolite")
 sig_cor |>
-	ggplot(aes(x = cor)) +
-	geom_histogram(bins = 100)
+        ggplot(aes(x = cor)) +
+        geom_histogram(bins = 100)
 ```
 
 ```{r}
 #| label: tbl-n-genes-metabolites
 #| tbl-cap: Number of genes and metabolites after filtering to those with significant correlations (p-adjust <= 0.01).
 n_each = sig_cor |>
-	dplyr::summarise(n_gene = length(unique(gene)),
-									 n_metabolite = length(unique(metabolite)))
+        dplyr::summarise(n_gene = length(unique(gene)),
+                                                                         n_metabolite = length(unique(metabolite)))
 gt::gt(n_each)
 ```
+
+
 
 ```{r}
 #| label: fig-n-to-each
@@ -177,35 +193,37 @@ gt::gt(n_each)
 #| fig-width: 8
 #| fig-height: 15
 gene_to_metabolite = sig_cor |>
-	dplyr::mutate(sign = sign(cor)) |>
-	dplyr::group_by(gene, sign, gene.lfc) |>
-	dplyr::summarise(g2m = dplyr::n())
+        dplyr::mutate(sign = sign(cor)) |>
+        dplyr::group_by(gene, sign, gene.lfc) |>
+        dplyr::summarise(g2m = dplyr::n())
 metabolite_to_gene = sig_cor |>
-	dplyr::mutate(sign = sign(cor)) |>
-	dplyr::group_by(metabolite, sign, metabolite.lfc) |>
-	dplyr::summarise(m2g = dplyr::n())
+        dplyr::mutate(sign = sign(cor)) |>
+        dplyr::group_by(metabolite, sign, metabolite.lfc) |>
+        dplyr::summarise(m2g = dplyr::n())
 
 gm_plot = gene_to_metabolite |>
-	dplyr::mutate(gene.lfc = paste0("lfc ", gene.lfc),
-								sign = paste0("cor ", sign)) |>
-	ggplot(aes(x = g2m)) +
-	geom_histogram(bins = 100) +
-	facet_grid(gene.lfc ~ sign) +
-	labs(subtitle = "Genes -> Metabolites")
+        dplyr::mutate(gene.lfc = paste0("lfc ", gene.lfc),
+                                                                sign = paste0("cor ", sign)) |>
+        ggplot(aes(x = g2m)) +
+        geom_histogram(bins = 100) +
+        facet_grid(gene.lfc ~ sign) +
+        labs(subtitle = "Genes -> Metabolites")
 mg_plot = metabolite_to_gene |>
-	dplyr::mutate(metabolite.lfc = paste0("lfc ", metabolite.lfc),
-								sign = paste0("cor ", sign)) |>
-	ggplot(aes(x = m2g)) +
-	geom_histogram(bins = 100) +
-	facet_grid(metabolite.lfc ~ sign) +
-	labs(subtitle = "Metabolites -> Genes")
+        dplyr::mutate(metabolite.lfc = paste0("lfc ", metabolite.lfc),
+                                                                sign = paste0("cor ", sign)) |>
+        ggplot(aes(x = m2g)) +
+        geom_histogram(bins = 100) +
+        facet_grid(metabolite.lfc ~ sign) +
+        labs(subtitle = "Metabolites -> Genes")
 gm_plot / mg_plot
 ```
 
 
-We can consider this as a simple bipartite graph, and order the nodes by their number of edges and type, as shown in @fig-sig-cor-graph.
+
+We can consider the correlations as a simple bipartite graph, and order the nodes by their number of edges and type, as shown in @fig-sig-cor-graph.
 We can also ignore the type of node, and just order them by whether the gene or metabolite had positive or negative LFC and the number of edges to the other type of node, see @fig-sig-cor-graph2.
 Both of these imply there are definite groups of metabolites all connected to one or more sets of genes.
+
 
 ```{r}
 #| label: fig-sig-cor-graph
@@ -214,29 +232,30 @@ Both of these imply there are definite groups of metabolites all connected to on
 #| fig-height: 8
 
 all_lfc = dplyr::bind_rows(rna_sig |>
-													 	dplyr::transmute(name = gene,
-													 									 lfc = gene.lfc),
-													 met_sig |>
-													 	dplyr::transmute(name = metabolite,
-													 									 lfc = metabolite.lfc))
+                   dplyr::transmute(name = gene,
+                                    lfc = gene.lfc),
+            met_sig |>
+                   dplyr::transmute(name = metabolite,
+                                    lfc = metabolite.lfc))
 
 sig_cor_graph = as_tbl_graph(sig_cor, directed = FALSE) |>
-	dplyr::mutate(type = dplyr::case_when(
-		grepl("^ENS", name) ~ "gene",
-		TRUE ~ "metabolite"
-	),
-	n_connect = tidygraph::centrality_degree())
+        dplyr::mutate(type = dplyr::case_when(
+                grepl("^ENS", name) ~ "gene",
+                TRUE ~ "metabolite"
+        ),
+        n_connect = tidygraph::centrality_degree())
 
 sig_cor_graph = dplyr::left_join(sig_cor_graph, all_lfc, by = "name")
 
 sig_cor_graph = sig_cor_graph |>
-	arrange(type, n_connect)
+        arrange(type, n_connect)
 
 ggraph(sig_cor_graph, layout = "linear", circular = TRUE) +
-	geom_edge_arc(alpha = 0.01) +
-	geom_node_point(aes(color = type)) +
-	coord_fixed()
+        geom_edge_arc(alpha = 0.01) +
+        geom_node_point(aes(color = type)) +
+        coord_fixed()
 ```
+
 
 
 
@@ -246,99 +265,172 @@ ggraph(sig_cor_graph, layout = "linear", circular = TRUE) +
 #| fig-width: 9
 #| fig-height: 8
 sig_cor_graph = sig_cor_graph |>
-	arrange(lfc, n_connect)
+        tidygraph::activate(edges) |>
+        dplyr::mutate(dir2 = as.factor(dir))
+sig_cor_graph = sig_cor_graph |>
+        tidygraph::activate(nodes) |>
+        arrange(lfc, n_connect)
 ggraph(sig_cor_graph, layout = "linear", circular = TRUE) +
-	geom_edge_arc(alpha = 0.01, aes(color = dir)) +
-	geom_node_point(size = 0.5, aes(color = type)) +
-	coord_fixed()
+        geom_edge_arc(alpha = 0.01, aes(color = dir2)) +
+        scale_edge_color_manual(values = c("-1" = "#00165F", "1" = "#631103")) +
+        geom_node_point(size = 0.5, aes(color = type)) +
+        coord_fixed()
 ```
 
 That is a lot of correlations to try and follow up on!
 
+
 ## Binomial Enriched Metabolites
 
-To find potentially **interesting** metabolite to gene correlations, we will use binomial enrichment of the metabolite pathways (@tbl-metabolite-binomial-compounds) and lipid annotations (@tbl-metabolite-binomial-lipids) (see Methods).
+To find potentially **interesting** metabolite to gene correlations, we will use binomial enrichment of the metabolite pathways (@tbl-metabolite-binomial-compounds) and lipid annotations (@tbl-metabolite-binomial-lipids) (see [Methods](#methods)).
 
+For each of these metabolite groups, we can choose those that have a matching log-fold-change as the majority direction, and then find those genes with significant correlations to the metabolites, and calculate binomial enrichments for annotated Gene Ontology terms.
+
+### Compounds
+
+
+We found that the pathways enriched for the compounds (@tbl-metabolite-binomial-compounds) fell into mostly three groups, disease, metabolism and transport, with many of the compounds also shared across them, and subsequently the genes correlated across them and the GO terms enriched for them were also highly shared.
 
 ```{r}
 #| label: tbl-metabolite-binomial-compounds
-#| tbl-cap: Binomial enrichments for compound reactome pathway annotations, for those annotations with an adjusted p-value <= 0.05.
-compound_enrich_table = metabolomics_enrichment_reactome_binomial$stats |>
-	dplyr::arrange(padjust) |>
-	dplyr::filter(padjust <= 0.05) |>
-	dplyr::select(description, direction, num_positive, num_negative, p, padjust) |>
-	gt::gt() |>
-	gt::fmt_integer(columns = c(num_positive, num_negative)) |>
-	gt::fmt_number(columns = c(p, padjust), n_sigfig = 2)
-compound_enrich_table	
+#| tbl-cap: Binomial enrichments for compound reactome pathways, for those annotations with an adjusted p-value <= 0.05.
+compound_stats = metabolomics_enrichment_reactome_binomial$stats |>
+        dplyr::arrange(padjust) |>
+        dplyr::filter(padjust <= 0.05)
+compound_enrich_table = compound_stats |>
+        dplyr::select(description, direction, num_positive, num_negative, p, padjust, id) |>
+        gt::gt() |>
+        gt::fmt_integer(columns = c(num_positive, num_negative)) |>
+        gt::fmt_number(columns = c(p, padjust), n_sigfig = 2)
+compound_enrich_table
 ```
 
-```{r}
-#| label: tbl-metabolite-binomial-lipids
-#| tbl-cap: Binomial enrichments for lipid annotations, for those annotations with an adjusted p-value <= 0.1.
-lipid_enrich_table = metabolomics_enrichment_lipid_binomial$stats |>
-	dplyr::arrange(padjust) |>
-	dplyr::filter(padjust <= 0.1) |>
-	dplyr::select(id, direction, num_positive, num_negative, p, padjust) |>
-	gt::gt() |>
-	gt::fmt_number(columns = c(p, padjust), n_sigfig = 2)
-lipid_enrich_table
-```
-
-For each of these metabolite groups, we can choose those that are in the majority direction, and then find those genes with significant correlations to the metabolites, and calculate binomial enrichments for annotated Gene Ontology terms.
-
-We found that the pathways enriched for the compounds (@tbl-metabolite-binomial-compounds) fell into mostly two groups, disease or metabolism, and subsequently the genes correlated across them and the GO terms enriched for them were also highly shared, so there is not much more analysis there outside of the metabolite - gene correlation heatmap.
-
-I'm actually really curious about the metabolite overlap amongst the various enriched lipid groups, as well as the significantly correlated genes with each of them, and then finally the significant GO terms from binomial enrichment.
+Can we classify the compounds into just three groups related to *metabolism*, *transport*, and *disease*?
+Because that would make the rest of this analysis much easier if we can.
+As shown in @fig-compound-general-upset, there is a lot of overlap between these general groupings of the pathways, so we perhaps want to stay with the overall pathways.
+But we can make it easier to see links across these groups if we group the underlying pathways.
 
 ```{r}
-#| label: fig-rna-interesting-lipids-metabolites
-#| fig-cap: UpSet plot of the lipid features from each significant binomial enriched group.
-lipids_each = purrr::map(rna_binomial_interesting_lipids$groups$interesting$groups, \(in_group){
-	unique(in_group$metabolite)
+#| label: classify-compound-pathways
+compound_pathways = list(transport = grepl("transport", compound_stats$description, ignore.case = TRUE),
+    disease = grepl("disease", compound_stats$description, ignore.case = TRUE),
+    metabolism = grepl("metabolism|catabolism|oxidations", compound_stats$description, ignore.case = TRUE))
+compound_ids = purrr::map(compound_pathways, \(in_logical){
+    compound_stats$id[in_logical]
 })
 
-upset_lipids = ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(lipids_each))
-upset_lipids
+compound_metabolites2 = purrr::map(compound_ids, \(in_pathways){
+        use_groups = rna_binomial_interesting_compounds$groups$interesting$groups[in_pathways]
+        out_metabolite = purrr::map(use_groups, \(in_group){unique(in_group$metabolite)})
+        unique(unlist(out_metabolite))
+})
+
+out_compound_pathway = unlist(compound_ids[c("disease", "metabolism", "transport")])
 ```
 
 ```{r}
-#| label: fig-rna-interesting-lipids-genes
-#| fig-cap: UpSet plot of genes with significant correlations to the lipids from each significant binomial enriched group.
-rna_each = purrr::map(rna_binomial_interesting_lipids$groups$interesting$groups, \(in_group){
-	unique(in_group$transcript)
-})
-upset_rna = ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(rna_each))
-upset_rna
+#| label: fig-compound-general-upset
+#| fig-cap: UpSet plot of compounds after categorizing them as being annotated to pathways that could be classified as either metabolism, transport, or disease. Rows are the pathway groups, columns are the number of features common or specific to that pathway group, and the right hand is how many things were in that group of pathways. Lines between rows indicate that those pathway groups share compounds.
+upset_compounds_smaller = ComplexHeatmap::UpSet(make_comb_mat(compound_metabolites2),
+
+
+      column_title = "Compound General Groups")
+draw(upset_compounds_smaller, padding = unit(c(2, 5, 2, 2), "mm"))
 ```
 
 ```{r}
-#| label: fig-rna-interesting-lipids-go
-#| fig-cap: UpSet plot of enriched GO terms (adjusted p-value <= 0.01) from the genes of each significant binomial enriched group.
-go_each = purrr::map(rna_binomial_interesting_lipids$go, \(in_group){
-	if (is.null(in_group)) {
-		return(NULL)
-	}
-	out_go = in_group$stats |>
-		dplyr::filter(padjust <= 0.01) |>
-		dplyr::pull(id)
-	if (length(out_go) == 0) {
-		return(NULL)
-	}
-	return(out_go)
+#| label: fig-compound-interesting-upset
+#| fig-cap: UpSet plot of the compound metabolite features from each significant binomial enriched group. Rows are the pathways, lines between them indicate shared compound metabolites, the height of the bars how many were shared, and the bars on the right how many total were annotated to a specific pathway.
+compound_each = purrr::map(rna_binomial_interesting_compounds$groups$interesting$groups, \(in_group){
+        unique(in_group$metabolite)
 })
-null_go = purrr::map_lgl(go_each, is.null)
-go_each = go_each[!null_go]
-upset_go = ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(go_each))
-upset_go
+reactome_desc = feature_reactome@description[names(compound_each)]
+reactome_desc2 = stringr::str_wrap(reactome_desc, width = 30)
+names(reactome_desc2) = names(compound_each)
+names(compound_each) = reactome_desc2
+reactome_order = reactome_desc2[out_compound_pathway]
+upset_compounds = ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(compound_each),
+
+                                                    column_title = "Compound Metabolites",
+
+                                                    row_title_gp = gpar(fontsize = 4),
+
+                                                    set_order = reactome_order)
+draw(upset_compounds, padding = unit(c(2, 15, 2, 2), "mm"))
 ```
 
-These show a whole lot of various things going on, but a lot of the GO terms are heavily shared by the various lipid annotations.
+```{r}
+#| label: fig-compound-interesting-genes
+#| fig-cap: UpSet plot of the compound correlated genes from each significant binomial enriched group. Rows are the pathways, lines between them indicate shared significantly correlated genes, the height of the bars how many were shared, and the bars on the right how many genes were correlated with the compounds annotated to a specific pathway.
+compound_rna_each_df = purrr::imap(rna_binomial_interesting_compounds$groups$interesting$groups, \(in_group, group_id){
+        med_cor = in_group |>
+                dplyr::group_by(transcript) |>
+                dplyr::summarise(med_cor = median(cor),
+                                                                                 dir = sign(med_cor),
+                                                                                 id = group_id)
+        med_cor = med_cor |>
+                dplyr::mutate(id2 = dplyr::case_when(
+                        dir == 1 ~ paste0("pos-", id),
+                        dir == -1 ~ paste0("neg-", id)
+                ))
+        med_cor
+}) |>
+        purrr::list_rbind()
+compound_rna_each = split(compound_rna_each_df$transcript, compound_rna_each_df$id)
+names(compound_rna_each) = reactome_desc2[names(compound_rna_each)]
+upset_rna_compound = ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(compound_rna_each),
 
-### Compound / Lipid - Gene Correlations
+                                           column_title = "Compound Genes",
+
+                                           row_title_gp = gpar(fontsize = 4),
+
+                                           set_order = reactome_order)
+draw(upset_rna_compound, padding = unit(c(2, 15, 2, 2), "mm"))
+```
+
+```{r}
+#| label: fig-compound-interesting-go
+#| fig-cap: UpSet plot of the compound binomial enriched GO terms from each significant binomial enriched group. Rows are the pathways, lines between them indicate shared enriched GO terms from the significantly correlated genes, the height of the bars how many were shared, and the bars on the right how many total were enriched from a specific pathway.
+compound_go_each_df = purrr::imap(rna_binomial_interesting_compounds$go, \(in_group, group_id){
+        if (is.null(in_group)) {
+                return(NULL)
+        }
+        out_go = in_group$stats |>
+                dplyr::filter(padjust <= 0.01) |>
+                dplyr::mutate(dir_go = dplyr::case_when(
+                        direction == -1 ~ paste0("neg-", group_id),
+                        direction == 1 ~ paste0("pos-", group_id)
+                ),
+                reactome = group_id)
+        if (length(out_go) == 0) {
+                return(NULL)
+        }
+        return(out_go)
+}) |>
+        purrr::list_rbind()
+compound_go_each = split(compound_go_each_df$id, compound_go_each_df$reactome)
+names(compound_go_each) = reactome_desc2[names(compound_go_each)]
+use_order = reactome_order[reactome_order %in% names(compound_go_each)]
+compound_upset_go = ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(compound_go_each),
+
+                                    column_title = "Compound GO Terms",
+
+                                    row_title_gp = gpar(fontsize = 4),
+
+                                    set_order = use_order)
+draw(compound_upset_go, padding = unit(c(2, 15, 2, 2), "mm"))
+```
+
+#### Correlation Heatmap
+
+For all the compounds and their significantly correlated genes, we can get all of the Spearman correlations, and plot a heatmap of them, with hierarchical clustering.
+This is shown in @fig-compound-correlation, with compounds on the columns, and genes on the rows.
+This image has no text labels, but you should have been provided with a copy that does have them.
+There are definite groupings of compounds and genes.
 
 ```{r}
 #| label: fig-compound-correlation
+#| fig-cap: Compound (columns) to gene (rows) spearman correlations.
 cor_map = circlize::colorRamp2(seq(-1, 1, length.out = 20), scico::scico(20, palette = "vik"))
 compound_map = rna_compounds_matrix$compounds
 
@@ -346,49 +438,41 @@ gene_dist = hclust(dist((compound_map))) |> dendsort::dendsort()
 compound_dist = hclust(dist(t(compound_map))) |> dendsort::dendsort()
 
 compound_show_plot = ComplexHeatmap::Heatmap(compound_map, col = cor_map, name = "Spearman",
-																		column_title = "Compound - Gene Correlations",
-												cluster_columns = compound_dist,
-												cluster_rows = gene_dist,
-												show_row_names = FALSE,
-												show_column_names = FALSE)
+
+                                                   column_title = "Compounds",
+
+                                                   row_title = "Genes",
+
+   cluster_columns = compound_dist,
+
+   cluster_rows = gene_dist,
+
+   show_row_names = FALSE,
+
+   show_column_names = FALSE)
 
 compound_save_plot = ComplexHeatmap::Heatmap(compound_map, col = cor_map, name = "Spearman",
-																		column_title = "Compound - Gene Correlations",
-												cluster_columns = compound_dist,
-												cluster_rows = gene_dist,
-												row_names_gp = gpar(fontsize = 4),
-												column_names_gp = gpar(fontsize = 10))
-ragg::agg_png("docs/compound_genes.png", width = 10, height = 20, units = "in",
-							res = 300)
-compound_save_plot
-dev.off()
+
+                                                   column_title = "Compounds",
+
+                                                   row_title = "Genes",
+
+   cluster_columns = compound_dist,
+
+   cluster_rows = gene_dist,
+
+   row_names_gp = gpar(fontsize = 8),
+
+   column_names_gp = gpar(fontsize = 10))
 
 compound_show_plot
 ```
 
 ```{r}
-#| label: fig-lipid-correlation
-lipid_map = rna_compounds_matrix$lipids
-lipid_gene_dist = hclust(dist((lipid_map))) |> dendsort::dendsort()
-lipid_dist = hclust(dist(t(lipid_map))) |> dendsort::dendsort()
-
-lipid_show_plot = ComplexHeatmap::Heatmap(lipid_map, col = cor_map, name = "Spearman",
-																		column_title = "Lipid - Gene Correlations",
-												cluster_columns = lipid_dist,
-												cluster_rows = lipid_gene_dist,
-												show_row_names = FALSE,
-												show_column_names = FALSE)
-
-lipid_save_plot = ComplexHeatmap::Heatmap(lipid_map, col = cor_map, name = "Spearman",
-																		column_title = "Lipid - Gene Correlations",
-												cluster_columns = lipid_dist,
-												cluster_rows = lipid_gene_dist,
-												row_names_gp = gpar(fontsize = 2),
-												column_names_gp = gpar(fontsize = 6))
-ragg::agg_png("docs/lipid_genes.png", width = 20, height = 40, units = "in",
-							res = 300)
-lipid_save_plot
+#| label: save-compound
+#| include: false
+ragg::agg_png("docs/compound_genes.png", width = 10, height = 20, units = "in",
+                                                        res = 300)
+compound_save_plot
 dev.off()
-
-lipid_show_plot
 ```
