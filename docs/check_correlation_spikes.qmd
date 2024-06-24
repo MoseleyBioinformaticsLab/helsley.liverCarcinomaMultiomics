@@ -68,10 +68,10 @@ large_member = rna_metabolite_cor_chopped |>
 large_genes = table(large_member$s1)
 large_metabolite = table(large_member$s2)
 
-rna_large_cor = rna_within_cor$cor |>
+rna_large_cor = rna_within_cor |>
 	dplyr::filter((s1 %in% names(large_genes)) & (s2 %in% names(large_genes)))
 
-metabolite_large_cor = metabolites_within_cor$cor |>
+metabolite_large_cor = metabolites_within_cor |>
 	dplyr::filter((s1 %in% names(large_metabolite)) & (s2 %in% names(large_metabolite)))
 ```
 
@@ -81,13 +81,13 @@ Maybe missing values are causing this?
 
 ```{r}
 #| label: check_missing
-all_genes = unique(unlist(rna_within_cor$cor[, c("s1", "s2")]))
+all_genes = unique(unlist(rna_within_cor[, c("s1", "s2")]))
 rna_counts = assays(rna_collapsed)$counts[all_genes, matched_samples]
 rna_0 = rowSums(rna_counts == 0)
 
 rna_0_df = data.frame(gene = rownames(rna_counts), n_zero = rna_0)
 
-rna_cor_1 = rna_within_cor$cor
+rna_cor_1 = rna_within_cor
 rna_cor_1 = dplyr::left_join(rna_cor_1, rna_0_df, by = c("s1" = "gene"))
 rna_cor_1 = rna_cor_1 |>
 	dplyr::mutate(s1_zero = n_zero,
