@@ -44,7 +44,9 @@ tar_load(c(rna_de_patient,
            metabolomics_enrichment_reactome_binomial,
            rna_binomial_interesting_lipids,
            rna_binomial_interesting_compounds,
-           rna_compounds_matrix
+           rna_compounds_matrix,
+					 binomial_up_down_summary,
+					 binomial_lipid_class_includes
                                          ))
 ```
 
@@ -492,7 +494,7 @@ lipid_enrich_table = metabolomics_enrichment_lipid_binomial$stats |>
         dplyr::filter((padjust <= 0.05) | (id %in% "class:PS")) |>
         dplyr::select(id, direction, num_positive, num_negative, p, padjust) |>
         gt::gt() |>
-        gt::fmt_number(columns = c(p, padjust), n_sigfig = 2)
+        gt::fmt_scientific(columns = c(p, padjust), n_sigfig = 2)
 lipid_enrich_table
 ```
 
@@ -560,6 +562,33 @@ upset_go = ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(go_each),
 draw(upset_go, padding = unit(c(2, 10, 2, 2), "mm"))
 ```
 
+#### Graphs of Binomial Results
+
+```{r}
+#| label: fig-binomial-class
+#| fig-cap: Number of downchanged and upchanged lipids in each lipid class that was tested for binomial enrichment as a class. Adjusted p-values shown, and arranged by increasing adjusted p-value.
+#| fig-width: 12
+
+
+```
+
+{{< include _lipid_binomial_classes.qmd >}}
+
+```{r}
+#| label: each-out
+#| echo: false
+#| include: false
+#| eval: false
+purrr::walk(class_order, \(in_class){
+	out_plot = mu_plot_up_down_length_db(binomial_up_down_summary$other, in_class)
+	out_plot[[1]] = out_plot[[1]] + labs(title = in_class)
+	ragg::agg_png(glue::glue("docs/binomial_lipids/binomial_lipids_{in_class}.png"), width = 12, height = 8, units = "in",
+                                                        res = 300)
+  print(wrap_plots(out_plot, nrow = 1))
+	dev.off()
+})
+```
+
 #### Correlation Heatmap
 
 For all the lipids from the binomial enriched groups and their significantly correlated genes, we can get all of the Spearman correlations, and plot a heatmap of them, with hierarchical clustering.
@@ -609,14 +638,14 @@ dev.off()
 * Binomial enrichment of metabolites provides some interesting pathways and enriched lipid annotations.
 * Enriched pathway annotations (see @tbl-metabolite-binomial-compounds) include transport, lipid oxidation, and disease.
 These are all enriched from metabolites having a negative log-fold-change.
-* Enriched lipid annotations (see @tbl-metabolite-binomial-lipids) include ceramides, phosphatidylserines, lipids with a total carbon count of 18 and 34, zero unsaturations, and triglycerides with a single unsaturation.
+* Enriched lipid annotations (see @tbl-metabolite-binomial-lipids) include triglycerides with 0, 1 or 2 unsaturations, ceramides, phosphatidylserines, lipids with a total carbon count of 18 and 34, and zero unsaturations.
 The triglycerides are enriched in the positive direction, whereas all others are negative.
 * Correlation heatmaps of compound to gene correlations show distinct groups of genes with positive and negative correlations to the various compounds.
 * Correlation heatmaps of lipid to gene correlations show distinct groups of genes with positive and negative correlations to the various lipids.
 * Outputs provided:
   * This report, in HTML and Word form.
-  * Differential results for transcriptomics and metabolomics as two sheets in an Excel file.
-  * Full set of transcript to metabolite correlations in an Excel file.
+  * Differential results for transcriptomics and metabolomics as two Excel files.
+  * Significant set (p-adjusted <= 0.01) of transcript to metabolite correlations in an Excel file.
   * Genes and metabolites with significant correlations from the binomial tables, as sheets in two Excel files, one for pathways and one for lipid annotations.
   * Full versions of the compound and lipid correlation heatmap figures.
 
