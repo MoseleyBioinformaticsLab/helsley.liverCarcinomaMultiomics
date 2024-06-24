@@ -87,6 +87,7 @@ floor_values = function(rna_matrix)
 	new_matrix
 }
 
+
 keep_presence_dds = function(rna_dds,
 												 fraction = 0.75)
 {

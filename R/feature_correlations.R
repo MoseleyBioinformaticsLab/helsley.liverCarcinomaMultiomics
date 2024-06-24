@@ -445,7 +445,3 @@ create_rna_compounds_matrix = function(compounds = rna_correlated_interesting_co
 	
 }
 
-generate_grouped_correlative_output = function()
-{
-	
-}

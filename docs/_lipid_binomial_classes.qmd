@@ -1,0 +1,164 @@
+```{r}
+plot_list = targets::tar_read(binomial_lipid_class_plots)
+```
+
+```{r}
+#| label: fig-cer
+#| fig-cap: Displacement vs Cer.
+#| echo: false
+wrap_plots(plot_list[["Cer"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-ps
+#| fig-cap: Displacement vs PS.
+#| echo: false
+wrap_plots(plot_list[["PS"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-tg
+#| fig-cap: Displacement vs TG.
+#| echo: false
+wrap_plots(plot_list[["TG"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-pg
+#| fig-cap: Displacement vs PG.
+#| echo: false
+wrap_plots(plot_list[["PG"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-car
+#| fig-cap: Displacement vs CAR.
+#| echo: false
+wrap_plots(plot_list[["CAR"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-glccer
+#| fig-cap: Displacement vs GlcCer.
+#| echo: false
+wrap_plots(plot_list[["GlcCer"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-lpc
+#| fig-cap: Displacement vs LPC.
+#| echo: false
+wrap_plots(plot_list[["LPC"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-sm
+#| fig-cap: Displacement vs SM.
+#| echo: false
+wrap_plots(plot_list[["SM"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-lpg
+#| fig-cap: Displacement vs LPG.
+#| echo: false
+wrap_plots(plot_list[["LPG"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-fa
+#| fig-cap: Displacement vs FA.
+#| echo: false
+wrap_plots(plot_list[["FA"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-cero2
+#| fig-cap: Displacement vs CerO2.
+#| echo: false
+wrap_plots(plot_list[["CerO2"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-peo
+#| fig-cap: Displacement vs PEO.
+#| echo: false
+wrap_plots(plot_list[["PEO"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-lpi
+#| fig-cap: Displacement vs LPI.
+#| echo: false
+wrap_plots(plot_list[["LPI"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-smo3
+#| fig-cap: Displacement vs SMO3.
+#| echo: false
+wrap_plots(plot_list[["SMO3"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-smo2
+#| fig-cap: Displacement vs SMO2.
+#| echo: false
+wrap_plots(plot_list[["SMO2"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-lpe
+#| fig-cap: Displacement vs LPE.
+#| echo: false
+wrap_plots(plot_list[["LPE"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-pco
+#| fig-cap: Displacement vs PCO.
+#| echo: false
+wrap_plots(plot_list[["PCO"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-pe
+#| fig-cap: Displacement vs PE.
+#| echo: false
+wrap_plots(plot_list[["PE"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-pi
+#| fig-cap: Displacement vs PI.
+#| echo: false
+wrap_plots(plot_list[["PI"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-tgo
+#| fig-cap: Displacement vs TGO.
+#| echo: false
+wrap_plots(plot_list[["TGO"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-pc
+#| fig-cap: Displacement vs PC.
+#| echo: false
+wrap_plots(plot_list[["PC"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-dg
+#| fig-cap: Displacement vs DG.
+#| echo: false
+wrap_plots(plot_list[["DG"]], nrow = 1)
+```
+
+```{r}
+#| label: fig-petoh
+#| fig-cap: Displacement vs PEtOH.
+#| echo: false
+wrap_plots(plot_list[["PEtOH"]], nrow = 1)
+```

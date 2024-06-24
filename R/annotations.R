@@ -461,8 +461,16 @@ annotate_lipids = function(metabolomics_feature_list)
 	})
 	
 	feature_annotations = unlist(annotation_list, recursive = FALSE)
+	
+	tg_annotations = lipids_2_annotation |>
+		dplyr::filter(class %in% "TG")
+	tg_list_annot = list(`class_total_db:TG_lte_2` = tg_annotations |>
+											 	dplyr::filter(total_db <= 2) |> dplyr::pull(feature_id),
+											 `class_total_db:TG_gt_2` = tg_annotations |>
+											 	dplyr::filter(total_db > 2) |> dplyr::pull(feature_id))
 	na_annotations = grepl("_NA$", names(feature_annotations))
 	feature_annotations = feature_annotations[!na_annotations]
+	feature_annotations = c(feature_annotations, tg_list_annot)
 	feature_annotations = purrr::map(feature_annotations, unique)
 	
 	lipid_annotation = categoryCompare2::annotation(feature_annotations, annotation_type = "lipids", feature_type = "lipids")

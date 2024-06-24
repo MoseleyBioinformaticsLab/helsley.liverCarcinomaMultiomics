@@ -167,6 +167,24 @@ tar_plan(
 																							 which = "treatment"),
 
 	
+	### Paired Patient Log-Ratios -------
+	rna_patient_logratios = extract_deseq_patient_logratios(rna_paired),
+	bioamines_patient_logratios = extract_deseq_patient_logratios(bioamines_paired),
+	lipidomics_patient_logratios = extract_deseq_patient_logratios(lipidomics_paired),
+	pm_patient_logratios = extract_deseq_patient_logratios(pm_paired),
+	
+	### Paired Patient Differential Heatmaps ------
+	rna_patient_heatmap = create_logratio_heatmap(rna_patient_logratios,
+																								rna_de_patient),
+	bioamines_patient_heatmap = create_logratio_heatmap(bioamines_patient_logratios,
+																								bioamines_de_patient),
+	lipidomics_patient_heatmap = create_logratio_heatmap(lipidomics_patient_logratios,
+																								lipidomics_de_patient),
+	pm_patient_heatmap = create_logratio_heatmap(pm_patient_logratios,
+																								pm_de_patient),
+	
+	
+	
 	## Annotations --------
 	### Genes -------
 	ensembl_uniprot = get_ensembl_uniprot(version = "111"),
@@ -313,6 +331,19 @@ tar_plan(
 																																		 rna_de_patient,
 																																		 ensembl_go),
 	
+	binomial_up_down = mu_add_annotations(metabolomics_de_patient_list,
+																				feature_lipid),
+	binomial_up_down_summary = mu_summarize_up_down(binomial_up_down),
+	
+	binomial_lipid_overall_plot = create_binomial_lipid_overall_class(binomial_up_down_summary,
+																																 metabolomics_enrichment_lipid_binomial),
+	binomial_lipid_class_plots = create_binomial_lipid_class_plots(binomial_up_down_summary,
+																																 metabolomics_enrichment_lipid_binomial),
+	
+	binomial_lipid_class_includes = write_plot_list_includes(binomial_lipid_class_plots,
+																													 "docs/_lipid_binomial_classes.qmd",
+																													 "binomial_lipid_class_plots"),
+	
 	### Heatmap of RNA and metabolites ------
 	rna_compounds_matrix = create_rna_compounds_matrix(rna_correlated_interesting_compounds,
 																										 rna_correlated_interesting_lipids,
@@ -399,8 +430,8 @@ tar_plan(
 	
 	rna_metabolites_all_spearman_sig = rna_metabolites_all_spearman |>
 		dplyr::filter(padjust <= 0.01) |>
-		dplyr::transmute(gene = s1, metabolite = s2, cor = cor,
-										 dir = sign(cor)),
+		dplyr::rename(gene = s1, metabolite = s2) |>
+		dplyr::mutate(dir = sign(cor)),
 	
 	rna_abundances = just_rna_abundances(rna_collapsed,
 																			 rna_de_patient,
@@ -436,11 +467,19 @@ tar_plan(
 	
 	metabolomics_de_excel = generate_metabolomics_de_output(metabolomics_de_patient_list),
 	transcriptomics_de_excel = generate_transcriptomics_de_output(rna_de_patient),
-	rna_metabolomics_correlation_excel = generate_correlation_output(rna_metabolites_all_spearman,
+	rna_metabolomics_correlation_excel = generate_correlation_output(rna_metabolites_all_spearman_sig,
 																																	 rna_de_patient,
 																																	 metabolomics_de_patient_list),
 	
-	rna_interesting_compounds_excel = generate_groups_output(),
+	rna_interesting_lipids_excel = generate_groups_output(rna_binomial_interesting_lipids,
+																													 rna_de_patient,
+																													 metabolomics_de_patient_list,
+																													 "docs/lipid_genes_binomial_groups.xlsx"),
+	
+	rna_interesting_compounds_excel = generate_groups_output(rna_binomial_interesting_compounds,
+																													 rna_de_patient,
+																													 metabolomics_de_patient_list,
+																													 "docs/compound_genes_binomial_groups.xlsx"),
 	
 	## documents -----------
 	#tar_quarto(wcmc_imputed_value, "docs/wcmc_imputed_value.qmd"),
@@ -451,6 +490,7 @@ tar_plan(
 	
 	tar_quarto(de_comparisons, "docs/de_comparisons.qmd"),
 	tar_quarto(differential_analysis, "docs/differential_analysis.qmd"),
+	tar_quarto(pca_differential_heatmaps, "docs/pca_differential_heatmaps.qmd"),
 	tar_quarto(gene_metabolite_correlations, "docs/gene-metabolite-correlations.qmd")
 # target = function_to_make(arg), ## drake style
 

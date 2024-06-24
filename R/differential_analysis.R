@@ -90,6 +90,7 @@ collapse_metabolomics_replicates = function(outlier_se)
 }
 
 
+
 calculate_deseq_stats = function(rna_se,
 																 which = "treatment",
 																 contrast = c("treatment", "cancerous", 
@@ -417,5 +418,78 @@ calculate_information_consistency <- function(in_both, not_in_both, total_featur
 
 information_stats = function(num_na, denom_na)
 {
+	
+}
+
+extract_deseq_patient_logratios = function(rna_se,
+																					 contrast = c("treatment", "cancerous",
+																					 						 "normal_adjacent"),
+																					 data_type = "rna")
+{
+	# rna_se = tar_read(rna_paired)
+	# contrast = c("treatment", "cancerous",
+	# 						 "normal_adjacent")
+	
+	norm_counts = DESeq2::counts(rna_se, normalized = TRUE)
+	
+	# min_value = min(norm_counts[norm_counts > 0])
+	# norm_counts[norm_counts == 0] = min_value
+	
+	log_counts = log2(norm_counts)
+	sample_info = colData(rna_se) |> tibble::as_tibble()
+	
+	samples_by_patient = split(sample_info, sample_info$patient)
+	
+	log_ratios = purrr::map(samples_by_patient, \(in_patient){
+		# in_patient = samples_by_patient[[5]]
+		use_column = contrast[1]
+		ref_sample = in_patient |>
+			dplyr::filter(treatment %in% contrast[3]) |>
+			dplyr::pull(replicate)
+		treat_sample = in_patient |>
+			dplyr::filter(treatment %in% contrast[2]) |>
+			dplyr::pull(replicate)
+		log_counts[, treat_sample] - log_counts[, ref_sample]
+	}) |>
+		dplyr::bind_cols() |> as.matrix()
+	log_ratios[is.infinite(log_ratios) | is.na(log_ratios) | is.nan(log_ratios)] = NA
+	rownames(log_ratios) = rownames(log_counts)
+	
+	log_ratios
+}
+
+
+create_logratio_heatmap = function(rna_patient_logratios,
+																	 rna_de_patient,
+																	 max_padj = 0.01)
+{
+	# tar_load(c(rna_patient_logratios,
+	# 					 rna_de_patient))
+	# max_padj = 0.01
+	
+	
+	force(max_padj)
+	rna_sig = rna_de_patient |>
+		dplyr::filter(padj <= max_padj)
+	
+	rna_sig_logratio = rna_patient_logratios[rna_sig$feature_id, ]
+	
+	n_miss_gene = rowSums(is.na(rna_sig_logratio))
+	rna_sig_logratio = rna_sig_logratio[n_miss_gene <= 2, ]
+	use_range = range(rna_sig_logratio, na.rm = TRUE)
+	use_range[1] = ceiling(use_range[1])
+	use_range[2] = floor(use_range[2])
+	n_value = 20
+	heatmap_colors = circlize::colorRamp2(seq(use_range[1], use_range[2], length.out = n_value), scico::scico(n_value, palette = "vanimo", direction = -1))
+	
+	out_heatmap = Heatmap(rna_sig_logratio,
+												col = heatmap_colors,
+												name = "Log2FC",
+												show_row_names = FALSE,
+												show_column_names = FALSE,
+												row_title = "Features",
+												column_title = "Patients")
+	
+	out_heatmap
 	
 }
