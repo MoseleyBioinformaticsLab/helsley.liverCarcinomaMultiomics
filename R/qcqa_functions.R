@@ -108,7 +108,7 @@ sample_correlations_pca = function(normalized_se)
 {
 	# normalized_se = tar_read(bioamines_keep)
 	# normalized_se = tar_read(rna_keep)
-	#normalized_se = tar_read(primary_metabolism_keep)
+	# normalized_se = tar_read(primary_metabolism_keep)
 	if (inherits(normalized_se, "DESeqDataSet")) {
 		wide_matrix = DESeq2::counts(normalized_se, normalized = TRUE)
 	} else {
@@ -243,6 +243,8 @@ create_qcqa_plots = function(cor_pca,
 	tmp_nooutlier_pca_var = visualizationQualityControl::visqc_score_contributions(cor_pca$nooutlier_pca$x)
 	treatment_nooutlier_pca = dplyr::left_join(tmp_nooutlier_pca, sample_info_treatment, by = "sample_id")
 	
+	tmp_nooutlier_pca_anova = visualizationQualityControl::visqc_test_pca_scores(as.matrix(treatment_nooutlier_pca[, 1:15]), treatment_nooutlier_pca[, c("treatment", "patient")])
+	
 	nooutlier_pca_plot = treatment_nooutlier_pca |>
 		ggplot(aes(x = PC1, y = PC2, color = treatment, shape = outlier)) +
 		geom_point(size = 2) +
@@ -259,7 +261,9 @@ create_qcqa_plots = function(cor_pca,
 			 median_cor = sample_info_treatment,
 			 pca_all = all_pca_plot,
 			 pca_noblanks = noblanks_pca_plot,
-			 pca_nooutlier = nooutlier_pca_plot)
+			 pca_nooutlier = nooutlier_pca_plot,
+			 pca_nooutlier_values = treatment_nooutlier_pca,
+			 pca_nooutlier_anova = tmp_nooutlier_pca_anova)
 		
 }
 
