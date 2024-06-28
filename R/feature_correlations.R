@@ -412,36 +412,40 @@ create_rna_compounds_matrix = function(compounds = rna_correlated_interesting_co
 	
 	compound_df = all_correlation |>
 		dplyr::filter(s1 %in% unique(all_compounds$transcript), s2 %in% unique(all_compounds$metabolite))
-	compound_df = dplyr::left_join(compound_df, rna_annotation, by = "s1")
-	compound_df = dplyr::left_join(compound_df, compound_annotation, by = "s2")
-	compound_df = compound_df |>
-		dplyr::mutate(symbol2 = dplyr::case_when(
-			nchar(symbol) > 0 ~ symbol,
-			nchar(symbol) == 0 ~ s1
-		))
-	compound_matrix = ICIKendallTau::long_df_2_cor_matrix(compound_df |>
-																													dplyr::transmute(s1 = symbol2, 
-																																					 s2 = metabolite,
-																																					 cor = cor), is_square = FALSE)
+	
+	compound_matrix = ICIKendallTau::long_df_2_cor_matrix(compound_df, is_square = FALSE)
+	
 	all_lipids = purrr::map(lipids$groups, \(in_group){
 		in_group |> dplyr::select(transcript, metabolite)
 	}) |> 
 		purrr::list_rbind()
 	lipid_df = all_correlation |>
 		dplyr::filter(s1 %in% unique(all_lipids$transcript), s2 %in% unique(all_lipids$metabolite))
-	lipid_df = dplyr::left_join(lipid_df, rna_annotation, by = "s1")
-	lipid_df = dplyr::left_join(lipid_df, compound_annotation, by = "s2")
-	lipid_df = lipid_df |>
-		dplyr::mutate(symbol2 = dplyr::case_when(
-			nchar(symbol) > 0 ~ symbol,
-			nchar(symbol) == 0 ~ s1
-		))
-	lipid_matrix = ICIKendallTau::long_df_2_cor_matrix(lipid_df |>
-																													dplyr::transmute(s1 = symbol2, 
-																																					 s2 = metabolite,
-																																					 cor = cor), is_square = FALSE)
+	
+	lipid_matrix = ICIKendallTau::long_df_2_cor_matrix(lipid_df, is_square = FALSE)
+	
+	compound_labels = compound_annotation |>
+		dplyr::transmute(feature_id = s2,
+										 label = dplyr::case_when(
+										 	nchar(metabolite) > 0 ~ metabolite,
+										 	nchar(metabolite) == 0 ~ feature_id
+										 ))
+	
+	rna_labels = rna_annotation |>
+		dplyr::transmute(feature_id = s1,
+										 label = dplyr::case_when(
+										 	nchar(symbol) > 0 ~ symbol,
+										 	nchar(symbol) == 0 ~ feature_id
+										 ))
+	
+	all_labels = dplyr::bind_rows(compound_labels, rna_labels)
+	
+	all_labels = all_labels |>
+		dplyr::filter(feature_id %in% c(rownames(lipid_matrix), rownames(compound_matrix), colnames(lipid_matrix), colnames(compound_matrix)))
+	
 	list(compounds = compound_matrix,
-			 lipids = lipid_matrix)
+			 lipids = lipid_matrix,
+			 labels = all_labels)
 	
 }
 
