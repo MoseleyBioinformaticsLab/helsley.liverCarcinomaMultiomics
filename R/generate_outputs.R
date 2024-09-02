@@ -1,3 +1,152 @@
+create_pca_heatmap_figures = function(qcqa_figure, heatmap_figure,
+																			color_scales,
+																			pca_legend_pos = c(0.6, 0.8))
+{
+	# qcqa_figure = tar_read(bioamines_qcqa)
+	# heatmap_figure = tar_read(bioamines_patient_heatmap)
+	# tar_load(color_scales)
+	# pca_legend_pos = c(0.6, 0.8)
+	use_colors = color_scales$normal_cancer
+	
+	
+	hm_grob = draw(heatmap_figure) |> grid.grabExpr()
+	
+	pca_figure = refactor_treatment(qcqa_figure) |>
+			ggplot(aes(x = PC1, y = PC2, color = Treatment)) +
+			geom_polygon(stat = "ellipse", aes(color = Treatment), fill = NA, linetype = 2, show.legend = FALSE) +
+			geom_point(size = 2) +
+			scale_color_manual(values = use_colors) +
+			theme(legend.position = "inside", legend.position.inside = pca_legend_pos,
+						legend.text = element_text(size = rel(0.75))) +
+			labs(x = qcqa_figure$pca_nooutlier_variance$labels[1],
+					 y = qcqa_figure$pca_nooutlier_variance$labels[2])
+
+	combined_figure = list(pca = pca_figure,
+												 heatmap = heatmap_figure)
+	return(combined_figure)
+}
+
+create_median_correlation_plots = function(median_cor_list,
+																					 color_scales)
+{
+	# tar_load(median_cor_list)
+	# tar_load(color_scales)
+	
+	use_colors = color_scales$treatment
+	use_colors = use_colors[c("normal_adjacent", "cancerous")]
+	names(use_colors) = c("Normal Adjacent", "Cancerous")
+	
+	median_cor_figure = function(in_data, plot_id)
+	{
+		# in_data = median_cor_list[[1]]
+		# plot_id = names(median_cor_list)[1]
+		in_data = in_data |>
+			dplyr::filter(treatment %in% c("normal_adjacent", "cancerous")) |>
+			dplyr::mutate(Treatment = dplyr::case_when(
+				treatment %in% "normal_adjacent" ~ "Normal Adjacent",
+				treatment %in% "cancerous" ~ "Cancerous"
+			),
+			Outlier = outlier)
+		
+		if (plot_id %in% c("RNA", "Bioamines")) {
+			out_sina = in_data |>
+				ggplot(aes(x = Treatment, y = med_cor, group = Treatment, shape = Outlier, color = Treatment)) + 
+				geom_sina(size = 2) +
+				scale_color_manual(values = use_colors) +
+				guides(color = "none", shape = "none") +
+				labs(x = "Treatment", y = "Median ICI-Kt Correlations", subtitle = plot_id)	
+		} else {
+			out_sina = in_data |>
+				ggplot(aes(x = Treatment, y = med_cor, group = Treatment, shape = outlier, color = Treatment)) + 
+				geom_sina(size = 2) +
+				scale_color_manual(values = use_colors) +
+				guides(color = "none") +
+				labs(x = "Treatment", y = "Median ICI-Kt Correlations", subtitle = plot_id)
+		}
+		
+		out_sina
+	}
+	all_sina = purrr::imap(median_cor_list, median_cor_figure)
+	all_sina
+}
+
+export_median_cor_pptx = function(sina_figures = median_correlation_figures, 
+																	ppt_file = "docs/median_correlation_supplemental_figures.pptx")
+{
+	# sina_figures = tar_read(median_correlation_figures)
+	# ppt_file = "docs/median_correlation_supplemental_figures.pptx"
+	
+	new_ppt = officer::read_pptx()
+	new_ppt = officer::add_slide(new_ppt, layout = "Blank")
+	
+	sina_figures = purrr::map(sina_figures, \(in_figure){
+		in_figure + theme(axis.title = element_text(size = 9),
+											axis.text = element_text(size = 9),
+											legend.text = element_text(size = 9),
+											legend.title = element_text(size = 10))
+	})
+	
+	panel_figure = wrap_plots(sina_figures, ncol = 2, nrow = 2, tag_level = "keep", guides = "collect") + plot_annotation(tag_levels = "A")
+	
+	panel_dml = rvg::dml(ggobj = panel_figure)
+	new_ppt = officer::ph_with(new_ppt, value = panel_dml,
+														 location = officer::ph_location(left = 1, top = 0.25, width = 7.5, height = 6.5))
+	figure_caption = officer::fpar(officer::ftext("Sina plots of sample median ICI-Kt correlations to all other samples of the same type. Color indicates disease status, and shape indicates outlier status. A: RNA; B: Bioamines; C: Lipidomics; D: Primary Metabolism.", officer::fp_text(color = "black", font.size = 10)))
+	figure_loc = officer::ph_location(left = 1, top = 6.5, 
+																		width = 8, height = 1)
+	new_ppt = officer::ph_with(new_ppt, value = figure_caption, location = figure_loc)
+	
+	print(new_ppt, target = ppt_file)
+	
+	NULL
+}
+
+export_pca_heatmaps_pptx = function(plot_list, ppt_file){
+	#plot_list = tar_read(pca_heatmap_list)
+	#ppt_file = "docs/pca_heatmap_figures.pptx"
+	new_ppt = officer::read_pptx()
+	for (iplot in plot_list) {
+		new_ppt = officer::add_slide(new_ppt, layout = "Blank")
+		# grab the PCA part
+		pca_dml = rvg::dml(ggobj = iplot$figure$pca)
+			
+		# add PCA
+		new_ppt = officer::ph_with(new_ppt, value = pca_dml, location = officer::ph_location(left = 1, top = 1, width = 4, height = 4))
+		
+		# write heatmap to tmp file before incorporating it as a PNG
+		tmp_file = tempfile("heatmap", fileext = ".png")
+		heatmap_tmp = ragg::agg_png(tmp_file, width = 4, height = 4, res = 600, units = "in", background = "white")
+		draw(iplot$figure$heatmap)
+		dev.off()
+		
+		new_ppt = officer::ph_with(new_ppt, value = officer::external_img(tmp_file, width = 4, height = 4, unit = "in"), location = officer::ph_location(left = 5, top = 1, width = 4, height = 4))
+		
+		figure_caption = officer::fpar(officer::ftext(iplot$caption, officer::fp_text(color = "black", font.size = 12)))
+		figure_loc = officer::ph_location(left = 1, top = 5, 
+																			width = 8, height = 1)
+		new_ppt = officer::ph_with(new_ppt, value = figure_caption, location = figure_loc)
+		
+	}
+	print(new_ppt, target = ppt_file)
+	return(ppt_file)
+}
+
+
+
+refactor_treatment = function(qcqa_obj)
+{
+	# pca_values = rna_qcqa$pca_nooutlier_values
+	pca_values = qcqa_obj$pca_nooutlier_values
+	pca_values = pca_values |>
+		dplyr::mutate(Treatment = dplyr::case_when(
+			treatment %in% "cancerous" ~ "Cancerous",
+			treatment %in% "normal_adjacent" ~ "Normal Adjacent"
+		))
+	pca_values
+}
+
+
+
 generate_metabolomics_de_output = function(metabolomics_de_patient_list)
 {
 	data_dictionary = tibble::tribble(
@@ -181,10 +330,14 @@ write_plot_list_includes = function(plot_list,
 }
 
 create_binomial_lipid_overall_class = function(binomial_up_down_summary,
-																	metabolomics_enrichment_lipid_binomial)
+																	metabolomics_enrichment_lipid_binomial,
+																	color_scales)
 {
 	# tar_load(c(binomial_up_down_summary,
-	# 					 metabolomics_enrichment_lipid_binomial))
+	# 					 metabolomics_enrichment_lipid_binomial,
+	# 					 color_scales))
+	use_colors = color_scales$normal_cancer
+	names(use_colors) = c("pos", "neg")
 	
 	class_summary = binomial_up_down_summary$class
 	binomial_class_labels = metabolomics_enrichment_lipid_binomial$stats |>
@@ -218,12 +371,12 @@ create_binomial_lipid_overall_class = function(binomial_up_down_summary,
 	y_lim = c(-1 * max(abs(class_summary$n)), max(abs(class_summary$n)))
 	all_class_plot = class_summary |>
 		ggplot(aes(x = value, y = n, fill = direction_char)) +
-		scale_fill_discrete() +
+		scale_fill_manual(values = use_colors) +
 		geom_bar(stat = "identity") +
 		geom_hline(color = "black", yintercept = 0) +
 		geom_text(data = binomial_class_labels, aes(x = value, y = label_loc, label = label), size = 3) +
 		coord_cartesian(ylim = y_lim) +
-		labs(x = "Lipid Class", y = "Downchanged / Upchanged") +
+		labs(x = "Lipid Class", y = "Decreased in Tumor | Increased in Tumor") +
 		theme(legend.position = "none", axis.text.x = element_text(angle = 90))
 	
 	return(list(plot = all_class_plot,
@@ -232,11 +385,14 @@ create_binomial_lipid_overall_class = function(binomial_up_down_summary,
 
 
 create_binomial_lipid_class_plots = function(binomial_up_down_summary,
-																						 metabolomics_enrichment_lipid_binomial)
+																						 metabolomics_enrichment_lipid_binomial,
+																						 color_scales)
 {
 	# tar_load(c(binomial_up_down_summary,
-	# 					 metabolomics_enrichment_lipid_binomial))
-	
+	# 					 metabolomics_enrichment_lipid_binomial,
+	# 					 color_scales))
+	use_colors = color_scales$normal_cancer
+	names(use_colors) = c("pos", "neg")
 	class_summary = binomial_up_down_summary$class
 	binomial_class_labels = metabolomics_enrichment_lipid_binomial$stats |>
 		dplyr::filter(grepl("^class\\:", id)) |>
@@ -269,20 +425,90 @@ create_binomial_lipid_class_plots = function(binomial_up_down_summary,
 	y_lim = c(-1 * max(abs(class_summary$n)), max(abs(class_summary$n)))
 	all_class_plot = class_summary |>
 		ggplot(aes(x = value, y = n, fill = direction_char)) +
-		scale_fill_discrete() +
+		scale_fill_manual(values = use_colors) +
 		geom_bar(stat = "identity") +
 		geom_hline(color = "black", yintercept = 0) +
 		geom_text(data = binomial_class_labels, aes(x = value, y = label_loc, label = label), size = 3) +
 		coord_cartesian(ylim = y_lim) +
-		labs(x = "Lipid Class", y = "Downchanged / Upchanged") +
+		labs(x = "Lipid Class", y = "Decreased in Tumor | Increased in Tumor") +
 		theme(legend.position = "none", axis.text.x = element_text(angle = 90))
 	
 	class_plots = purrr::map(class_order, \(in_class){
-		out_plot = mu_plot_up_down_length_db(binomial_up_down_summary$other, in_class)
+		out_plot = length_db_plot_up_down(binomial_up_down_summary$other, in_class, use_colors)
 		out_plot[[1]] = out_plot[[1]] + labs(title = in_class)
 		out_plot
 	})
 	names(class_plots) = class_order
 	
 	return(class_plots)
+}
+
+
+length_db_plot_up_down = function(other_summary,
+				 which_class = NULL,
+				 use_colors)
+{
+	if (!require("ggplot2", quietly = TRUE)) {
+		stop("ggplot2 is required to create the plot!")
+	}
+	if (!is.null(which_class)) {
+		other_summary = other_summary |>
+			dplyr::filter(class %in% which_class)
+	}
+	
+	
+	
+	
+	other_summary$type = factor(other_summary$type, levels = c("total_length", "total_db", "chain_length", "chain_db"), ordered = TRUE)
+	
+	split_type = split(other_summary, other_summary$type)
+	
+	out_types = purrr::map(split_type, \(in_type){
+		if (nrow(in_type) > 0) {
+			max_val = max(abs(in_type$n))
+			in_type$value = as.numeric(in_type$value)
+			in_type$direction_char = factor(in_type$direction_char, levels = c("pos", "neg"), ordered = TRUE)
+			
+			y_lim = c(-1 * max_val, max_val)
+			
+			if (grepl("db", in_type$type[1])) {
+				x_lab = "# of Double Bonds"
+			} else {
+				x_lab = "# of Carbons"
+			}
+			if (grepl("total", in_type$type[1])) {
+				sub_title = "Total"
+			} else {
+				sub_title = "Chain"
+			}
+			y_lab = NULL
+			
+			if (in_type$type[1] %in% "total_length") {
+				use_breaks = seq(min(in_type$value), max(in_type$value), 4)
+			} else if (in_type$type[1] %in% "total_db") {
+				use_breaks = seq(min(in_type$value), max(in_type$value), 4)
+			} else if (in_type$type[1] %in% "chain_length") {
+				use_breaks = seq(min(in_type$value), max(in_type$value), 2)
+			} else if (in_type$type[1] %in% "chain_db") {
+				use_breaks = seq(min(in_type$value), max(in_type$value), 2)
+			}
+			out_plot = in_type %>%
+				ggplot(aes(x = value, y = n, fill = direction_char)) +
+				scale_fill_manual(values = use_colors) +
+				geom_bar(stat = "identity") +
+				geom_hline(color = "black", yintercept = 0) +
+				coord_cartesian(ylim = y_lim) +
+				labs(subtitle = sub_title, x = x_lab, y = y_lab) +
+				theme(legend.position = "none")
+			return(out_plot)
+		} else {
+			return(NULL)
+		}
+		
+	})
+	
+	null_plots = purrr::map_lgl(out_types, is.null)
+	out_types = out_types[!null_plots]
+	
+	return(out_types)
 }

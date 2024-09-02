@@ -263,18 +263,23 @@ create_qcqa_plots = function(cor_pca,
 			 pca_noblanks = noblanks_pca_plot,
 			 pca_nooutlier = nooutlier_pca_plot,
 			 pca_nooutlier_values = treatment_nooutlier_pca,
+			 pca_nooutlier_variance = tmp_nooutlier_pca_var,
 			 pca_nooutlier_anova = tmp_nooutlier_pca_anova)
 		
 }
 
-sample_colors = function()
+create_color_scales = function()
 {
 	treatment_colors = c(scale_color_discrete()$palette(4), "#000000")
 	names(treatment_colors) = c("blank", "pooled", "normal_adjacent", "cancerous", "none")
 	outlier_colors = scale_color_discrete()$palette(2)
 	names(outlier_colors) = c("TRUE", "FALSE")
+	
+	just_normal_cancer = c("Cancerous" = "#B55AA2", "Normal Adjacent" = "#84B44C")
+	
 	list(treatment = treatment_colors,
-			 outlier = outlier_colors)
+			 outlier = outlier_colors,
+			 normal_cancer = just_normal_cancer)
 }
 
 get_n_features = function(in_data)

@@ -7,7 +7,7 @@ tar_source("R")
 ## tar_plan supports drake-style targets and also tar_target()
 tar_plan(
 
-	color_scales = sample_colors(),
+	color_scales = create_color_scales(),
 	
 	tar_target(sample_list_file,
 						 "raw_data/sample_list.xlsx",
@@ -480,10 +480,85 @@ tar_plan(
 																													 rna_de_patient,
 																													 metabolomics_de_patient_list,
 																													 "docs/compound_genes_binomial_groups.xlsx"),
+																				
+	rna_lipids_clusters_excel = writexl::write_xlsx(rna_interesting_lipids_clusters,
+																									"docs/lipid_genes_clusters.xlsx"),
+
+	rna_compounds_clusters_excel = writexl::write_xlsx(rna_interesting_compounds_clusters,
+																										"docs/compound_genes_clusters.xlsx"),
+	## sub-group heatmaps ----------
+
+	rna_interesting_lipids_hc = cluster_create_heatmaps(rna_compounds_matrix,
+																														feature_lipid,
+																													which = "lipids"),
+	
+	rna_interesting_lipids_heatmaps = rna_interesting_lipids_hc$heatmaps,
+	rna_lipids_includes = write_lipid_heatmaps_includes(rna_interesting_lipids_heatmaps),
+	rna_interesting_lipids_clusters = cluster_add_feature_info(rna_interesting_lipids_hc$clusters,
+																															rna_de_patient,
+																															metabolomics_de_patient_list,
+																															feature_lipid),
+	
+	rna_interesting_compounds_hc = cluster_create_heatmaps(rna_compounds_matrix,
+																												feature_lipid,
+																												which = "compounds"),
+	rna_interesting_compounds_heatmaps = rna_interesting_compounds_hc$heatmaps,
+	rna_compound_includes = write_compound_heatmaps_includes(rna_interesting_compounds_heatmaps),
+
+	rna_interesting_compounds_clusters = cluster_add_feature_info(rna_interesting_compounds_hc$clusters,
+																																rna_de_patient,
+																															metabolomics_de_patient_list,
+																														feature_lipid),
+	
+	## pca / heatmap figures -------------
+	rna_pca_heatmap = create_pca_heatmap_figures(rna_qcqa,
+																							 rna_patient_heatmap,
+																							 color_scales,
+																							 c(0.01, 0.9)),
+	
+	bioamines_pca_heatmap = create_pca_heatmap_figures(bioamines_qcqa,
+																							 bioamines_patient_heatmap,
+																							 color_scales,
+																							 c(0.01, 0.1)),
+	
+	lipidomics_pca_heatmap = create_pca_heatmap_figures(lipidomics_qcqa,
+																										 lipidomics_patient_heatmap,
+																										 color_scales,
+																										 c(0.01, 0.9)),
+	
+	pm_pca_heatmap = create_pca_heatmap_figures(primary_metabolism_qcqa,
+																											pm_patient_heatmap,
+																											color_scales,
+																											c(0.01, 0.1)),
+	
+	## median correlation figures --------
+	median_cor_list = list(`RNA` = rna_qcqa$median_cor,
+												 `Bioamines` = bioamines_qcqa$median_cor,
+												 `Lipidomics` = lipidomics_qcqa$median_cor,
+												 `Primary Metabolism` = primary_metabolism_qcqa$median_cor),
+	
+	median_correlation_figures = create_median_correlation_plots(median_cor_list, 
+																															 color_scales),
 	
 	## documents -----------
 	#tar_quarto(wcmc_imputed_value, "docs/wcmc_imputed_value.qmd"),
 	#tar_quarto(mean_variance_relationships, "docs/mean_variance_relationships.qmd"),
+	
+	### powerpoint of figures ---------
+	pca_heatmap_list = list(rna_pca_heatmap = list(figure = rna_pca_heatmap,
+																								 caption = "RNA-seq samples PCA (left) and differential gene heatmap (right). Differential genes are colored by the log2-fold-change cancerous / normal adjacent samples in each patient."),
+													bioamines_pca_heatmap = list(figure = bioamines_pca_heatmap,
+																											 caption = "Lipidomics PCA (left) and differential metabolite heatmap (right). Differential metabolites are colored by the log2-fold-change cancerous / normal adjacent samples in each patient."),
+													lipidomics_pca_heatmap = list(figure = lipidomics_pca_heatmap,
+																												caption = "Biogenic amines PCA (left) and differential metabolite heatmap (right). Differential metabolites are colored by the log2-fold-change cancerous / normal adjacent samples in each patient."),
+													pm_pca_heatmap = list(figure = pm_pca_heatmap,
+																								caption = "Primary metabolism PCA of samples (left) and differential metabolite heatmap (right). Differential metabolites are colored by the log2-fold-change cancerous / normal adjacent samples in each patient.")),
+	
+	pca_heatmap_ppt = export_pca_heatmaps_pptx(pca_heatmap_list, "docs/pca_heatmap_figures.pptx"),
+	
+	median_cor_outliers_ppt = export_median_cor_pptx(median_correlation_figures, "docs/median_correlation_supplemental_figures.pptx"),
+	
+	### reports ----------
 	tar_quarto(check_correlation_spikes, "docs/check_correlation_spikes.qmd"),
 	tar_quarto(check_residuals, "docs/check_residuals.qmd"),
 	tar_quarto(qcqa, "docs/qcqa.qmd"),
@@ -491,7 +566,8 @@ tar_plan(
 	tar_quarto(de_comparisons, "docs/de_comparisons.qmd"),
 	tar_quarto(differential_analysis, "docs/differential_analysis.qmd"),
 	tar_quarto(pca_differential_heatmaps, "docs/pca_differential_heatmaps.qmd"),
-	tar_quarto(gene_metabolite_correlations, "docs/gene-metabolite-correlations.qmd")
+	tar_quarto(gene_metabolite_correlations, "docs/gene-metabolite-correlations.qmd"),
+	tar_quarto(gene_metabolite_heatmaps, "docs/gene_metabolite_heatmaps.qmd")
 # target = function_to_make(arg), ## drake style
 
 # tar_target(target2, function_to_make2(arg)) ## targets style

@@ -600,8 +600,8 @@ There are definite groupings of compounds and genes.
 #| label: fig-lipid-correlation
 #| fig-cap: Lipid (columns) to gene (rows) spearman correlations.
 lipid_map = rna_compounds_matrix$lipids
-lipid_gene_dist = hclust(dist((lipid_map))) |> dendsort::dendsort()
-lipid_dist = hclust(dist(t(lipid_map))) |> dendsort::dendsort()
+lipid_gene_dist = hclust(dist((1 - lipid_map))) |> dendsort::dendsort()
+lipid_dist = hclust(dist(t(1 - lipid_map))) |> dendsort::dendsort()
 
 lipid_show_plot = ComplexHeatmap::Heatmap(lipid_map, col = cor_map, name = "Spearman",
                                                 column_title = "Lipids",
