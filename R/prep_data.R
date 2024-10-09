@@ -56,6 +56,12 @@ prep_rna_data_treatment = function(rna_data = rna_data, sample_metadata = sample
 												description = gene_metadata$gene_description)
 	
 	sample_metadata$treatment = factor(sample_metadata$treatment, levels = c("normal_adjacent", "cancerous"))
+	sample_metadata = sample_metadata |>
+		dplyr::mutate(Treatment = dplyr::case_match(
+			treatment,
+			"normal_adjacent" ~ "Normal Adjacent",
+			"cancerous" ~ "Cancerous"
+		))
 	sample_metadata$patient = factor(sample_metadata$patient)
 	rna_dds = DESeq2::DESeqDataSetFromMatrix(rna_matrix, sample_metadata,
 																					 design = ~ treatment,
@@ -128,6 +134,11 @@ setup_metabolomics = function(all_data,
 	rownames(sample_matrix) = sample_data$feature_id
 	
 	sample_info_extra = add_blanks_pooled(colnames(sample_matrix), sample_info)
+	sample_info_extra = sample_info_extra |>
+		dplyr::mutate(Treatment = dplyr::case_when(
+			treatment %in% "normal_adjacent" ~ "Normal Adjacent",
+			treatment %in% "cancerous" ~ "Cancerous"
+		))
 	sample_matrix = sample_matrix[, sample_info_extra$sample_id]
 	
 	sample_matrix[is.na(sample_matrix)] = 0

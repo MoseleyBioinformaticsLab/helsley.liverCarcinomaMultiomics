@@ -76,6 +76,27 @@ feature_correlations = function(rna_collapsed,
 	return(out_cor)
 }
 
+create_metabolomics_counts = function(bioamines_collapsed,
+																			lipidomics_collapsed,
+																			pm_collapsed,
+																			matched_samples)
+{
+	tar_load(c(bioamines_collapsed,
+					 lipidomics_collapsed,
+					 pm_collapsed,
+					 matched_samples))
+	
+	bioamines_collapsed = bioamines_collapsed[, matched_samples]
+	colData(bioamines_collapsed) = colData(bioamines_collapsed)[, c("replicate", "sample_id", "treatment", "Treatment")]
+	lipidomics_collapsed = lipidomics_collapsed[, matched_samples]
+	colData(lipidomics_collapsed) = colData(lipidomics_collapsed)[, c("replicate", "sample_id", "treatment", "Treatment")]
+	pm_collapsed = pm_collapsed[, matched_samples]
+	colData(pm_collapsed) = colData(pm_collapsed)[, c("replicate", "sample_id", "treatment", "Treatment")]
+	
+	all_collapsed = rbind(bioamines_collapsed, lipidomics_collapsed, pm_collapsed)
+	return(all_collapsed)
+}
+
 
 get_matched_samples = function(rna_collapsed,
 															 bioamines_collapsed,
@@ -277,12 +298,9 @@ run_correlation = function(data_matrix, include_only, method, use = "everything"
 }
 
 just_rna_abundances = function(rna_collapsed,
-																rna_significant,
 																matched_samples)
 {
-	rna_sig = rna_significant |>
-		dplyr::filter(padj <= 0.05)
-	rna_counts = assays(rna_collapsed)$counts[rna_sig$feature_id, matched_samples]
+	rna_counts = assays(rna_collapsed)$counts[, matched_samples]
 	rna_counts
 }
 

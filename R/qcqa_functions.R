@@ -133,6 +133,8 @@ sample_correlations_pca = function(normalized_se)
 	outlier_frac = visualizationQualityControl::outlier_fraction(log1p(matrix_cor), sample_info$treatment, remove_missing = c(0, NA))
 	median_outliers = visualizationQualityControl::determine_outliers(median_correlations = median_cor, outlier_fraction = outlier_frac)
 	sample_info = dplyr::left_join(sample_info, median_outliers, by = "sample_id")
+	sample_info = sample_info |>
+		dplyr::mutate(Outlier = outlier)
 	use_samples = median_outliers |>
 		dplyr::filter(!outlier, !grepl("blank|pool", sample_id)) |>
 		dplyr::pull(sample_id)
@@ -275,11 +277,14 @@ create_color_scales = function()
 	outlier_colors = scale_color_discrete()$palette(2)
 	names(outlier_colors) = c("TRUE", "FALSE")
 	
-	just_normal_cancer = c("Cancerous" = "#B55AA2", "Normal Adjacent" = "#84B44C")
+	just_normal_cancer = c("Normal Adjacent" = "#84B44C", "Cancerous" = "#CF7ABF")
+	treatment_normal_cancer = c("normal_adjacent" = "#84B44C", "cancerous" = "#CF7ABF")
+	
 	
 	list(treatment = treatment_colors,
 			 outlier = outlier_colors,
-			 normal_cancer = just_normal_cancer)
+			 normal_cancer = just_normal_cancer,
+			 treatment_normal_cancer = treatment_normal_cancer)
 }
 
 get_n_features = function(in_data)
@@ -300,4 +305,20 @@ check_left_censoring = function(dds_obj)
 	
 	list(test = left_test,
 			 ranks = left_ranks)
+}
+
+count_n_samples = function(dds_obj, id)
+{
+	# dds_obj = tar_read(rna_collapsed)
+	# id = "Transcriptomics"
+	n_treatment = colData(dds_obj) |> tibble::as_tibble() |>
+		dplyr::filter(!outlier) |>
+		dplyr::select(replicate, Treatment) |>
+		dplyr::distinct() |>
+		dplyr::group_by(Treatment) |>
+		dplyr::summarise(n_sample = dplyr::n()) |>
+		dplyr::mutate(Dataset = id) |>
+		tidyr::pivot_wider(names_from = "Treatment", values_from = "n_sample")
+	n_treatment
+	
 }

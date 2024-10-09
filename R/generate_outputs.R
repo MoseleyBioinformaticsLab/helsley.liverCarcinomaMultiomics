@@ -32,21 +32,13 @@ create_median_correlation_plots = function(median_cor_list,
 	# tar_load(median_cor_list)
 	# tar_load(color_scales)
 	
-	use_colors = color_scales$treatment
-	use_colors = use_colors[c("normal_adjacent", "cancerous")]
-	names(use_colors) = c("Normal Adjacent", "Cancerous")
+	use_colors = color_scales$normal_cancer
 	
 	median_cor_figure = function(in_data, plot_id)
 	{
 		# in_data = median_cor_list[[1]]
 		# plot_id = names(median_cor_list)[1]
-		in_data = in_data |>
-			dplyr::filter(treatment %in% c("normal_adjacent", "cancerous")) |>
-			dplyr::mutate(Treatment = dplyr::case_when(
-				treatment %in% "normal_adjacent" ~ "Normal Adjacent",
-				treatment %in% "cancerous" ~ "Cancerous"
-			),
-			Outlier = outlier)
+		
 		
 		if (plot_id %in% c("RNA", "Bioamines")) {
 			out_sina = in_data |>
@@ -201,11 +193,24 @@ generate_transcriptomics_de_output = function(rna_de_patient)
 	tabular_output
 }
 
+generate_abundance_figures = function(rna_metabolites_all_spearman_sig,
+																			rna_abundances,
+																			metabolite_abundances,
+																			rna_de_patient,
+																			color_scale)
+{
+	tar_load(rna_metabolites_all_spearman_sig,
+					 rna_abundances,
+					 metabolite_abundances,
+					 rna_de_patient,
+					 color_scales)
+}
+
 generate_correlation_output = function(rna_metabolites_all_spearman_sig,
 																			rna_de_patient,
 																			metabolomics_de_patient_list)
 {
-	# tar_load(c(rna_metabolites_all_spearman,
+	# tar_load(c(rna_metabolites_all_spearman_sig,
 	# 					 rna_de_patient,
 	# 					 metabolomics_de_patient_list))
 	# 

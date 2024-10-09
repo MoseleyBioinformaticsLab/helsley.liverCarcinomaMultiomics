@@ -71,9 +71,7 @@ refactor_treatment = function(qcqa_obj)
 	pca_values
 }
 
-use_colors = color_scales$treatment
-use_colors = use_colors[c("normal_adjacent", "cancerous")]
-names(use_colors) = c("Normal Adjacent", "Cancerous")
+use_colors = color_scales$normal_cancer
 ```
 
 

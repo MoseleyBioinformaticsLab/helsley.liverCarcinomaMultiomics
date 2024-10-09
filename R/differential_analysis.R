@@ -28,6 +28,7 @@ determine_outliers = function(normalized_se)
 	median_outliers = median_outliers[sample_info$sample_id, ]
 	
 	normalized_se[["outlier"]] = median_outliers$outlier
+	normalized_se[["Outlier"]] = median_outliers$outlier
 	normalized_se[["med_cor"]] = median_outliers$med_cor
 	normalized_se[["frac"]] = median_outliers$frac
 	normalized_se[["score"]] = median_outliers$score
@@ -46,6 +47,7 @@ collapse_deseq_replicates = function(outlier_se)
 	
 	collapsed_se$treatment = forcats::fct_drop(collapsed_se$treatment)
 	collapsed_se$patient = factor(collapsed_se$patient)
+	collapsed_se$sample_id = colnames(counts(collapsed_se))
 	collapsed_se
 }
 
