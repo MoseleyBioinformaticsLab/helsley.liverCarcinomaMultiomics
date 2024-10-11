@@ -1,0 +1,58 @@
+```{r}
+#| label: load-compounds
+plot_list = targets::tar_read(rna_interesting_compounds_heatmaps)
+```
+
+```{r}
+#| label: fig-compound-genes-compounds-full
+#| fig-cap: Heatmap of compound cluster genes-compounds-full.
+#| fig-height: 18
+#| fig-width: 15
+#| echo: false
+plot_list[["genes-compounds-full"]]
+```
+
+```{r}
+#| label: fig-compound-genes-compounds-1.1
+#| fig-cap: Heatmap of compound cluster genes-compounds-1.1.
+#| fig-height: 15
+#| fig-width: 15
+#| echo: false
+plot_list[["genes-compounds-1.1"]]
+```
+
+```{r}
+#| label: fig-compound-genes-compounds-1.2
+#| fig-cap: Heatmap of compound cluster genes-compounds-1.2.
+#| fig-height: 8
+#| fig-width: 15
+#| echo: false
+plot_list[["genes-compounds-1.2"]]
+```
+
+```{r}
+#| label: fig-compound-genes-compounds-2.1
+#| fig-cap: Heatmap of compound cluster genes-compounds-2.1.
+#| fig-height: 8
+#| fig-width: 15
+#| echo: false
+plot_list[["genes-compounds-2.1"]]
+```
+
+```{r}
+#| label: fig-compound-genes-compounds-2.2
+#| fig-cap: Heatmap of compound cluster genes-compounds-2.2.
+#| fig-height: 8
+#| fig-width: 15
+#| echo: false
+plot_list[["genes-compounds-2.2"]]
+```
+
+```{r}
+#| label: fig-compound-genes-compounds-2.3
+#| fig-cap: Heatmap of compound cluster genes-compounds-2.3.
+#| fig-height: 8
+#| fig-width: 15
+#| echo: false
+plot_list[["genes-compounds-2.3"]]
+```

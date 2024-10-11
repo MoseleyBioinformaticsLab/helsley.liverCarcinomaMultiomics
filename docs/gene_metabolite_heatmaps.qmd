@@ -1,0 +1,73 @@
+---
+title: "Gene & Lipid or Compound Heatmaps"
+author: "Robert M Flight"
+date: last-modified
+date-format: YYYY-MM-DD HH:mm
+format: 
+  docx:
+    keep-md: true
+  html:
+    toc: true
+    embed-resources: true
+---
+
+## Purpose
+
+Generate sub-heatmaps of the gene to lipid or gene to compound heatmap, with gene symbols legible.
+You should have been provided with a directory of figures, as well as the excel files:
+
+* lipid_genes_clusters_YYYY-MM-DD.xlsx: clusters of genes and lipid metabolites;
+* compound_genes_clusters_YYYY-MM-DD.xlsx: clusters of genes and non-lipid metabolites.
+
+The excel files have two sheets, the **genes** and the **metabolites**.
+In both cases, they are in the same order as the genes and metabolites in the heatmaps below, with the cluster information as well, making it possible to match them with the heatmaps.
+They also include all of the statistical data produced from differential testing, and for the lipid case, include the lipid class, total chain length, and total double bonds.
+
+## Methods
+
+Correlations of all metabolites were calculated with all of the genes, using Spearman correlation method, with zero representing a missing value.
+The genes with significant (p-adjusted <= 0.01) correlations to either compounds or lipids that are associated with a significant binomial enriched category (pathway or lipid annotation) were extracted.
+1 - Spearman correlations was used as input for calculating the euclidian distances between the metabolites and the genes, and then clustered using hierarchical clustering via `stats::hclust`, and ordered using `dendsort`. 
+Clusters were extracted in two passes.
+The first was by splitting the hierarchical clustering into *x* clusters using `cutree`, defined by the number of clusters desired.
+Subsequently, chosen clusters were split into sub-clusters by pruning away branches not in the desired cluster (`dendextend::prune`), and then splitting the remainder again into the number of desired clusters using `cutree`.
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      dev = c("ragg_png", "svg"),
+                      dpi = 600)
+## target knits qmds in their own session, so load libraries here.
+## source(here::here("packages.R"))
+## if you want access to the functions you've written
+## lapply(list.files(here::here("./R"), full.names = TRUE), source)
+```
+
+```{r}
+#| label: load-targets
+#| include: false
+tar_load(c(rna_lipid_includes,
+           rna_interesting_lipids_heatmaps,
+           rna_compounds_includes,
+           rna_interesting_compounds_heatmaps))
+
+# # If your chunk output is shown in-line, then you'll need to wrap tar_load()
+# # like so:
+# 
+# withr::with_dir(here::here(), {
+#   tar_load(c(target_1, target_2, target_3))
+# })
+# 
+# # This is not needed when using tar_make() to render the document.
+```
+
+## Lipids
+
+{{< include _lipid_cluster_maps.qmd >}}
+
+## Compounds
+
+{{< include _compound_cluster_maps.qmd >}}
