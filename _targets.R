@@ -121,6 +121,14 @@ tar_plan(
 	bioamines_collapsed = collapse_deseq_replicates(bioamines_outliers),
 	lipidomics_collapsed = collapse_deseq_replicates(lipidomics_outliers),
 	pm_collapsed = collapse_deseq_replicates(pm_outliers),
+	pm_n = count_n_samples(pm_collapsed, "Primary Metabolism"),
+	rna_n = count_n_samples(rna_collapsed, "Transcriptomics"),
+	bioamines_n = count_n_samples(bioamines_collapsed, "Biogenic Amines"),
+	lipidomics_n = count_n_samples(lipidomics_collapsed, "Lipidomics"),
+	datasets_n = dplyr::bind_rows(rna_n,
+																lipidomics_n,
+																bioamines_n,
+																pm_n),
 	
 	### Unpaired t-test --------
 	rna_de_treatment = calculate_deseq_stats(rna_collapsed,
@@ -187,8 +195,8 @@ tar_plan(
 	
 	## Annotations --------
 	### Genes -------
-	ensembl_uniprot = get_ensembl_uniprot(version = "111"),
-	ensembl_entrez = get_ensembl_entrez(version = "111"),
+	ensembl_uniprot = get_ensembl_uniprot(version = "112"),
+	ensembl_entrez = get_ensembl_entrez(version = "112"),
 	tar_target(go_file,
 						 "data/ancestors.json",
 						 format = "file"),
@@ -336,9 +344,11 @@ tar_plan(
 	binomial_up_down_summary = mu_summarize_up_down(binomial_up_down),
 	
 	binomial_lipid_overall_plot = create_binomial_lipid_overall_class(binomial_up_down_summary,
-																																 metabolomics_enrichment_lipid_binomial),
+																																 metabolomics_enrichment_lipid_binomial,
+																																 color_scales),
 	binomial_lipid_class_plots = create_binomial_lipid_class_plots(binomial_up_down_summary,
-																																 metabolomics_enrichment_lipid_binomial),
+																																 metabolomics_enrichment_lipid_binomial,
+																																 color_scales),
 	
 	binomial_lipid_class_includes = write_plot_list_includes(binomial_lipid_class_plots,
 																													 "docs/_lipid_binomial_classes.qmd",
@@ -434,7 +444,6 @@ tar_plan(
 		dplyr::mutate(dir = sign(cor)),
 	
 	rna_abundances = just_rna_abundances(rna_collapsed,
-																			 rna_de_patient,
 																			 matched_samples),
 	
 	metabolite_abundances = just_metabolite_abundances(bioamines_collapsed,
@@ -540,11 +549,14 @@ tar_plan(
 	median_correlation_figures = create_median_correlation_plots(median_cor_list, 
 																															 color_scales),
 	
+	## metabolite - transcript plots --------
+	
+	
 	## documents -----------
 	#tar_quarto(wcmc_imputed_value, "docs/wcmc_imputed_value.qmd"),
 	#tar_quarto(mean_variance_relationships, "docs/mean_variance_relationships.qmd"),
 	
-	### powerpoint of figures ---------
+	### powerpoints of figures ---------
 	pca_heatmap_list = list(rna_pca_heatmap = list(figure = rna_pca_heatmap,
 																								 caption = "RNA-seq samples PCA (left) and differential gene heatmap (right). Differential genes are colored by the log2-fold-change cancerous / normal adjacent samples in each patient."),
 													bioamines_pca_heatmap = list(figure = bioamines_pca_heatmap,

@@ -29,7 +29,7 @@ tar_load(c(rna_qcqa,
 					 rna_n_qcqa,
 					 bioamines_n_qcqa,
 					 lipidomics_n_qcqa,
-					 pr_n_qcqa,
+					 pm_n_qcqa,
 					 rna_left,
 					 bioamines_left,
 					 lipidomics_left,
@@ -109,8 +109,8 @@ rna_qcqa$pca_all
 
 Number of features:
 
-  * Total: `r pr_n_qcqa[1]`
-  * In 75% of a class: `r pr_n_qcqa[2]`
+  * Total: `r pm_n_qcqa[1]`
+  * In 75% of a class: `r pm_n_qcqa[2]`
 
 ```{r}
 #| label: fig-pr-heatmap

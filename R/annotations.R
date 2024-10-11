@@ -16,7 +16,7 @@ get_ensembl_uniprot = function(version = "111")
 	feature_data
 }
 
-get_ensembl_entrez = function(version = "111")
+get_ensembl_entrez = function(version = "112")
 {
 	# version = "111"
 	ensembl = useEnsembl(biomart = "ensembl", 
