@@ -310,6 +310,9 @@ tar_plan(
 	metabolomics_patient_enrichment_kegg = run_enrichment(metabolomics_de_patient_list,
 																												feature_kegg),
 	
+	metabolomics_de_patient_kegg = map_metabolomics_kegg(metabolomics_de_patient_list,
+																											 inchikey_kegg),
+	
 	### Binomial ---------
 	metabolomics_enrichment_lipid_binomial = run_binomial(metabolomics_de_patient_list,
 																												feature_lipid),
