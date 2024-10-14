@@ -571,7 +571,7 @@ tar_plan(
 	median_cor_outliers_ppt = export_median_cor_pptx(median_correlation_figures, "docs/median_correlation_supplemental_figures.pptx"),
 	
 	### reports ----------
-	tar_quarto(check_correlation_spikes, "docs/check_correlation_spikes.qmd"),
+	# tar_quarto(check_correlation_spikes, "docs/check_correlation_spikes.qmd"),
 	tar_quarto(check_residuals, "docs/check_residuals.qmd"),
 	tar_quarto(qcqa, "docs/qcqa.qmd"),
 	
