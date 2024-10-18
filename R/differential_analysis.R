@@ -105,6 +105,7 @@ calculate_deseq_stats = function(rna_se,
 	# contrast = c("treatment", "cancerous", "normal_adjacent")
 	# rna_se = tar_read(rna_paired)
 	# which = "patient"
+	# fit_type = "parametric"
 	# 
 	# rna_se = tar_read(pm_collapsed)
 	# which = "treatment"
@@ -133,6 +134,8 @@ calculate_deseq_stats = function(rna_se,
 	}
 	rna_results
 }
+
+
 
 filter_to_pairs = function(data_se)
 {

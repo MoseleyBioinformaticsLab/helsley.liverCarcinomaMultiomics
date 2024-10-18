@@ -454,6 +454,27 @@ tar_plan(
 																										 pm_collapsed,
 																										 matched_samples),
 	
+	rna_collapsed_norm = get_rna_norm_values(rna_collapsed,
+																					 matched_samples),
+	
+	metabolite_collapsed_norm = bind_metabolomics_counts(bioamines_collapsed,
+																							 lipidomics_collapsed,
+																							 pm_collapsed,
+																							 matched_samples),
+	
+	
+	# temporary
+	metabolite_rna_pairs = tibble::tribble(
+		~transcript, ~metabolite,
+		"ENSG00000165071", "x0_81_802_55.bioamine"
+	),
+	
+	metabolite_rna_plots = plot_metabolite_rna(metabolite_rna_pairs,
+																						 metabolite_collapsed_norm,
+																						 rna_collapsed_norm,
+																						 rna_metabolites_all_spearman,
+																						 color_scales),
+	
 	rna_metabolite_groups_neg = find_interesting_gm_groups(rna_metabolites_spearman,
 																												 rna_within_cor,
 																												 metabolites_within_cor,

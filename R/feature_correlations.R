@@ -76,25 +76,57 @@ feature_correlations = function(rna_collapsed,
 	return(out_cor)
 }
 
-create_metabolomics_counts = function(bioamines_collapsed,
+bind_metabolomics_counts = function(bioamines_collapsed,
 																			lipidomics_collapsed,
 																			pm_collapsed,
 																			matched_samples)
 {
-	tar_load(c(bioamines_collapsed,
-					 lipidomics_collapsed,
-					 pm_collapsed,
-					 matched_samples))
+	# tar_load(c(bioamines_collapsed,
+	# 				 lipidomics_collapsed,
+	# 				 pm_collapsed,
+	# 				 matched_samples))
+	
+	keep_cols = c("replicate", "sample_id", "treatment", "Treatment")
+	keep_rows = c("feature_id", "metabolite_id", "in_chi_key")
 	
 	bioamines_collapsed = bioamines_collapsed[, matched_samples]
-	colData(bioamines_collapsed) = colData(bioamines_collapsed)[, c("replicate", "sample_id", "treatment", "Treatment")]
-	lipidomics_collapsed = lipidomics_collapsed[, matched_samples]
-	colData(lipidomics_collapsed) = colData(lipidomics_collapsed)[, c("replicate", "sample_id", "treatment", "Treatment")]
-	pm_collapsed = pm_collapsed[, matched_samples]
-	colData(pm_collapsed) = colData(pm_collapsed)[, c("replicate", "sample_id", "treatment", "Treatment")]
+	bioamines_norm = counts(bioamines_collapsed, normalized = TRUE)
+	bioamines_rows = rowData(bioamines_collapsed)[, keep_rows]
+	bioamines_cols = colData(bioamines_collapsed)[, keep_cols]
 	
-	all_collapsed = rbind(bioamines_collapsed, lipidomics_collapsed, pm_collapsed)
+	lipidomics_collapsed = lipidomics_collapsed[, matched_samples]
+	lipidomics_norm = counts(lipidomics_collapsed, normalized = TRUE)
+	lipidomics_rows = rowData(lipidomics_collapsed)[, keep_rows]
+	lipidomics_cols = colData(lipidomics_collapsed)[, keep_cols]
+	
+	pm_collapsed = pm_collapsed[, matched_samples]
+	pm_norm = counts(pm_collapsed, normalized = TRUE)
+	pm_rows = rowData(pm_collapsed)[, keep_rows]
+	pm_cols = colData(pm_collapsed)[, keep_cols]
+	
+	all_norm = rbind(bioamines_norm, lipidomics_norm,
+									 pm_norm)
+	all_rows = rbind(bioamines_rows, lipidomics_rows, pm_rows)
+	all_cols = rbind(bioamines_cols, lipidomics_cols, pm_cols)
+	
+	all_collapsed = SummarizedExperiment(assays = SimpleList(counts = all_norm), rowData = all_rows, colData = pm_cols)
+	
 	return(all_collapsed)
+}
+
+get_rna_norm_values = function(rna_collapsed,
+															 matched_samples)
+{
+	# tar_load(c(rna_collapsed,
+	# 				 matched_samples))
+	
+	norm_counts = counts(rna_collapsed, normalized = TRUE)
+	rna_cols = colData(rna_collapsed)
+	rna_ranges = SummarizedExperiment::rowRanges(rna_collapsed)
+	rna_norm = SummarizedExperiment(assays = SimpleList(counts = norm_counts), colData = rna_cols,
+																	rowRanges = rna_ranges)
+	
+	return(rna_norm)
 }
 
 
