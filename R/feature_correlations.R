@@ -76,6 +76,37 @@ feature_correlations = function(rna_collapsed,
 	return(out_cor)
 }
 
+find_rna_metabolite_pairs = function(rna_de_patient,
+																		 metabolomics_de_patient_list,
+																		 rna_metabolites_all_spearman_sig,
+																		 rna_compounds_matrix)
+{
+	# tar_load(c(rna_de_patient,
+	# 					 metabolomics_de_patient_list,
+	# 					 rna_metabolites_all_spearman_sig,
+	# 					 rna_compounds_matrix))
+	
+	keep_genes = purrr::map(rna_compounds_matrix[c("lipids", "compounds")], rownames) |> 
+		unlist(use.names = FALSE) |>
+		unique()
+	keep_metabolites = purrr::map(rna_compounds_matrix[c("lipids", "compounds")], colnames) |>
+		unlist(use.names = FALSE) |>
+		unlist()
+	
+	trim_spearman_sig = rna_metabolites_all_spearman_sig |>
+		dplyr::filter(gene %in% keep_genes, metabolite %in% keep_metabolites)
+	
+	trim_rna_de_patient = rna_de_patient |>
+		dplyr::filter(feature_id %in% keep_genes)
+	
+	rna_de_spearman = dplyr::inner_join(trim_rna_de_patient, trim_spearman_sig, suffix = c(".de", ".cor"), by = c("feature_id" = "gene"))
+	
+	rna_de_spearman = rna_de_spearman |>
+		dplyr::filter(padj <= 0.01)
+	
+	rna_de_spearman
+}
+
 bind_metabolomics_counts = function(bioamines_collapsed,
 																			lipidomics_collapsed,
 																			pm_collapsed,
@@ -383,14 +414,18 @@ check_metabolite_correlations = function(metabolites_within_cor,
 find_genes_correlated_lipids = function(metabolomics_enrichment_lipid_binomial,
 																				rna_metabolites_all_spearman,
 																				metabolomics_de_patient_list,
+																				rna_de_patient,
 																				binomial_padj = 0.05,
-																				cor_padj = 0.01)
+																				cor_padj = 0.01,
+																				rna_padj = 0.01)
 {
 	# tar_load(c(metabolomics_enrichment_lipid_binomial,
 	# 					 rna_metabolites_all_spearman,
-	# 					 metabolomics_de_patient_list))
+	# 					 metabolomics_de_patient_list,
+	#            rna_de_patient))
 	# binomial_padj = 0.05
 	# cor_padj = 0.05
+	# rna_padj = 0.01
 	# 
 	# metabolomics_enrichment_lipid_binomial = tar_read(metabolomics_enrichment_reactome_binomial)
 	# tar_load(rna_metabolites_all_spearman_sig)
@@ -399,12 +434,16 @@ find_genes_correlated_lipids = function(metabolomics_enrichment_lipid_binomial,
 	extra_keep = "class:PS"
 	force(binomial_padj)
 	force(cor_padj)
+	force(rna_padj)
 	sig_cor = rna_metabolites_all_spearman |>
 		dplyr::filter(padjust <= cor_padj) |>
 		dplyr::mutate(transcript = s1, metabolite = s2)
 	
 	sig_binomial = metabolomics_enrichment_lipid_binomial$stats |>
 		dplyr::filter((padjust <= binomial_padj) | (id %in% extra_keep))
+
+	sig_rna = rna_de_patient |>
+		dplyr::filter(padj <= rna_padj)
 	
 	sig_binomial_id = sig_binomial$id
 	sig_direction = sig_binomial$direction
@@ -420,7 +459,7 @@ find_genes_correlated_lipids = function(metabolomics_enrichment_lipid_binomial,
 			dplyr::filter(feature_id %in% lipids, direction == use_direction) |>
 			dplyr::pull(feature_id)
 		lipid_cor = sig_cor |>
-			dplyr::filter(metabolite %in% lipid_direction)
+			dplyr::filter(metabolite %in% lipid_direction, transcript %in% sig_rna$feature_id)
 		if (nrow(lipid_cor) > 0) {
 			lipid_cor$annotation = id
 			return(lipid_cor)
