@@ -29,20 +29,20 @@ create_pca_heatmap_figures = function(qcqa_figure, heatmap_figure,
 plot_metabolite_rna = function(metabolite_rna_pairs,
 																metabolite_collapsed_norm,
 																rna_collapsed_norm,
-																rna_metabolites_all_spearman,
+																rna_metabolites_all_spearman_sig,
 															 color_scales)
 {
-	tar_load(c(metabolite_rna_pairs,
-					 metabolite_collapsed_norm,
-					 rna_collapsed_norm,
-					 rna_metabolites_all_spearman,
-					 color_scales))
+	# tar_load(c(metabolite_rna_pairs,
+	# 				 metabolite_collapsed_norm,
+	# 				 rna_collapsed_norm,
+	# 				 rna_metabolites_all_spearman_sig,
+	# 				 color_scales))
 	
 	pair_rows = seq_len(nrow(metabolite_rna_pairs))
 	use_samples = base::intersect(colnames(metabolite_collapsed_norm), colnames(rna_collapsed_norm))
 	sample_info = colData(metabolite_collapsed_norm) |> tibble::as_tibble()
 	
-	out_plots = purrr::map(pair_rows, \(in_row){
+	cor_plots = purrr::map(pair_rows, \(in_row){
 		# in_row = 1
 		use_transcript = metabolite_rna_pairs$transcript[in_row]
 		use_metabolite = metabolite_rna_pairs$metabolite[in_row]
@@ -54,12 +54,12 @@ plot_metabolite_rna = function(metabolite_rna_pairs,
 			dedataset_to_df() |>
 			dplyr::mutate(Metabolite = value)
 		
-		all_values = dplyr::left_join(rna_values, metabolite_values[, c("Metabolite", "sample_id")], by = "sample_id")
+		all_values = dplyr::left_join(rna_values, metabolite_values[, c("Metabolite", "sample_id", "feature_name")], suffix = c(".rna", ".metabolite"), by = "sample_id")
 		all_values = all_values |>
 			dplyr::mutate(RNA = log2(RNA + 1),
 										Metabolite = log2(Metabolite + 1))
-		cor_data = rna_metabolites_all_spearman |>
-			dplyr::filter(s1 %in% use_transcript, s2 %in% use_metabolite)
+		cor_data = rna_metabolites_all_spearman_sig |>
+			dplyr::filter(gene %in% use_transcript, metabolite %in% use_metabolite)
 		
 		cor_string = glue::glue("Correlation: {format(cor_data$cor[1], digits = 2)}; Adj-P-Value: {format(cor_data$padjust, digits = 2, scientific = TRUE)}")
 		
@@ -67,11 +67,12 @@ plot_metabolite_rna = function(metabolite_rna_pairs,
 			ggplot(aes(x = RNA, y = Metabolite, color = Treatment)) +
 			geom_point(size = 2, show.legend = FALSE) +
 			scale_color_manual(values = color_scales$normal_cancer) +
-			labs(x = use_transcript, y = use_metabolite, subtitle = cor_string)
+			labs(x = all_values$feature_name.rna[1], y = all_values$feature_name.metabolite[1], subtitle = cor_string)
 		out_plot
 	})
 	
-	
+	metabolite_rna_pairs$cor_plots = cor_plots
+	metabolite_rna_pairs
 	
 }
 
@@ -83,6 +84,14 @@ dedataset_to_df = function(dedataset)
 	out_df = tibble::tibble(value = count_data[1, ],
 													sample_id = meta_data$sample_id,
 													Treatment = meta_data$Treatment)
+	de_rows = rowData(dedataset) |> tibble::as_tibble()
+	
+	if ("name" %in% names(de_rows)) {
+		out_df$feature_name = de_rows$name
+	} else {
+		out_df$feature_name = de_rows$metabolite_id
+	}
+	
 	out_df
 }
 

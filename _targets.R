@@ -325,7 +325,8 @@ tar_plan(
 	### Look for genes correlated with Binomial groups -----
 	rna_correlated_interesting_lipids = find_genes_correlated_lipids(metabolomics_enrichment_lipid_binomial,
 																																	 rna_metabolites_all_spearman,
-																																	 metabolomics_de_patient_list),
+																																	 metabolomics_de_patient_list,
+																																	rna_de_patient),
 	
 	rna_enriched_interesting_lipids = enrich_genes_correlated_lipids(rna_correlated_interesting_lipids,
 																																	 ensembl_go),
@@ -336,7 +337,8 @@ tar_plan(
 	
 	rna_correlated_interesting_compounds = find_genes_correlated_lipids(metabolomics_enrichment_reactome_binomial,
 																																			rna_metabolites_all_spearman,
-																																			metabolomics_de_patient_list),
+																																			metabolomics_de_patient_list,
+																																			rna_de_patient),
 	
 	rna_binomial_interesting_compounds = binomial_genes_correlated_lipids(rna_correlated_interesting_compounds,
 																																		 rna_de_patient,
@@ -464,15 +466,19 @@ tar_plan(
 	
 	
 	# temporary
-	metabolite_rna_pairs = tibble::tribble(
-		~transcript, ~metabolite,
-		"ENSG00000165071", "x0_81_802_55.bioamine"
-	),
+	# metabolite_rna_pairs = tibble::tribble(
+	# 	~transcript, ~metabolite,
+	# 	"ENSG00000189366", "x2_67_776_62.lipids"
+	# ),
+	metabolite_rna_pairs = find_rna_metabolite_pairs(rna_de_patient,
+																										metabolomics_de_patient_list,
+																										rna_metabolites_all_spearman_sig,
+																										rna_compounds_matrix),
 	
 	metabolite_rna_plots = plot_metabolite_rna(metabolite_rna_pairs,
 																						 metabolite_collapsed_norm,
 																						 rna_collapsed_norm,
-																						 rna_metabolites_all_spearman,
+																						 rna_metabolites_all_spearman_sig,
 																						 color_scales),
 	
 	rna_metabolite_groups_neg = find_interesting_gm_groups(rna_metabolites_spearman,
@@ -603,7 +609,8 @@ tar_plan(
 	tar_quarto(differential_analysis, "docs/differential_analysis.qmd"),
 	tar_quarto(pca_differential_heatmaps, "docs/pca_differential_heatmaps.qmd"),
 	tar_quarto(gene_metabolite_correlations, "docs/gene-metabolite-correlations.qmd"),
-	tar_quarto(gene_metabolite_heatmaps, "docs/gene_metabolite_heatmaps.qmd")
+	tar_quarto(gene_metabolite_heatmaps, "docs/gene_metabolite_heatmaps.qmd"),
+	tar_quarto(gene_metabolite_pair_doc, "docs/gene_metabolite_pairs.qmd")
 # target = function_to_make(arg), ## drake style
 
 # tar_target(target2, function_to_make2(arg)) ## targets style
