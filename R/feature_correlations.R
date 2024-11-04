@@ -100,10 +100,9 @@ find_rna_metabolite_pairs = function(rna_de_patient,
 		dplyr::filter(feature_id %in% keep_genes)
 	
 	rna_de_spearman = dplyr::inner_join(trim_rna_de_patient, trim_spearman_sig, suffix = c(".de", ".cor"), by = c("feature_id" = "gene"))
-	
 	rna_de_spearman = rna_de_spearman |>
-		dplyr::filter(padj <= 0.01)
-	
+		dplyr::mutate(transcript = feature_id)
+		
 	rna_de_spearman
 }
 

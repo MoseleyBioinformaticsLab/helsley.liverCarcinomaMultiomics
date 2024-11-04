@@ -1,10 +1,17 @@
 ## Load your packages, e.g. library(targets).
 source("./packages.R")
 
-## Load your R files
+## Load your R files --------
 tar_source("R")
 
 ## tar_plan supports drake-style targets and also tar_target()
+tar_assign({
+	color_scales = create_color_scales() |>
+		tar_target()
+	sample_list_file = "raw_data/sample_list.xlsx" |>
+		tar_target(format = "file")
+})
+
 tar_plan(
 
 	color_scales = create_color_scales(),
@@ -464,6 +471,11 @@ tar_plan(
 																							 pm_collapsed,
 																							 matched_samples),
 	
+	## check variances ------
+	rna_variances = calculate_variances(rna_paired),
+	bioamines_variances = calculate_variances(bioamines_paired),
+	lipidomics_variances = calculate_variances(lipidomics_paired),
+	pm_variances = calculate_variances(pm_paired),
 	
 	# temporary
 	# metabolite_rna_pairs = tibble::tribble(

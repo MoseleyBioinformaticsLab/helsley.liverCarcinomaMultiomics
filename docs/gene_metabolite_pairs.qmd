@@ -1,0 +1,471 @@
+---
+title: "Gene & Metabolite Pairs"
+author: "Robert M Flight"
+date: last-modified
+date-format: YYYY-MM-DD HH:mm
+format: 
+  docx:
+    keep-md: true
+  html:
+    toc: true
+    embed-resources: true
+---
+
+## Purpose
+
+Examine particular correlations of genes and metabolites.
+
+In a set of figures prepared by Garret, in addition to the heatmaps of genes and metabolites, there were some point plots added to the figures.
+I am guessing they were put there as a way to show that the correlations observed in the heatmaps are **really** what they show.
+
+![Figure 5 from Garrett](figure5_example_withheatmaps.png)
+
+However, there is an issue.
+The gene - metabolite pairs selected were **not** restricted to significant genes that also intersected the genes displayed in the heatmaps.
+
+To reiterate, the heatmaps were created by:
+
+* Performing binomial enrichment on the metabolites (enrichment of log-fold-change direction), and finding statistically significant metabolite pathway or lipid annotation enrichments.
+  * These are testing for direction only, with no consideration of whether the metabolite is significantly differential between cancer / normal.
+* Taking the metabolites that have log-fold-changes in the same direction as the majority recorded for the annotation, and then finding genes that have significant correlations with those metabolites.
+* **Most** of the binomial enrichments have an overall **negative** direction, there are more metabolites with negative log-fold-change than expected by chance.
+
+Therefore, there is no expectation on the gene (or metabolite) having been significantly changed (p-adjusted <= 0.01) in the comparison of cancer / normal.
+However, Garrett chose significantly changed genes that had significant correlations with the metabolites, with no consideration of whether they are in the displayed heatmaps.
+
+This is my attempt to check what correlations **do** come up if we add in the condition of significantly differential genes.
+
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(echo = FALSE,
+											warning = FALSE,
+											message = FALSE,
+											fig.width = 10,
+											fig.height = 8,
+											dpi = 300,
+											dev = "ragg_png")
+## target knits qmds in their own session, so load libraries here.
+targets::tar_source("./packages.R")
+tar_source("./R")
+```
+
+```{r}
+#| label: load-targets
+#| include: false
+tar_load(c(rna_de_patient,
+						 metabolomics_de_patient_list,
+						 rna_metabolites_all_spearman_sig,
+						 rna_compounds_matrix,
+					 metabolite_collapsed_norm,
+					 rna_collapsed_norm,
+					 color_scales,
+					 feature_lipid,
+					 rna_variances,
+					 bioamines_variances,
+					 lipidomics_variances,
+					 pm_variances))
+```
+
+
+## All Significant Correlations
+
+To start, lets plot **all** the significant correlations, so we know what we are starting with.
+
+```{r}
+#| label: fig-all-significant-correlations
+#| fig-cap: All significant (p-adjust <= 0.01) gene - metabolite correlations.
+rna_metabolites_all_spearman_sig |>
+	ggplot(aes(x = cor)) +
+	geom_histogram(bins = 30) +
+	facet_wrap(~ dir, nrow = 1, scales = "free")
+```
+
+
+## Heatmap Correlations
+
+```{r}
+#| label: fig-heatmap-correlations
+#| fig-cap: Heatmap gene - metabolite correlations
+
+keep_genes = purrr::map(rna_compounds_matrix[c("compounds", "lipids")], rownames) |>
+	unlist() |>
+	unique()
+keep_compounds = purrr::map(rna_compounds_matrix[c("compounds", "lipids")], colnames) |>
+	unlist() |>
+	unique()
+
+rna_metabolites_all_spearman_sig |>
+	dplyr::filter((gene %in% keep_genes) & (metabolite %in% keep_compounds)) |>
+	ggplot(aes(x = cor)) +
+	geom_histogram(bins = 30) +
+	facet_wrap(~ dir, nrow = 1, scales = "free")
+```
+
+## Significant Genes Significant Correlations
+
+```{r}
+#| label: fig-significant-genes-correlations
+#| fig-cap: Significant genes correlations.
+sig_genes = rna_de_patient |>
+	dplyr::filter(padj <= 0.01) |>
+	dplyr::pull(feature_id)
+rna_metabolites_all_spearman_sig |>
+	dplyr::filter(gene %in% sig_genes) |>
+	ggplot(aes(x = cor)) + 
+	geom_histogram(bins = 30) +
+	facet_wrap(~ dir, nrow = 1, scales = "free")
+```
+
+## Significant Genes in Heatmap Correlations
+
+```{r}
+#| label: fig-significant-genes-heatmap-correlations
+#| fig-cap: Significant genes in heatmap correlations with heatmap metabolites.
+keep_sig_genes = intersect(keep_genes, sig_genes)
+rna_metabolites_all_spearman_sig |>
+	dplyr::filter((gene %in% keep_sig_genes) & (metabolite %in% keep_compounds)) |>
+	ggplot(aes(x = cor)) +
+	geom_histogram(bins = 30) +
+	facet_wrap(~ dir, nrow = 1, scales = "free")
+```
+
+
+So, the number of significant genes that intersect with the heatmap are much less than the number of things significant in either significant correlations, or significant genes in general.
+
+## Triple Check Some Correlations
+
+We can pull out some of the gene metabolite correlations (from the heatmap set) and triple check that the correlations look **real** or **trustworthy** (we use the heatmap set because we know all the metabolites there are named).
+
+```{r}
+#| label: sample-correlations
+heatmap_cor = rna_metabolites_all_spearman_sig |>
+	dplyr::filter((gene %in% keep_genes) & (metabolite %in% keep_compounds))
+withr::with_seed(1234,
+ {
+	sample_locs = sample(nrow(heatmap_cor), 9)	
+ })
+use_cor = heatmap_cor[sample_locs, ] |>
+	dplyr::transmute(transcript = gene, metabolite = metabolite)
+example_plots = plot_metabolite_rna(use_cor,
+																						 metabolite_collapsed_norm,
+																						 rna_collapsed_norm,
+																						 rna_metabolites_all_spearman_sig,
+																						 color_scales)
+```
+
+```{r}
+#| label: fig-check-correlations
+#| fig-cap: Gene to metabolite values, colored by type of sample (geen = normal, purple = cancerous).
+list_plots = example_plots$cor_plots
+patchwork::wrap_plots(list_plots, nrow = 3, ncol = 3)
+```
+
+Great, the correlations we see really are like that.
+
+## Distribution of Log-Fold-Changes
+
+Now let's check what the distribution of log-fold-changes looks like, in general, and then for the significant entries.
+
+### Transcriptomics
+
+
+```{r}
+#| label: fig-genes-logfc
+#| fig-cap: Genes log-fold-changes, for all genes, and then for significantly correlating genes.
+gene_logfc_all = rna_de_patient |>
+	ggplot(aes(x = log2FoldChange)) +
+	geom_histogram(bins = 100) + 
+	geom_vline(xintercept = 0, color = "red") +
+	labs(subtitle = "All Genes LFC")
+sig_cor_genes = rna_metabolites_all_spearman_sig |>
+	dplyr::pull(gene) |>
+	unique()
+gene_logfc_sigcor = rna_de_patient |>
+	dplyr::filter(feature_id %in% sig_cor_genes) |>
+	ggplot(aes(x = log2FoldChange)) + 
+	geom_histogram(bins = 100) +
+	geom_vline(xintercept = 0, color = "red") +
+	labs(subtitle = "Significantly Correlating Genes LFC")
+
+gene_logfc_heatmap = rna_de_patient |>
+	dplyr::filter(feature_id %in% keep_genes) |>
+	ggplot(aes(x = log2FoldChange)) + 
+	geom_histogram(bins = 100) +
+	geom_vline(xintercept = 0, color = "red") +
+	labs(subtitle = "Heatmap Genes LFC")
+gene_sig_logfc_heatmap = rna_de_patient |>
+	dplyr::filter(padj <= 0.01, feature_id %in% keep_genes) |>
+	ggplot(aes(x = log2FoldChange)) +
+	geom_histogram(bins = 100) + 
+	geom_vline(xintercept = 0, color = "red") +
+	labs(subtitle = "Significant and Heatmap Genes LFC")
+
+(gene_logfc_all | gene_logfc_sigcor) / (gene_logfc_heatmap | gene_sig_logfc_heatmap)
+```
+
+### Metabolomics
+
+```{r}
+#| label: fig-metabolites-logfc
+#| fig-cap: Metabolite log-fold-changes, for all metabolites, and then for significantly correlating metabolites.
+metabolites_logfc_all = metabolomics_de_patient_list |>
+	ggplot(aes(x = log2FoldChange)) +
+	geom_histogram(bins = 100) + 
+	geom_vline(xintercept = 0, color = "red") +
+	labs(subtitle = "All Metabolites LFC")
+sig_cor_metabolites = rna_metabolites_all_spearman_sig |>
+	dplyr::pull(metabolite) |>
+	unique()
+metabolites_logfc_sigcor = metabolomics_de_patient_list |>
+	dplyr::filter(feature_id %in% sig_cor_metabolites) |>
+	ggplot(aes(x = log2FoldChange)) + 
+	geom_histogram(bins = 100) +
+	geom_vline(xintercept = 0, color = "red") +
+	labs(subtitle = "Significantly Correlating Metabolites LFC")
+
+metabolites_logfc_heatmap = metabolomics_de_patient_list |>
+	dplyr::filter(feature_id %in% keep_compounds) |>
+	ggplot(aes(x = log2FoldChange)) + 
+	geom_histogram(bins = 100) +
+	geom_vline(xintercept = 0, color = "red") +
+	labs(subtitle = "Heatmap Metabolites LFC")
+metabolites_sig_logfc_heatmap = metabolomics_de_patient_list |>
+	dplyr::filter(padj <= 0.01, feature_id %in% keep_compounds) |>
+	ggplot(aes(x = log2FoldChange)) +
+	geom_histogram(bins = 100) + 
+	geom_vline(xintercept = 0, color = "red") +
+	labs(subtitle = "Significant and Heatmap Metabolites LFC")
+
+(metabolites_logfc_all | metabolites_logfc_sigcor) / (metabolites_logfc_heatmap | metabolites_sig_logfc_heatmap)
+```
+
+## Why??
+
+This becomes important if we try to add the condition of a gene being differentially significant to the set of genes in the heatmap, and looking for patterns of correlation with the metabolites in the heatmap.
+
+Let's do that now.
+Here we can see that there are only a few differentially-expressed genes have positive log-fold-changes, and then they have negative correlations with metabolites, and then the negative differentially expressed genes have positive correlations with metabolites.
+
+```{r}
+#| label: fig-gene-metabolite-cor-significant
+#| fig-cap: Significantly differential & heatmap genes correlation with heatmap metabolites.
+sig_logfc_genes = rna_de_patient |>
+	dplyr::filter(padj <= 0.01, feature_id %in% keep_genes)
+
+sig_cor_keep = rna_metabolites_all_spearman_sig |>
+	dplyr::filter((gene %in% keep_genes) & (metabolite %in% keep_compounds))
+
+sig_logfc_cor = dplyr::inner_join(sig_logfc_genes, sig_cor_keep, suffix = c(".de", ".cor"), by = c("feature_id" = "gene"))
+
+ggplot(sig_logfc_cor, aes(x = log2FoldChange, y = cor)) +
+	geom_point() +
+	geom_vline(xintercept = 0, color = "red") +
+	labs(x = "Log2FC DE Genes", y = "Correlation with Metabolite",
+			 subtitle = "Significantly Changed Genes & Correlation with Metabolites")
+```
+
+Again, we can verify that these correlations are indeed real and see what the plots of values in the genes and metabolites are by selecting some of the entries in the positive and negative log-fold-changes.
+And we can see in the first 4 cases, the normal metabolites are higher than cancerous, while transcript abundances are lower in normal compared to cancerous, while in the other 5 cases, the normal are higher than cancerous in both metabolites and transcripts.
+
+```{r}
+#| label: sample-correlations-again
+withr::with_seed(2341,
+ {
+ 	pos_cors = sig_logfc_cor |>
+ 		dplyr::filter(log2FoldChange > 0) |>
+ 		dplyr::slice_sample(n = 4) |>
+ 		dplyr::arrange(log2FoldChange) |>
+ 		dplyr::transmute(transcript = feature_id, metabolite = metabolite)
+ 	neg_cors = sig_logfc_cor |>
+ 		dplyr::filter(log2FoldChange < 0) |>
+ 		dplyr::slice_sample(n = 5) |>
+ 		dplyr::arrange(log2FoldChange) |>
+ 		dplyr::transmute(transcript = feature_id, metabolite = metabolite)
+ 	use_pairs = dplyr::bind_rows(pos_cors, neg_cors)
+ })
+
+example_sig2 = plot_metabolite_rna(use_pairs,
+																						 metabolite_collapsed_norm,
+																						 rna_collapsed_norm,
+																						 rna_metabolites_all_spearman_sig,
+																						 color_scales)
+```
+
+```{r}
+#| label: fig-sig-genes-metabolites
+#| fig-cap: Gene to metabolite values, colored by type of sample (geen = normal, purple = cancerous).
+list_plots_sig = example_sig2$cor_plots
+patchwork::wrap_plots(list_plots_sig, nrow = 3, ncol = 3)
+```
+
+Finally, we can ask if any classes of lipids stratify along the positive and negative correlations, especially any that only have negative correlations with the significant genes.
+As we see in the table, pretty much everything is in the positive, with just a few in the negative correlation, but nothing that fully stratifies with the negative correlations.
+
+
+*Number of metabolite - gene correlations with positive or negative correlation, by lipid class.*
+```{r}
+#| label: lipid-class-gene-cor
+feature_lipid_annot = feature_lipid@annotation_features
+feature_lipid_class_annot = feature_lipid_annot[grepl("class\\:", names(feature_lipid_annot))]
+
+feature_class_df = purrr::imap(feature_lipid_class_annot, \(in_feature, in_class){
+	tibble::tibble(metabolite = in_feature, lipid_class = gsub("class\\:", "", in_class))
+}) |>
+	purrr::list_rbind() |>
+	dplyr::distinct()
+
+sig_logfc_cor_class = dplyr::left_join(sig_logfc_cor, feature_class_df, by = "metabolite")
+
+summarize_direction = sig_logfc_cor_class |>
+	dplyr::group_by(lipid_class) |>
+	dplyr::summarise(n = dplyr::n(),
+									 n_pos = sum(dir == 1),
+									 n_neg = sum(dir == -1))
+
+gt::gt(summarize_direction)
+```
+
+## Ignoring Significant Genes
+
+What does the plot of gene log-fold-changes to metabolite correlations look like if we **ignore** their status as significantly differentially expressed?
+We can see that now there are log-fold-changes across the zero line, that may be interesting to explore, if that's the way we want to go.
+
+```{r}
+#| label: fig-logfc-cor-ignore-de
+#| fig-cap: Heatmap genes correlation with heatmap metabolites.
+keep_cor = rna_metabolites_all_spearman_sig |>
+	dplyr::filter((gene %in% keep_genes) & (metabolite %in% keep_compounds))
+keep_lfc = dplyr::right_join(rna_de_patient, keep_cor, suffix = c(".de", ".cor"), by = c("feature_id" = "gene"))
+
+keep_lfc |>
+	ggplot(aes(x = log2FoldChange, y = cor)) +
+	geom_point() +
+	geom_vline(xintercept = 0, color = "red") +
+	labs(x = "Log2FC Genes", y = "Correlation with Metabolite",
+			 subtitle = "Log-FC Genes & Correlation with Metabolites")	
+```
+
+## Why Are Significant Things Negatively Regulated?
+
+*Number of significantly regulated transcripts by direction, using an adjusted p-value cutoff of 0.01*.
+```{r}
+#| label: rna-de-summary-direction
+rna_table = rna_de_patient |>
+   dplyr::filter(padj <= 0.01) |>
+   dplyr::mutate(direction = sign(log2FoldChange)) |>
+   dplyr::group_by(direction) |>
+   dplyr::summarise(n_significant = dplyr::n())
+gt::gt(rna_table)
+```
+
+We know that the majority of differential genes are negatively regulated (less in cancer compared to normal-adjacent).
+And then those metabolites that are significantly correlated with them also have to be negatively regulated, to match with the genes to be statistically significant.
+One hypothesis for why this might be, is that as there is more abundance of the feature, the proportional error increases, making for higher variances in the cancer samples.
+We can test this hypothesis by calculating the standard and relative standard deviations in both the cancer and adjacent-normal for each feature in each type, and then calculating the log-ratios (log10) between the cancer and adjacent normal, as shown in @fig-variance-ratio-plots.
+Using log-ratios means that distribution will center around 0 and make it easier to visualize.
+For three of the dataset types, the variances in the cancer are definitely higher.
+
+```{r}
+#| label: fig-variance-ratio-plots
+#| fig-cap: Stuff
+rna_var_plot = rna_variances |>
+	ggplot(aes(x = ratio, y = which)) + 
+	geom_sina() +
+	geom_vline(xintercept = 0, color = "red") +
+	labs(subtitle = "Transcriptomics", x = "log10(cancer / adjacent-normal)")
+lipidomics_var_plot = lipidomics_variances |>
+	ggplot(aes(x = ratio, y = which)) + 
+	geom_sina() +
+	geom_vline(xintercept = 0, color = "red") +
+	labs(subtitle = "Lipidomics", x = "log10(cancer / adjacent-normal)")
+bioamines_var_plot = bioamines_variances |>
+	ggplot(aes(x = ratio, y = which)) + 
+	geom_sina() +
+	geom_vline(xintercept = 0, color = "red") +
+	labs(subtitle = "Bioamines", x = "log10(cancer / adjacent-normal)")
+pm_var_plot = pm_variances |>
+	ggplot(aes(x = ratio, y = which)) + 
+	geom_sina() +
+	geom_vline(xintercept = 0, color = "red") +
+	labs(subtitle = "Primary Metabolism", x = "log10(cancer / adjacent-normal)")
+
+(rna_var_plot | bioamines_var_plot) / (lipidomics_var_plot | pm_var_plot)
+```
+
+
+We can also compare the variance log-ratios to the log-fold-changes of cancer / normal-adjacent, as shown in @fig-variance-sd-lfc and @fig-variance-rsd-lfc.
+In these cases, the variance ratios for the **transcriptomics** standard deviations are positively correlated with log-fold-change, but negatively for the rest, and then mostly flat for relative standard deviation.
+
+```{r}
+#| label: fig-variance-sd-lfc
+#| fig-cap: Log-ratio of standard-deviations to log-fold-changes of cancer / normal-adjacent.
+rna_var_lfc = dplyr::left_join(rna_variances, rna_de_patient[, c("log2FoldChange", "feature_id")], by = "feature_id")
+
+rna_sd_lfc_plot = rna_var_lfc |>
+	dplyr::filter(which %in% "sd") |>
+	ggplot(aes(x = log2FoldChange, y = ratio)) +
+	geom_point() +
+	labs(subtitle = "Transcriptomics", y = "log10-SD(cancerous / normal-adjacent)")
+lipidomics_var_lfc = dplyr::left_join(lipidomics_variances, metabolomics_de_patient_list[, c("log2FoldChange", "feature_id")], by = "feature_id")
+lipidomics_sd_lfc_plot = lipidomics_var_lfc |>
+	dplyr::filter(which %in% "sd") |>
+	ggplot(aes(x = log2FoldChange, y = ratio)) +
+	geom_point() +
+	labs(subtitle = "Lipidomics", y = "log10-SD(cancerous / normal-adjacent)")
+
+pm_var_lfc = dplyr::left_join(pm_variances, metabolomics_de_patient_list[, c("log2FoldChange", "feature_id")], by = "feature_id")
+pm_sd_lfc_plot = pm_var_lfc |>
+	dplyr::filter(which %in% "sd") |>
+	ggplot(aes(x = log2FoldChange, y = ratio)) +
+	geom_point() +
+	labs(subtitle = "Primary-Metabolism", y = "log10-SD(cancerous / normal-adjacent)")
+
+bioamines_var_lfc = dplyr::left_join(bioamines_variances, metabolomics_de_patient_list[, c("log2FoldChange", "feature_id")], by = "feature_id")
+bioamines_sd_lfc_plot = bioamines_var_lfc |>
+	dplyr::filter(which %in% "sd") |>
+	ggplot(aes(x = log2FoldChange, y = ratio)) +
+	geom_point() +
+	labs(subtitle = "Bioamines", y = "log10-SD(cancerous / normal-adjacent)")
+
+(rna_sd_lfc_plot | bioamines_sd_lfc_plot) / (lipidomics_sd_lfc_plot | pm_sd_lfc_plot)
+```
+
+```{r}
+#| label: fig-variance-rsd-lfc
+#| fig-cap: Log-ratio of relative-standard-deviations to log-fold-changes of cancer / normal-adjacent.
+rna_rsd_lfc_plot = rna_var_lfc |>
+	dplyr::filter(which %in% "rsd") |>
+	ggplot(aes(x = log2FoldChange, y = ratio)) +
+	geom_point() +
+	labs(subtitle = "Transcriptomics", y = "log10-RSD(cancerous / normal-adjacent)")
+lipidomics_rsd_lfc_plot = lipidomics_var_lfc |>
+	dplyr::filter(which %in% "rsd") |>
+	ggplot(aes(x = log2FoldChange, y = ratio)) +
+	geom_point() +
+	labs(subtitle = "Lipidomics", y = "log10-RSD(cancerous / normal-adjacent)")
+
+pm_rsd_lfc_plot = pm_var_lfc |>
+	dplyr::filter(which %in% "rsd") |>
+	ggplot(aes(x = log2FoldChange, y = ratio)) +
+	geom_point() +
+	labs(subtitle = "Primary-Metabolism", y = "log10-RSD(cancerous / normal-adjacent)")
+
+bioamines_rsd_lfc_plot = bioamines_var_lfc |>
+	dplyr::filter(which %in% "rsd") |>
+	ggplot(aes(x = log2FoldChange, y = ratio)) +
+	geom_point() +
+	labs(subtitle = "Bioamines", y = "log10-RSD(cancerous / normal-adjacent)")
+
+(rna_rsd_lfc_plot | bioamines_rsd_lfc_plot) / (lipidomics_rsd_lfc_plot | pm_rsd_lfc_plot)
+```
+
+
+
+## Executive Summary
+
+* If the story of the manuscript part for genes to metabolite is driven in part by the heatmaps and clustering, then the subsequent discussion of the correlations with significantly differential genes needs to intersect with the genes in the heatmap, they should not be ignored.
+* However, the intersection of the significantly differential genes, and the genes associated with metabolites from binomial enrichment, results in a set of genes that are mostly negatively regulated, and the associated metabolites are negatively regulated as well.
+* So this makes a much simpler story as far as what should be plotted in association with the heatmaps.
+* If we want to really talk about genes with positive log-fold-changes and positive correlation with metabolites, then we can't restrict it to differentially expressed genes.

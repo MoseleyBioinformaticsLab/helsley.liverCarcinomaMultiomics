@@ -322,3 +322,38 @@ count_n_samples = function(dds_obj, id)
 	n_treatment
 	
 }
+
+calculate_variances = function(dds_obj)
+{
+	# dds_obj = tar_read(rna_paired)
+	norm_counts = counts(dds_obj, normalized = TRUE, replaced = FALSE) |>
+		as.data.frame() |>
+		tibble::rownames_to_column("feature_id")
+	long_counts = norm_counts |>
+		tidyr::pivot_longer(-feature_id, names_to = "sample_id", values_to = "intensity") |>
+		dplyr::mutate(intensity = dplyr::case_when(
+			intensity == 0 ~ NA,
+			TRUE ~ intensity
+		))
+	sample_info = colData(dds_obj) |> tibble::as_tibble()
+
+	long_counts = dplyr::left_join(long_counts, sample_info[, c("sample_id", "treatment")], by = "sample_id")
+	variance_counts = long_counts |>
+		dplyr::group_by(treatment, feature_id) |>
+		dplyr::summarise(sd_intensity = sd(intensity, na.rm = TRUE),
+										 mean_intensity = mean(intensity, na.rm = TRUE),
+										 rsd_intensity = sd_intensity / mean_intensity,
+										feature_id = feature_id[1]) |>
+		dplyr::ungroup()
+	
+	var_ratios = variance_counts |>
+		dplyr::group_by(feature_id) |>
+		dplyr::arrange(treatment) |>
+		dplyr::summarise(sd = log10(sd_intensity[2]) - log10(sd_intensity[1]),
+										 rsd = log10(rsd_intensity[2]) -  log10(rsd_intensity[1])) |>
+		dplyr::ungroup()
+	
+	long_var = var_ratios |>
+		tidyr::pivot_longer(-feature_id, values_to = "ratio", names_to = "which")
+	long_var
+}

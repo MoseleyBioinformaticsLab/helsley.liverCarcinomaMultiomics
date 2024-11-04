@@ -1,6 +1,6 @@
 label_clusters_first_pass = function(hclust_obj, n_group = 3){
 	# hclust_obj = lipid_dist
-	# n_group = 3
+	# n_group = 2
 	out_clusters = cutree(hclust_obj, k = n_group)
 	cluster_df = tibble::tibble(feature_id = names(out_clusters),
 															cluster = as.character(out_clusters))
@@ -116,18 +116,22 @@ cluster_create_heatmaps = function(rna_compounds_matrix,
 
 	if (which %in% "lipids") {
 		lipid_clusters = label_clusters_first_pass(lipid_dist, 3) |>
-			label_clusters_second_pass(lipid_dist, 3, 6) |>
-			label_clusters_second_pass(lipid_dist, 2, 2)
+			label_clusters_second_pass(lipid_dist, 2, 5) |>
+			label_clusters_second_pass(lipid_dist, 1, 4)
 	
-		gene_clusters = label_clusters_first_pass(gene_dist, 3) |>
-			label_clusters_second_pass(gene_dist, 2, 4) |>
-			label_clusters_second_pass(gene_dist, 1, 2)
+		gene_clusters = label_clusters_first_pass(gene_dist, 4) |>
+			label_clusters_second_pass(gene_dist, 2, 2) |>
+			label_clusters_second_pass(gene_dist, 3, 2) |>
+			label_clusters_second_pass(gene_dist, 1, 3)
 	} else {
-		lipid_clusters = label_clusters_first_pass(lipid_dist, 2)
+		lipid_clusters = label_clusters_first_pass(lipid_dist, 5) |>
+			label_clusters_second_pass(lipid_dist, 1, 2) |>
+			label_clusters_second_pass(lipid_dist, 3, 2)
 				
-		gene_clusters = label_clusters_first_pass(gene_dist, 2) |>
-			label_clusters_second_pass(gene_dist, 2, 3) |>
-			label_clusters_second_pass(gene_dist, 1, 2)
+		gene_clusters = label_clusters_first_pass(gene_dist, 4) |>
+			label_clusters_second_pass(gene_dist, 3, 2) |>
+			label_clusters_second_pass(gene_dist, 1, 3) |>
+			label_clusters_second_pass(gene_dist, 2, 2)
 	}
 	
 	gene_order = tibble::tibble(feature_id = gene_dist$labels,
@@ -169,8 +173,8 @@ cluster_create_heatmaps = function(rna_compounds_matrix,
 	names(gene_lipid_labels) = feature_labels$feature_id
 	
 	lipid_gene_heatmaps = purrr::imap(split_gene_clusters, \(in_cluster, cluster_id){
-		# in_cluster = split_gene_clusters[[1]]
-		# cluster_id = names(split_gene_clusters)[1]
+		# in_cluster = split_gene_clusters[[5]]
+		# cluster_id = names(split_gene_clusters)[5]
 		non_cluster = gene_dist$labels[!(gene_dist$labels %in% in_cluster$feature_id)]
 		logical_non_cluster = !(gene_dist$labels %in% in_cluster$feature_id)
 
@@ -178,8 +182,13 @@ cluster_create_heatmaps = function(rna_compounds_matrix,
 		col = gene_colors, which = "row",
 		show_annotation_name = FALSE)
 
-		subset_dist = dendextend::prune(gene_dist, non_cluster)
-		subset_matrix = lipid_matrix[in_cluster$feature_id, ]
+		if (nrow(in_cluster) == 1) {
+			subset_dist = FALSE
+		} else {
+			subset_dist = dendextend::prune(gene_dist, non_cluster)
+		}
+		
+		subset_matrix = lipid_matrix[in_cluster$feature_id, , drop = FALSE]
 
 		tmp_gene_labels = gene_lipid_labels[rownames(subset_matrix)]
 		tmp_lipid_labels = lipid_chr_labels[colnames(subset_matrix)]

@@ -44,6 +44,7 @@ knitr::opts_chunk$set(echo = FALSE,
 ## source(here::here("packages.R"))
 ## if you want access to the functions you've written
 ## lapply(list.files(here::here("./R"), full.names = TRUE), source)
+targets::tar_source("./packages.R")
 ```
 
 ```{r}
