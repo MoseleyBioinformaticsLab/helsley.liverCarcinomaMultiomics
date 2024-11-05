@@ -278,20 +278,33 @@ generate_abundance_figures = function(rna_metabolites_all_spearman_sig,
 
 generate_correlation_output = function(rna_metabolites_all_spearman_sig,
 																			rna_de_patient,
-																			metabolomics_de_patient_list)
+																			metabolomics_de_patient_list,
+																			lipid_compounds_in_binomial)
 {
 	# tar_load(c(rna_metabolites_all_spearman_sig,
 	# 					 rna_de_patient,
-	# 					 metabolomics_de_patient_list))
+	# 					 metabolomics_de_patient_list,
+	# 							lipid_compounds_in_binomial))
 	# 
 	
 	
 	rna_info = rna_de_patient |>
-		dplyr::transmute(gene = feature_id, gene_symbol = name, description = description)
+		dplyr::transmute(gene = feature_id, gene_symbol = name, description = description, significant_gene = dplyr::case_when(
+			padj <= 0.01 ~ "significant",
+			padj > 0.01 ~ "not-significant"
+		))
 	rna_metabolites_all_spearman_sig = dplyr::left_join(rna_metabolites_all_spearman_sig, rna_info, by = "gene",
 																									relationship = "many-to-many")
 	metabolites_info = metabolomics_de_patient_list |>
-		dplyr::transmute(metabolite = feature_id, metabolite_name = metabolite_id, metabolite_type = type)
+		dplyr::transmute(metabolite = feature_id, metabolite_name = metabolite_id, metabolite_type = type,
+		significant_compound = dplyr::case_when(
+			padj <= 0.01 ~ "significant",
+			padj > 0.01 ~ "not-significant"
+	),
+		significant_binomial = dplyr::case_when(
+			metabolite %in% lipid_compounds_in_binomial ~ "significant",
+			TRUE ~ "not-significant"
+		))
 	rna_metabolites_all_spearman_sig = dplyr::left_join(rna_metabolites_all_spearman_sig, metabolites_info, by = "metabolite")
 	
 	data_dictionary = tibble::tribble(
@@ -305,8 +318,11 @@ generate_correlation_output = function(rna_metabolites_all_spearman_sig,
 		"method", "correlation method",
 		"gene_symbol", "Gene symbol",
 		"description", "gene name",
+		"significant_gene", "was the gene considered significant (padjust <= 0.01)",
 		"metabolite_name", "the metabolite id",
-		"metabolite_type", "what type of metabolite was it"
+		"metabolite_type", "what type of metabolite was it",
+		"significant_metabolite", "was the metabolite considered significant",
+		"significant_binomial", "was the metabolite annotated to a significant annotation and in the same direction as a binomial enrichment"
 	)
 	tab_out = list(dictionary = data_dictionary,
 								 correlation = rna_metabolites_all_spearman_sig)

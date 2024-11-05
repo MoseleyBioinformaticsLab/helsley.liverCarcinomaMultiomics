@@ -520,8 +520,13 @@ tar_plan(
 	transcriptomics_de_excel = generate_transcriptomics_de_output(rna_de_patient),
 	rna_metabolomics_correlation_excel = generate_correlation_output(rna_metabolites_all_spearman_sig,
 																																	 rna_de_patient,
-																																	 metabolomics_de_patient_list),
+																																	 metabolomics_de_patient_list,
+																																	 lipid_compounds_in_binomial),
 	
+	lipid_compounds_in_binomial = c(rna_correlated_interesting_compounds$groups,
+																	rna_correlated_interesting_lipids$groups) |>
+		dplyr::bind_rows() |> dplyr::pull(metabolite) |> unique(),
+
 	rna_interesting_lipids_excel = generate_groups_output(rna_binomial_interesting_lipids,
 																													 rna_de_patient,
 																													 metabolomics_de_patient_list,
