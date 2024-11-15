@@ -301,6 +301,16 @@ tar_plan(
 	metabolomics_patient_enrichment_reactome = run_enrichment(metabolomics_de_patient_list,
 																															feature_reactome),
 	
+	### limma -----
+	# just to double check log-fold-changes
+	lipidomics_limma_de = calculate_limma_stats(lipidomics_paired),
+	bioamines_limma_de = calculate_limma_stats(bioamines_paired),
+	pm_limma_de = calculate_limma_stats(pm_paired),
+	metabolomics_limma_de = list(bioamines = bioamines_limma_de,
+															 lipidomics = lipidomics_limma_de,
+															 pm = pm_limma_de) |> merge_list(),
+
+
 	#### KEGG -----
 	kegg_data = get_kegg_compound_data(),
 	
