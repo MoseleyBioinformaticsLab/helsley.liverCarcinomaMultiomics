@@ -332,6 +332,46 @@ generate_correlation_output = function(rna_metabolites_all_spearman_sig,
 	tabular_output
 }
 
+compare_deseq_limma = function(limma_de,
+															 deseq_de)
+															 {
+	limma_de = tar_read(metabolomics_limma_de)
+	deseq_de = tar_read(metabolomics_de_patient_list)
+
+	limma_lfc = limma_de |>
+		dplyr::transmute(feature_id = feature_id, limma_lfc = logFC)
+	deseq_lfc = deseq_de |>
+		dplyr::transmute(feature_id = feature_id, deseq2_lfc = log2FoldChange)
+
+	compare_lfc = dplyr::inner_join(limma_lfc, deseq_lfc, by = "feature_id")
+
+	long_lfc = dplyr::bind_rows(deseq_lfc |>
+		dplyr::transmute(feature_id = feature_id, lfc = deseq2_lfc, source = "deseq2"),
+		limma_lfc |>
+			dplyr::transmute(feature_id = feature_id, lfc = limma_lfc, source = "limma"))
+
+	compare_plot = compare_lfc |>
+		ggplot(aes(x = limma_lfc, y = deseq2_lfc)) +
+		geom_point(alpha = 0.2) +
+		geom_abline(slope = 1, color = "red") +
+		geom_vline(xintercept = 0, color = "blue") +
+		geom_hline(yintercept = 0, color = "blue")
+
+	compare_hist = long_lfc |>
+		ggplot(aes(x = lfc, y = source)) + 
+		geom_vline(xintercept = 0, color = "red") +
+		geom_sina(alpha = 0.2)
+
+	ratio_plot = compare_lfc |>
+		dplyr::mutate(limma_deseq_ratio = limma_lfc / deseq2_lfc) |>
+		dplyr::filter(abs(limma_deseq_ratio) < 20) |>
+		ggplot(aes(x = limma_deseq_ratio)) +
+		geom_vline(xintercept = 0, color = "red") +
+		geom_histogram(bins = 100) +
+		scale_y_log10()
+}
+
+
 generate_groups_output = function(rna_binomial_interesting_lipids,
 																	rna_de_patient,
 																	metabolomics_de_patient_list,

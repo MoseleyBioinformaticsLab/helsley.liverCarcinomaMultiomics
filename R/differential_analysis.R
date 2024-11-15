@@ -326,6 +326,40 @@ calculate_metabolomics_stats_aov = function(data_se,
 	return(out_stats)
 }
 
+calculate_limma_stats = function(data_se,
+																	which = "patient",
+																	contrast = c("treatment", "normal_adjacent", 
+																							"cancerous"))
+{
+	# data_se = tar_read(lipidomics_paired)
+	# which = "patient"
+	# contrast = c("treatment", "normal_adjacent", 
+	# 						"cancerous")
+	
+	sample_info = colData(data_se) |> tibble::as_tibble()
+	sample_info$treatment = factor(sample_info$treatment, levels = contrast[c(2, 3)])
+	design_matrix = model.matrix(~patient + treatment, data = sample_info)
+	ncol_design = ncol(design_matrix)
+	colnames(design_matrix)[ncol_design] = "treatment"
+
+	gene_data = counts(data_se, normalized = FALSE)
+	gene_data[gene_data == 0] = NA
+	sample_medians = apply(gene_data, 2, median, na.rm = TRUE)
+	matrix_medians = matrix(sample_medians, nrow = nrow(gene_data),
+													ncol = ncol(gene_data), byrow = TRUE)
+	
+	gene_norm = gene_data / matrix_medians
+
+	log2_norm = log2(gene_norm)
+
+	lm_fit = limma::lmFit(log2_norm, design_matrix)
+	e_fit = limma::eBayes(lm_fit)
+
+	results = limma::topTable(e_fit, coef = "treatment", number = Inf, p.value = 1)
+	results$feature_id = rownames(results)
+	results
+}
+
 merge_list = function(in_data)
 {
 	merged_vals = purrr::imap(in_data, \(x, id){

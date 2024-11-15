@@ -142,7 +142,16 @@ setup_metabolomics = function(all_data,
 	sample_matrix = sample_matrix[, sample_info_extra$sample_id]
 	
 	sample_matrix[is.na(sample_matrix)] = 0
+
+	# if (all(c("pooled", "blank") %in% sample_info_extra$treatment)) {
+	# 	sample_info_extra$treatment = factor(sample_info_extra$treatment, levels = c("normal_adjacent", "cancerous", "pooled", "blank"))	
+	# } else if ("pooled" %in% sample_info_extra$treatment) {
+	# 	sample_info_extra$treatment = factor(sample_info_extra$treatment, levels = c("normal_adjacent", "cancerous", "pooled"))
+	# } else {
+	# 	sample_info_extra$treatment = factor(sample_info_extra$treatment, levels = c("normal_adjacent", "cancerous"))
+	# }
 	
+	sample_info_extra$patient = factor(sample_info_extra$patient)
 	
 	
 	out_data = DESeq2::DESeqDataSetFromMatrix(sample_matrix, sample_info_extra, design = ~ treatment)
