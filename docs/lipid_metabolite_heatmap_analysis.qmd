@@ -1,0 +1,90 @@
+---
+title: "Lipid Metabolite Heatmap Analysis"
+author: "Robert M Flight"
+date: last-modified
+date-format: YYYY-MM-DD HH:mm
+format: 
+  docx:
+    keep-md: true
+  html:
+    toc: true
+    embed-resources: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      fig.width = 10,
+                      fig.height = 5,
+                      dev = c("ragg_png", "svg"),
+                      dpi = 600)
+## target knits qmds in their own session, so load libraries here.
+targets::tar_source("packages.R")
+tar_source("R")
+```
+
+```{r}
+#| label: load-targets
+#| include: false
+tar_load(c(rna_compounds_matrix,
+					 feature_lipid))
+```
+
+The way to do this I think, is that we generate 3 or 4 clusters for each, and it
+generates the cluster annotations and colors. 
+Then we examine if any of them need to be sub-clustered.
+If they do, we can use `dendextend` to prune the hclust object down to just what we want, and do sub-clustering on that hopefully.
+
+```{r}
+#| label: clustering
+lipid_gene_correlations = rna_compounds_matrix$lipids
+gene_dist = hclust(dist((lipid_gene_correlations))) |> dendsort::dendsort()
+lipid_dist = hclust(dist(t(lipid_gene_correlations))) |> dendsort::dendsort()
+
+
+lipid_clusters = label_clusters_first_pass(lipid_dist, 3) |>
+	label_clusters_second_pass(lipid_dist, 3, 6) |>
+	label_clusters_second_pass(lipid_dist, 2, 2)
+
+gene_clusters = label_clusters_first_pass(gene_dist, 3) |>
+	label_clusters_second_pass(gene_dist, 2, 4) |>
+	label_clusters_second_pass(gene_dist, 1, 2)
+
+lipid_colors = list(cluster = create_cluster_color_list(lipid_clusters))
+gene_colors = list(cluster = create_cluster_color_list(gene_clusters))
+
+row_annotation = ComplexHeatmap::HeatmapAnnotation(df = gene_clusters[, "cluster"],
+	col = gene_colors, which = "row",
+	show_annotation_name = FALSE)
+col_annotation = ComplexHeatmap::HeatmapAnnotation(df = lipid_clusters[, "cluster"],
+	col = lipid_colors, which = "column")
+cor_map = circlize::colorRamp2(seq(-1, 1, length.out = 20), scico::scico(20, palette = "vik"))
+ComplexHeatmap::Heatmap(lipid_gene_correlations, col = cor_map, name = "Spearman",
+						top_annotation = col_annotation,
+						left_annotation = row_annotation,
+						cluster_rows = gene_dist,
+						cluster_columns = lipid_dist,
+						show_row_names = FALSE,
+						show_column_names = FALSE)
+```
+
+Great.
+Now, what is in each of these groups of lipids and genes?
+
+```{r}
+#| label: add-annotations
+ComplexHeatmap::Heatmap(lipid_gene_correlations, col = cor_map, name = "Spearman",
+						top_annotation = col_annotation,
+						left_annotation = row_annotation,
+						cluster_rows = gene_dist,
+						cluster_columns = lipid_dist,
+						show_row_names = FALSE,
+						show_column_names = TRUE,
+						column_names_side = "top",
+						column_labels = lipid_out_annotation$annotation_str,
+						column_names_gp = gpar(fontsize = 6))
+```
+

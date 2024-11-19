@@ -65,7 +65,8 @@ tar_load(c(rna_de_patient,
 					 rna_variances,
 					 bioamines_variances,
 					 lipidomics_variances,
-					 pm_variances))
+					 pm_variances,
+					 metabolomics_limma_de))
 ```
 
 
@@ -369,7 +370,7 @@ For three of the dataset types, the variances in the cancer are definitely highe
 
 ```{r}
 #| label: fig-variance-ratio-plots
-#| fig-cap: Stuff
+#| fig-cap: Log-ratios of standard-deviations (SD) and relative standard deviations (RSD) of cancer and adjacent normal abundances for the various data types.
 rna_var_plot = rna_variances |>
 	ggplot(aes(x = ratio, y = which)) + 
 	geom_sina() +
@@ -394,72 +395,6 @@ pm_var_plot = pm_variances |>
 (rna_var_plot | bioamines_var_plot) / (lipidomics_var_plot | pm_var_plot)
 ```
 
-
-We can also compare the variance log-ratios to the log-fold-changes of cancer / normal-adjacent, as shown in @fig-variance-sd-lfc and @fig-variance-rsd-lfc.
-In these cases, the variance ratios for the **transcriptomics** standard deviations are positively correlated with log-fold-change, but negatively for the rest, and then mostly flat for relative standard deviation.
-
-```{r}
-#| label: fig-variance-sd-lfc
-#| fig-cap: Log-ratio of standard-deviations to log-fold-changes of cancer / normal-adjacent.
-rna_var_lfc = dplyr::left_join(rna_variances, rna_de_patient[, c("log2FoldChange", "feature_id")], by = "feature_id")
-
-rna_sd_lfc_plot = rna_var_lfc |>
-	dplyr::filter(which %in% "sd") |>
-	ggplot(aes(x = log2FoldChange, y = ratio)) +
-	geom_point() +
-	labs(subtitle = "Transcriptomics", y = "log10-SD(cancerous / normal-adjacent)")
-lipidomics_var_lfc = dplyr::left_join(lipidomics_variances, metabolomics_de_patient_list[, c("log2FoldChange", "feature_id")], by = "feature_id")
-lipidomics_sd_lfc_plot = lipidomics_var_lfc |>
-	dplyr::filter(which %in% "sd") |>
-	ggplot(aes(x = log2FoldChange, y = ratio)) +
-	geom_point() +
-	labs(subtitle = "Lipidomics", y = "log10-SD(cancerous / normal-adjacent)")
-
-pm_var_lfc = dplyr::left_join(pm_variances, metabolomics_de_patient_list[, c("log2FoldChange", "feature_id")], by = "feature_id")
-pm_sd_lfc_plot = pm_var_lfc |>
-	dplyr::filter(which %in% "sd") |>
-	ggplot(aes(x = log2FoldChange, y = ratio)) +
-	geom_point() +
-	labs(subtitle = "Primary-Metabolism", y = "log10-SD(cancerous / normal-adjacent)")
-
-bioamines_var_lfc = dplyr::left_join(bioamines_variances, metabolomics_de_patient_list[, c("log2FoldChange", "feature_id")], by = "feature_id")
-bioamines_sd_lfc_plot = bioamines_var_lfc |>
-	dplyr::filter(which %in% "sd") |>
-	ggplot(aes(x = log2FoldChange, y = ratio)) +
-	geom_point() +
-	labs(subtitle = "Bioamines", y = "log10-SD(cancerous / normal-adjacent)")
-
-(rna_sd_lfc_plot | bioamines_sd_lfc_plot) / (lipidomics_sd_lfc_plot | pm_sd_lfc_plot)
-```
-
-```{r}
-#| label: fig-variance-rsd-lfc
-#| fig-cap: Log-ratio of relative-standard-deviations to log-fold-changes of cancer / normal-adjacent.
-rna_rsd_lfc_plot = rna_var_lfc |>
-	dplyr::filter(which %in% "rsd") |>
-	ggplot(aes(x = log2FoldChange, y = ratio)) +
-	geom_point() +
-	labs(subtitle = "Transcriptomics", y = "log10-RSD(cancerous / normal-adjacent)")
-lipidomics_rsd_lfc_plot = lipidomics_var_lfc |>
-	dplyr::filter(which %in% "rsd") |>
-	ggplot(aes(x = log2FoldChange, y = ratio)) +
-	geom_point() +
-	labs(subtitle = "Lipidomics", y = "log10-RSD(cancerous / normal-adjacent)")
-
-pm_rsd_lfc_plot = pm_var_lfc |>
-	dplyr::filter(which %in% "rsd") |>
-	ggplot(aes(x = log2FoldChange, y = ratio)) +
-	geom_point() +
-	labs(subtitle = "Primary-Metabolism", y = "log10-RSD(cancerous / normal-adjacent)")
-
-bioamines_rsd_lfc_plot = bioamines_var_lfc |>
-	dplyr::filter(which %in% "rsd") |>
-	ggplot(aes(x = log2FoldChange, y = ratio)) +
-	geom_point() +
-	labs(subtitle = "Bioamines", y = "log10-RSD(cancerous / normal-adjacent)")
-
-(rna_rsd_lfc_plot | bioamines_rsd_lfc_plot) / (lipidomics_rsd_lfc_plot | pm_rsd_lfc_plot)
-```
 
 
 
