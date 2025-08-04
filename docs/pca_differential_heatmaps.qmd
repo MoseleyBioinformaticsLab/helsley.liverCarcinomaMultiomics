@@ -14,13 +14,15 @@ format:
 ```{r}
 #| label: setup
 #| include: false
-knitr::opts_chunk$set(echo = FALSE,
-                      message = FALSE,
-                      warning = FALSE,
-                      fig.width = 10,
-                      fig.height = 5,
-                      dev = c("ragg_png", "svg"),
-                      dpi = 600)
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 10,
+  fig.height = 5,
+  dev = c("ragg_png", "svg"),
+  dpi = 600
+)
 ## target knits qmds in their own session, so load libraries here.
 targets::tar_source("packages.R")
 tar_source("R")
@@ -29,15 +31,17 @@ tar_source("R")
 ```{r}
 #| label: load-targets
 #| include: false
-tar_load(c(color_scales,
-					 bioamines_qcqa,
-					 lipidomics_qcqa,
-					 primary_metabolism_qcqa,
-					 rna_qcqa,
-					 bioamines_patient_heatmap,
-					 lipidomics_patient_heatmap,
-					 pm_patient_heatmap,
-					 rna_patient_heatmap))
+tar_load(c(
+  color_scales,
+  bioamines_qcqa,
+  lipidomics_qcqa,
+  primary_metabolism_qcqa,
+  rna_qcqa,
+  rna_pca_heatmap,
+  bioamines_pca_heatmap,
+  lipidomics_pca_heatmap,
+  pm_pca_heatmap
+))
 ```
 
 ## Methods
@@ -59,16 +63,17 @@ Heatmaps were generated using `ComplexHeatmap` and `scico` colormaps.
 
 ```{r}
 #| label: refactor-function
-refactor_treatment = function(qcqa_obj)
-{
-	# pca_values = rna_qcqa$pca_nooutlier_values
-	pca_values = qcqa_obj$pca_nooutlier_values
-	pca_values = pca_values |>
-		dplyr::mutate(Treatment = dplyr::case_when(
-			treatment %in% "cancerous" ~ "Cancerous",
-			treatment %in% "normal_adjacent" ~ "Normal Adjacent"
-		))
-	pca_values
+refactor_treatment = function(qcqa_obj) {
+  # pca_values = rna_qcqa$pca_nooutlier_values
+  pca_values = qcqa_obj$pca_nooutlier_values
+  pca_values = pca_values |>
+    dplyr::mutate(
+      Treatment = dplyr::case_when(
+        treatment %in% "cancerous" ~ "Cancerous",
+        treatment %in% "normal_adjacent" ~ "Normal Adjacent"
+      )
+    )
+  pca_values
 }
 
 use_colors = color_scales$normal_cancer
@@ -79,17 +84,9 @@ use_colors = color_scales$normal_cancer
 
 ```{r}
 #| label: fig-rna-seq
-#| fig-cap: RNA-seq samples PCA (left) and differential gene heatmap (right). Differential genes are colored by the log2-fold-change cancerous / normal adjacent samples in each patient.
-rna_hm_grob = draw(rna_patient_heatmap) |> grid.grabExpr()
-
-(refactor_treatment(rna_qcqa) |>
-	ggplot(aes(x = PC1, y = PC2, color = Treatment)) +
-	geom_polygon(stat = "ellipse", aes(color = Treatment), fill = NA) +
-	geom_point(size = 2) +
-	scale_color_manual(values = use_colors) +
-	theme(legend.position = "inside", legend.position.inside = c(0.6, 0.8)) +
-	labs(x = rna_qcqa$pca_nooutlier_variance$labels[1],
-		 y = rna_qcqa$pca_nooutlier_variance$labels[2])) | rna_hm_grob
+#| fig-cap: RNA-seq samples PCA (left), volcano plot (center) and differential gene heatmap (right). Differential genes are colored by the log2-fold-change cancerous / normal adjacent samples in each patient.
+rna_pca_heatmap$heatmap = draw(rna_pca_heatmap$heatmap) |> grid.grabExpr()
+patchwork::wrap_plots(rna_pca_heatmap, nrow = 1)
 ```
 
 ```{r}
@@ -97,23 +94,23 @@ rna_hm_grob = draw(rna_patient_heatmap) |> grid.grabExpr()
 #| tbl-cap: Statistics of ANOVA for PCs 1 - 4 vs treatment and patient.
 use_pcs = c("PC1", "PC2", "PC3", "PC4")
 rna_qcqa$pca_nooutlier_anova |>
-	dplyr::filter(PC %in% use_pcs) |>
-	dplyr::arrange(dplyr::desc(variable), PC) |>
-	dplyr::select(variable, PC, p.value, statistic) |>
-	gt::gt() |>
-	gt::fmt_engineering(columns = p.value, decimals = 2) |>
-	gt::fmt_number(columns = statistic, decimals = 2)
+  dplyr::filter(PC %in% use_pcs) |>
+  dplyr::arrange(dplyr::desc(variable), PC) |>
+  dplyr::select(variable, PC, p.value, statistic) |>
+  gt::gt() |>
+  gt::fmt_engineering(columns = p.value, decimals = 2) |>
+  gt::fmt_number(columns = statistic, decimals = 2)
 ```
 
 ```{r}
 #| label: tbl-rnaseq-mad
 #| tbl-cap: MAD of sample scores on PC1 and number of samples by treatment.
 refactor_treatment(rna_qcqa) |>
-	dplyr::group_by(Treatment) |>
-	dplyr::summarise(MAD = mad(PC1), N = dplyr::n()) |>
-	gt::gt() |>
-	gt::fmt_number(columns = MAD) |>
-	gt::fmt_integer(columns = N)
+  dplyr::group_by(Treatment) |>
+  dplyr::summarise(MAD = mad(PC1), N = dplyr::n()) |>
+  gt::gt() |>
+  gt::fmt_number(columns = MAD) |>
+  gt::fmt_integer(columns = N)
 ```
 
 
@@ -122,39 +119,33 @@ refactor_treatment(rna_qcqa) |>
 ```{r}
 #| label: fig-lipidomics
 #| fig-cap: Lipidomics PCA (left) and differential metabolite heatmap (right). Differential metabolites are colored by the log2-fold-change cancerous / normal adjacent samples in each patient.
-lipidomics_hm_grob = draw(lipidomics_patient_heatmap) |> grid.grabExpr()
+lipidomics_pca_heatmap$heatmap = draw(lipidomics_pca_heatmap$heatmap) |>
+  grid.grabExpr()
 
-(refactor_treatment(lipidomics_qcqa) |>
-	ggplot(aes(x = PC1, y = PC2, color = Treatment)) +
-	geom_polygon(stat = "ellipse", aes(color = Treatment), fill = NA) +
-	geom_point(size = 2) +
-	scale_color_manual(values = use_colors) +
-	theme(legend.position = "inside", legend.position.inside = c(0.6, 0.9)) +
-	labs(x = lipidomics_qcqa$pca_nooutlier_variance$labels[1],
-		 y = lipidomics_qcqa$pca_nooutlier_variance$labels[2])) | lipidomics_hm_grob
+patchwork::wrap_plots(lipidomics_pca_heatmap, nrow = 1)
 ```
 
 ```{r}
 #| label: tbl-lipidomics-anova
 #| tbl-cap: Statistics of ANOVA for PCs 1 - 4 vs treatment and patient.
 lipidomics_qcqa$pca_nooutlier_anova |>
-	dplyr::filter(PC %in% use_pcs) |>
-	dplyr::arrange(dplyr::desc(variable), PC) |>
-	dplyr::select(variable, PC, p.value, statistic) |>
-	gt::gt() |>
-	gt::fmt_engineering(columns = p.value, decimals = 2) |>
-	gt::fmt_number(columns = statistic, decimals = 2)
+  dplyr::filter(PC %in% use_pcs) |>
+  dplyr::arrange(dplyr::desc(variable), PC) |>
+  dplyr::select(variable, PC, p.value, statistic) |>
+  gt::gt() |>
+  gt::fmt_engineering(columns = p.value, decimals = 2) |>
+  gt::fmt_number(columns = statistic, decimals = 2)
 ```
 
 ```{r}
 #| label: tbl-lipidomics-mad
 #| tbl-cap: MAD of sample scores on PC1 and number of samples by treatment.
 refactor_treatment(lipidomics_qcqa) |>
-	dplyr::group_by(Treatment) |>
-	dplyr::summarise(MAD = mad(PC1), N = dplyr::n()) |>
-	gt::gt() |>
-	gt::fmt_number(columns = MAD) |>
-	gt::fmt_integer(columns = N)
+  dplyr::group_by(Treatment) |>
+  dplyr::summarise(MAD = mad(PC1), N = dplyr::n()) |>
+  gt::gt() |>
+  gt::fmt_number(columns = MAD) |>
+  gt::fmt_integer(columns = N)
 ```
 
 ## Bioamines
@@ -162,39 +153,33 @@ refactor_treatment(lipidomics_qcqa) |>
 ```{r}
 #| label: fig-bioamines
 #| fig-cap: Biogenic amines PCA (left) and differential metabolite heatmap (right). Differential metabolites are colored by the log2-fold-change cancerous / normal adjacent samples in each patient.
-bioamines_hm_grob = draw(bioamines_patient_heatmap) |> grid.grabExpr()
+bioamines_pca_heatmap$heatmap = draw(bioamines_pca_heatmap$heatmap) |>
+  grid.grabExpr()
 
-(refactor_treatment(bioamines_qcqa) |>
-	ggplot(aes(x = PC1, y = PC2, color = Treatment)) +
-  geom_polygon(stat = "ellipse", aes(color = Treatment), fill = NA) +
-	geom_point(size = 2) +
-	scale_color_manual(values = use_colors) +
-	theme(legend.position = "inside", legend.position.inside = c(0.2, 0.9)) +
-	labs(x = bioamines_qcqa$pca_nooutlier_variance$labels[1],
-		 y = bioamines_qcqa$pca_nooutlier_variance$labels[2])) | bioamines_hm_grob
+patchwork::wrap_plots(bioamines_pca_heatmap, nrow = 1)
 ```
 
 ```{r}
 #| label: tbl-bioamines-anova
 #| tbl-cap: Statistics of ANOVA for PCs 1 - 4 vs treatment and patient.
 bioamines_qcqa$pca_nooutlier_anova |>
-	dplyr::filter(PC %in% use_pcs) |>
-	dplyr::arrange(dplyr::desc(variable), PC) |>
-	dplyr::select(variable, PC, p.value, statistic) |>
-	gt::gt() |>
-	gt::fmt_engineering(columns = p.value, decimals = 2) |>
-	gt::fmt_number(columns = statistic, decimals = 2)
+  dplyr::filter(PC %in% use_pcs) |>
+  dplyr::arrange(dplyr::desc(variable), PC) |>
+  dplyr::select(variable, PC, p.value, statistic) |>
+  gt::gt() |>
+  gt::fmt_engineering(columns = p.value, decimals = 2) |>
+  gt::fmt_number(columns = statistic, decimals = 2)
 ```
 
 ```{r}
 #| label: tbl-bioamines-mad
 #| tbl-cap: MAD of sample scores on PC1 and number of samples by treatment.
 refactor_treatment(bioamines_qcqa) |>
-	dplyr::group_by(Treatment) |>
-	dplyr::summarise(MAD = mad(PC1), N = dplyr::n()) |>
-	gt::gt() |>
-	gt::fmt_number(columns = MAD) |>
-	gt::fmt_integer(columns = N)
+  dplyr::group_by(Treatment) |>
+  dplyr::summarise(MAD = mad(PC1), N = dplyr::n()) |>
+  gt::gt() |>
+  gt::fmt_number(columns = MAD) |>
+  gt::fmt_integer(columns = N)
 ```
 
 ## Primary Metabolism
@@ -202,36 +187,30 @@ refactor_treatment(bioamines_qcqa) |>
 ```{r}
 #| label: fig-primary-metabolism
 #| fig-cap: Primary metabolism PCA of samples (left) and differential metabolite heatmap (right). Differential metabolites are colored by the log2-fold-change cancerous / normal adjacent samples in each patient.
-pm_hm_grob = draw(pm_patient_heatmap) |> grid.grabExpr()
-(refactor_treatment(primary_metabolism_qcqa) |>
-	ggplot(aes(x = PC1, y = PC2, color = Treatment)) +
-	geom_polygon(stat = "ellipse", aes(color = Treatment), fill = NA) +
-	geom_point(size = 2) +
-	scale_color_manual(values = use_colors) +
-	theme(legend.position = "inside", legend.position.inside = c(0.1, 0.1)) +
-	labs(x = primary_metabolism_qcqa$pca_nooutlier_variance$labels[1],
-		 y = primary_metabolism_qcqa$pca_nooutlier_variance$labels[2])) | pm_hm_grob
+pm_pca_heatmap$heatmap = draw(pm_pca_heatmap$heatmap) |> grid.grabExpr()
+
+patchwork::wrap_plots(pm_pca_heatmap, nrow = 1)
 ```
 
 ```{r}
 #| label: tbl-pm-anova
 #| tbl-cap: Statistics of ANOVA for PCs 1 - 4 vs treatment and patient.
 primary_metabolism_qcqa$pca_nooutlier_anova |>
-	dplyr::filter(PC %in% use_pcs) |>
-	dplyr::arrange(dplyr::desc(variable), PC) |>
-	dplyr::select(variable, PC, p.value, statistic) |>
-	gt::gt() |>
-	gt::fmt_engineering(columns = p.value, decimals = 2) |>
-	gt::fmt_number(columns = statistic, decimals = 2)
+  dplyr::filter(PC %in% use_pcs) |>
+  dplyr::arrange(dplyr::desc(variable), PC) |>
+  dplyr::select(variable, PC, p.value, statistic) |>
+  gt::gt() |>
+  gt::fmt_engineering(columns = p.value, decimals = 2) |>
+  gt::fmt_number(columns = statistic, decimals = 2)
 ```
 
 ```{r}
 #| label: tbl-pm-mad
 #| tbl-cap: MAD of sample scores on PC1 and number of samples by treatment.
 refactor_treatment(primary_metabolism_qcqa) |>
-	dplyr::group_by(Treatment) |>
-	dplyr::summarise(MAD = mad(PC1), N = dplyr::n()) |>
-	gt::gt() |>
-	gt::fmt_number(columns = MAD) |>
-	gt::fmt_integer(columns = N)
+  dplyr::group_by(Treatment) |>
+  dplyr::summarise(MAD = mad(PC1), N = dplyr::n()) |>
+  gt::gt() |>
+  gt::fmt_number(columns = MAD) |>
+  gt::fmt_integer(columns = N)
 ```

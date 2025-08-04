@@ -1,10 +1,38 @@
+create_volcano_plots = function(de_data, color_scales) {
+	# de_data = tar_read(rna_de_patient)
+	# tar_load(color_scales)
+	use_scales = color_scales$volcano
+
+	de_data = de_data |>
+		dplyr::mutate(
+			fc_dir = dplyr::case_when(
+				padj <= 0.05 & log2FoldChange > 0 ~ "positive",
+				padj <= 0.05 & log2FoldChange < 0 ~ "negative",
+				TRUE ~ "none"
+			)
+		)
+	out_plot = de_data |>
+		ggplot(aes(x = log2FoldChange, y = -1 * log10(padj))) +
+		geom_point(color = "gray") +
+		geom_point(
+			data = de_data |> dplyr::filter(padj <= 0.05),
+			aes(color = fc_dir)
+		) +
+		scale_color_manual(values = use_scales) +
+		labs(x = "Log2(Cancer / Normal", y = "-1 x Log10(P-Adjusted)") +
+		theme(legend.position = "none")
+	return(out_plot)
+}
+
 create_pca_heatmap_figures = function(
 	qcqa_figure,
+	volcano_figure,
 	heatmap_figure,
 	color_scales,
 	pca_legend_pos = c(0.6, 0.8)
 ) {
 	# qcqa_figure = tar_read(bioamines_qcqa)
+	# volcano_figure = tar_read(bioamines_volcano)
 	# heatmap_figure = tar_read(bioamines_patient_heatmap)
 	# tar_load(color_scales)
 	# pca_legend_pos = c(0.6, 0.8)
@@ -33,7 +61,11 @@ create_pca_heatmap_figures = function(
 			y = qcqa_figure$pca_nooutlier_variance$labels[2]
 		)
 
-	combined_figure = list(pca = pca_figure, heatmap = heatmap_figure)
+	combined_figure = list(
+		pca = pca_figure,
+		volcano = volcano_figure,
+		heatmap = heatmap_figure
+	)
 	return(combined_figure)
 }
 
@@ -244,31 +276,43 @@ export_median_cor_pptx = function(
 }
 
 export_pca_heatmaps_pptx = function(plot_list, ppt_file) {
-	#plot_list = tar_read(pca_heatmap_list)
-	#ppt_file = "docs/pca_heatmap_figures.pptx"
+	# plot_list = tar_read(pca_heatmap_list)
+	# ppt_file = "docs/pca_heatmap_figures.pptx"
 	new_ppt = officer::read_pptx()
 	for (iplot in plot_list) {
 		new_ppt = officer::add_slide(new_ppt, layout = "Blank")
 		# grab the PCA part
-		pca_dml = rvg::dml(ggobj = iplot$figure$pca)
 
 		# add PCA
 		new_ppt = officer::ph_with(
 			new_ppt,
-			value = pca_dml,
+			value = iplot$figure$pca,
 			location = officer::ph_location(
-				left = 1,
+				left = 0,
 				top = 1,
-				width = 4,
+				width = 3,
+				height = 4
+			),
+			res = 600
+		)
+
+		new_ppt = officer::ph_with(
+			new_ppt,
+			value = iplot$figure$volcano,
+			location = officer::ph_location(
+				left = 3,
+				top = 1,
+				width = 3,
 				height = 4
 			)
 		)
 
 		# write heatmap to tmp file before incorporating it as a PNG
+
 		tmp_file = tempfile("heatmap", fileext = ".png")
 		heatmap_tmp = ragg::agg_png(
 			tmp_file,
-			width = 4,
+			width = 3,
 			height = 4,
 			res = 600,
 			units = "in",
@@ -281,14 +325,14 @@ export_pca_heatmaps_pptx = function(plot_list, ppt_file) {
 			new_ppt,
 			value = officer::external_img(
 				tmp_file,
-				width = 4,
+				width = 3,
 				height = 4,
 				unit = "in"
 			),
 			location = officer::ph_location(
-				left = 5,
+				left = 6,
 				top = 1,
-				width = 4,
+				width = 3,
 				height = 4
 			)
 		)
@@ -297,7 +341,7 @@ export_pca_heatmaps_pptx = function(plot_list, ppt_file) {
 			iplot$caption,
 			officer::fp_text(color = "black", font.size = 12)
 		))
-		figure_loc = officer::ph_location(
+		cap_loc = officer::ph_location(
 			left = 1,
 			top = 5,
 			width = 8,
@@ -306,7 +350,7 @@ export_pca_heatmaps_pptx = function(plot_list, ppt_file) {
 		new_ppt = officer::ph_with(
 			new_ppt,
 			value = figure_caption,
-			location = figure_loc
+			location = cap_loc
 		)
 	}
 	print(new_ppt, target = ppt_file)
