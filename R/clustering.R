@@ -140,13 +140,14 @@ cluster_create_heatmaps = function(rna_compounds_matrix,
 																order = order(lipid_dist$order))
 	lipid_clusters = dplyr::left_join(lipid_clusters, lipid_order, by = "feature_id")
 	gene_clusters = dplyr::left_join(gene_clusters, gene_order, by = "feature_id")
-	lipid_colors = list(cluster = create_cluster_color_list(lipid_clusters))
-	gene_colors = list(cluster = create_cluster_color_list(gene_clusters))
+	lipid_colors = list(metabolite = create_cluster_color_list(lipid_clusters))
+	gene_colors = list(gene = create_cluster_color_list(gene_clusters))
 
-	full_row_annotation = ComplexHeatmap::HeatmapAnnotation(df = gene_clusters[, "cluster"],
+
+	full_row_annotation = ComplexHeatmap::HeatmapAnnotation(df = gene_clusters |> dplyr::transmute(gene = cluster),
 		col = gene_colors, which = "row",
 		show_annotation_name = FALSE)
-	full_col_annotation = ComplexHeatmap::HeatmapAnnotation(df = lipid_clusters[, "cluster"],
+	full_col_annotation = ComplexHeatmap::HeatmapAnnotation(df = lipid_clusters |> dplyr::transmute(metabolite = cluster),
 		col = lipid_colors, which = "column")
 	cor_map = circlize::colorRamp2(seq(-1, 1, length.out = 20), scico::scico(20, palette = "vik"))
 	full_lipid_map = ComplexHeatmap::Heatmap(lipid_matrix, col = cor_map, name = "Spearman",
@@ -178,7 +179,7 @@ cluster_create_heatmaps = function(rna_compounds_matrix,
 		non_cluster = gene_dist$labels[!(gene_dist$labels %in% in_cluster$feature_id)]
 		logical_non_cluster = !(gene_dist$labels %in% in_cluster$feature_id)
 
-		tmp_gene_annote = ComplexHeatmap::HeatmapAnnotation(df = in_cluster[, "cluster"],
+		tmp_gene_annote = ComplexHeatmap::HeatmapAnnotation(df = in_cluster |> dplyr::transmute(gene = cluster),
 		col = gene_colors, which = "row",
 		show_annotation_name = FALSE)
 

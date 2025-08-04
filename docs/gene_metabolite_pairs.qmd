@@ -402,5 +402,4 @@ pm_var_plot = pm_variances |>
 
 * If the story of the manuscript part for genes to metabolite is driven in part by the heatmaps and clustering, then the subsequent discussion of the correlations with significantly differential genes needs to intersect with the genes in the heatmap, they should not be ignored.
 * However, the intersection of the significantly differential genes, and the genes associated with metabolites from binomial enrichment, results in a set of genes that are mostly negatively regulated, and the associated metabolites are negatively regulated as well.
-* So this makes a much simpler story as far as what should be plotted in association with the heatmaps.
-* If we want to really talk about genes with positive log-fold-changes and positive correlation with metabolites, then we can't restrict it to differentially expressed genes.
+* This does seem to be the result of relatively higher relative variation in the cancer compared to adjacent-normal.
