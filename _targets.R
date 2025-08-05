@@ -828,9 +828,10 @@ tar_plan(
 		color_scales
 	),
 	## metabolite - transcript plots --------
-	heatmap_correlations = filter_correlations(rna_compounds_matrix, rna_metabolites_all_spearman) |>
-		tar_target()
-
+	heatmap_correlations = filter_correlations(
+		rna_compounds_matrix,
+		rna_metabolites_all_spearman
+	),
 	## documents -----------
 	#tar_quarto(wcmc_imputed_value, "docs/wcmc_imputed_value.qmd"),
 	#tar_quarto(mean_variance_relationships, "docs/mean_variance_relationships.qmd"),
