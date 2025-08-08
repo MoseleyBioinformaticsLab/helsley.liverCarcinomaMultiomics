@@ -832,6 +832,18 @@ tar_plan(
 		rna_compounds_matrix,
 		rna_metabolites_all_spearman
 	),
+
+	heatmap_individual_plots = create_dotplots(
+		metabolite_collapsed_norm,
+		rna_collapsed_norm,
+		heatmap_correlations,
+		color_scales
+	),
+
+	heatmap_correlation_file = write_heatmap_file(
+		heatmap_individual_plots,
+		"heatmap_plot_list.xlsx"
+	),
 	## documents -----------
 	#tar_quarto(wcmc_imputed_value, "docs/wcmc_imputed_value.qmd"),
 	#tar_quarto(mean_variance_relationships, "docs/mean_variance_relationships.qmd"),
