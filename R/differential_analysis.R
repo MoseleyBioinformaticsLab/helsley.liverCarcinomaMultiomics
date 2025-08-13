@@ -596,3 +596,68 @@ create_logratio_heatmap = function(
 
 	out_heatmap
 }
+
+
+create_logratio_heatmap_small = function(
+	rna_patient_logratios,
+	rna_de_patient,
+	limit = 15,
+	id = "name",
+	fontsize = 10
+) {
+	# tar_load(c(rna_patient_logratios,
+	# 					 rna_de_patient))
+	# limit = 15
+	# id = "name"
+	#
+	# rna_patient_logratios = tar_read(lipidomics_patient_logratios)
+	# rna_de_patient = tar_read(lipidomics_de_patient)
+	# limit = 15
+	# id = "metabolite_id"
+
+	max_padj = 0.01
+	n_miss_logratios = data.frame(
+		feature_id = rownames(rna_patient_logratios),
+		n_na = rowSums(is.na(rna_patient_logratios))
+	)
+	n_miss_low = n_miss_logratios |>
+		dplyr::filter(n_na <= 2)
+	keep_patient = rna_de_patient |>
+		dplyr::filter(padj <= max_padj, feature_id %in% n_miss_low$feature_id)
+
+	pos_15 = keep_patient |>
+		dplyr::filter(log2FoldChange > 0) |>
+		dplyr::arrange(dplyr::desc(log2FoldChange)) |>
+		dplyr::slice_head(n = limit)
+	neg_15 = keep_patient |>
+		dplyr::filter(log2FoldChange < 0) |>
+		dplyr::arrange(log2FoldChange) |>
+		dplyr::slice_head(n = limit) |>
+		dplyr::arrange(dplyr::desc(log2FoldChange))
+
+	all_15 = dplyr::bind_rows(pos_15, neg_15)
+
+	all_lfc = rna_patient_logratios[all_15$feature_id, ]
+
+	max_range = ceiling(max(abs(all_lfc), na.rm = TRUE))
+	use_range = c(-1 * max_range, max_range)
+	n_value = 20
+	heatmap_colors = circlize::colorRamp2(
+		seq(use_range[1], use_range[2], length.out = n_value),
+		scico::scico(n_value, palette = "berlin")
+	)
+
+	out_heatmap = Heatmap(
+		all_lfc,
+		col = heatmap_colors,
+		name = "Log2FC",
+		show_row_names = TRUE,
+		show_column_names = FALSE,
+		row_title = "Genes",
+		column_title = "Patients",
+		cluster_rows = FALSE,
+		row_labels = all_15[[id]],
+		row_names_gp = gpar(fontsize = fontsize)
+	)
+	return(out_heatmap)
+}
