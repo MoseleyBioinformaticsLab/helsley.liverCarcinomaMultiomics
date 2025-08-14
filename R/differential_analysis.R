@@ -561,7 +561,8 @@ extract_deseq_patient_logratios = function(
 create_logratio_heatmap = function(
 	rna_patient_logratios,
 	rna_de_patient,
-	max_padj = 0.01
+	max_padj = 0.01,
+	label = "Genes"
 ) {
 	# tar_load(c(rna_patient_logratios,
 	# 					 rna_de_patient))
@@ -603,7 +604,8 @@ create_logratio_heatmap_small = function(
 	rna_de_patient,
 	limit = 15,
 	id = "name",
-	fontsize = 10
+	fontsize = 10,
+	label = "Genes"
 ) {
 	# tar_load(c(rna_patient_logratios,
 	# 					 rna_de_patient))
@@ -653,7 +655,7 @@ create_logratio_heatmap_small = function(
 		name = "Log2FC",
 		show_row_names = TRUE,
 		show_column_names = FALSE,
-		row_title = "Genes",
+		row_title = label,
 		column_title = "Patients",
 		cluster_rows = FALSE,
 		row_labels = all_15[[id]],

@@ -750,8 +750,8 @@ create_binomial_lipid_overall_class = function(
 	# tar_load(c(binomial_up_down_summary,
 	# 					 metabolomics_enrichment_lipid_binomial,
 	# 					 color_scales))
-	use_colors = color_scales$normal_cancer
-	names(use_colors) = c("pos", "neg")
+	use_colors = color_scales$volcano
+	names(use_colors) = c("neg", "pos")
 
 	class_summary = binomial_up_down_summary$class
 	binomial_class_labels = metabolomics_enrichment_lipid_binomial$stats |>
@@ -830,8 +830,8 @@ create_binomial_lipid_class_plots = function(
 	# tar_load(c(binomial_up_down_summary,
 	# 					 metabolomics_enrichment_lipid_binomial,
 	# 					 color_scales))
-	use_colors = color_scales$normal_cancer
-	names(use_colors) = c("pos", "neg")
+	use_colors = color_scales$volcano
+	names(use_colors) = c("neg", "pos")
 	class_summary = binomial_up_down_summary$class
 	binomial_class_labels = metabolomics_enrichment_lipid_binomial$stats |>
 		dplyr::filter(grepl("^class\\:", id)) |>
