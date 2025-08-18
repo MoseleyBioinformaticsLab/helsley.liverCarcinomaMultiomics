@@ -268,6 +268,39 @@ tar_plan(
 		pm_de_patient
 	),
 
+	## Small Heatmaps -----
+	rna_small_heatmap = create_logratio_heatmap_small(
+		rna_patient_logratios,
+		rna_de_patient |>
+			dplyr::filter(biotype %in% "protein_coding"),
+		limit = 15,
+		id = "name"
+	),
+	lipidomics_small_heatmap = create_logratio_heatmap_small(
+		lipidomics_patient_logratios,
+		lipidomics_de_patient |>
+			dplyr::filter(!is.na(metabolite_id)),
+		limit = 15,
+		id = "metabolite_id",
+		label = "Compounds"
+	),
+	bioamines_small_heatmap = create_logratio_heatmap_small(
+		bioamines_patient_logratios,
+		bioamines_de_patient |>
+			dplyr::filter(!is.na(metabolite_id)),
+		limit = 15,
+		id = "metabolite_id",
+		label = "Compounds"
+	),
+	pm_small_heatmap = create_logratio_heatmap_small(
+		pm_patient_logratios,
+		pm_de_patient |>
+			dplyr::filter(!is.na(metabolite_id)),
+		limit = 15,
+		id = "metabolite_id",
+		label = "Compounds"
+	),
+
 	## Annotations --------
 	### Genes -------
 	ensembl_uniprot = get_ensembl_uniprot(version = "112"),
@@ -780,10 +813,26 @@ tar_plan(
 		c(0.01, 0.9)
 	),
 
+	rna_pca_heatmap_small = create_pca_heatmap_figures(
+		rna_qcqa,
+		rna_volcano,
+		rna_small_heatmap,
+		color_scales,
+		c(0.01, 0.9)
+	),
+
 	bioamines_pca_heatmap = create_pca_heatmap_figures(
 		bioamines_qcqa,
 		bioamines_volcano,
 		bioamines_patient_heatmap,
+		color_scales,
+		c(0.01, 0.1)
+	),
+
+	bioamines_pca_heatmap_small = create_pca_heatmap_figures(
+		bioamines_qcqa,
+		bioamines_volcano,
+		bioamines_small_heatmap,
 		color_scales,
 		c(0.01, 0.1)
 	),
@@ -796,10 +845,26 @@ tar_plan(
 		c(0.01, 0.9)
 	),
 
+	lipidomics_pca_heatmap_small = create_pca_heatmap_figures(
+		lipidomics_qcqa,
+		lipidomics_volcano,
+		lipidomics_small_heatmap,
+		color_scales,
+		c(0.01, 0.9)
+	),
+
 	pm_pca_heatmap = create_pca_heatmap_figures(
 		primary_metabolism_qcqa,
 		pm_volcano,
 		pm_patient_heatmap,
+		color_scales,
+		c(0.01, 0.1)
+	),
+
+	pm_pca_heatmap_small = create_pca_heatmap_figures(
+		primary_metabolism_qcqa,
+		pm_volcano,
+		pm_small_heatmap,
 		color_scales,
 		c(0.01, 0.1)
 	),
@@ -850,33 +915,44 @@ tar_plan(
 
 	### powerpoints of figures ---------
 	pca_heatmap_list = list(
-		rna_pca_heatmap = list(
-			figure = rna_pca_heatmap,
-			caption = "RNA-seq samples PCA (left) and differential gene heatmap (right). Differential genes are colored by the log2-fold-change cancerous / normal adjacent samples in each patient."
+		RNA = list(
+			id = "RNA",
+			figure = rna_pca_heatmap_small,
+			caption = "RNA-seq samples PCA , volcano plot of Log2(Cancer / Normal) vs -1 x Log10(Adj-P-Value), colored by direction (red is increased in cancer, blue is decreased in cancer) and differential heatmap of the top 15 genes with significant adjusted-p-values, with only two or fewer missing values in patients."
 		),
-		bioamines_pca_heatmap = list(
-			figure = bioamines_pca_heatmap,
-			caption = "Lipidomics PCA (left) and differential metabolite heatmap (right). Differential metabolites are colored by the log2-fold-change cancerous / normal adjacent samples in each patient."
+		Bioamines = list(
+			id = "Bioamines",
+			figure = bioamines_pca_heatmap_small,
+			caption = "Biogenic amines samples PCA (left), volcano plot of Log2(Cancer / Normal) vs -1 x Log10(Adj-P-Value), colored by direction (red is increased in cancer, blue is decreased in cancer, right) and differential heatmap of the top 15 compounds with significant adjusted-p-values, with only two or fewer missing values in patients (bottom)."
 		),
-		lipidomics_pca_heatmap = list(
-			figure = lipidomics_pca_heatmap,
-			caption = "Biogenic amines PCA (left) and differential metabolite heatmap (right). Differential metabolites are colored by the log2-fold-change cancerous / normal adjacent samples in each patient."
+		Lipidomics = list(
+			id = "Lipidomics",
+			figure = lipidomics_pca_heatmap_small,
+			caption = "Lipidomics samples PCA (left), volcano plot of Log2(Cancer / Normal) vs -1 x Log10(Adj-P-Value), colored by direction (red is increased in cancer, blue is decreased in cancer, right) and differential heatmap of the top 15 compounds with significant adjusted-p-values, with only two or fewer missing values in patients (bottom)."
 		),
-		pm_pca_heatmap = list(
-			figure = pm_pca_heatmap,
-			caption = "Primary metabolism PCA of samples (left) and differential metabolite heatmap (right). Differential metabolites are colored by the log2-fold-change cancerous / normal adjacent samples in each patient."
+		PM = list(
+			id = "Primary Metabolites",
+			figure = pm_pca_heatmap_small,
+			caption = "Primary metabolism samples PCA (left), volcano plot of Log2(Cancer / Normal) vs -1 x Log10(Adj-P-Value), colored by direction (red is increased in cancer, blue is decreased in cancer, right) and differential heatmap of the top 15 compounds with significant adjusted-p-values, with only two or fewer missing values in patients (bottom)."
 		)
 	),
 
-	pca_heatmap_ppt = export_pca_heatmaps_pptx(
-		pca_heatmap_list,
-		"docs/pca_heatmap_figures.pptx"
-	),
+	# pca_heatmap_ppt = export_pca_heatmaps_pptx(
+	# 	pca_heatmap_list,
+	# 	"docs/pca_heatmap_figures.pptx"
+	# ),
 
 	median_cor_outliers_ppt = export_median_cor_pptx(
 		median_correlation_figures,
 		"docs/median_correlation_supplemental_figures.pptx"
 	),
+
+	binomial_plot_list = c(
+		list(overall = binomial_lipid_overall_plot),
+		binomial_lipid_class_plots
+	),
+
+	binomial_plot_outputs = write_lipid_class_plots(binomial_plot_list),
 
 	### reports ----------
 	# tar_quarto(check_correlation_spikes, "docs/check_correlation_spikes.qmd"),
@@ -892,7 +968,8 @@ tar_plan(
 	),
 	tar_quarto(
 		gene_metabolite_correlations,
-		"docs/gene-metabolite-correlations.qmd"
+		"docs/gene-metabolite-correlations.qmd",
+		quiet = FALSE
 	),
 	tar_quarto(gene_metabolite_heatmaps, "docs/gene_metabolite_heatmaps.qmd"),
 	tar_quarto(gene_metabolite_pair_doc, "docs/gene_metabolite_pairs.qmd")

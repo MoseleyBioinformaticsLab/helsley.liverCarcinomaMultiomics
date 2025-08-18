@@ -275,25 +275,68 @@ export_median_cor_pptx = function(
 	NULL
 }
 
+export_pca_heatmaps_images = function(plot_list, out_dir) {
+	# plot_list = tar_read(pca_heatmap_list)
+	# out_dir = "docs/pca_heatmap_figures"
+
+	unlink(out_dir, recursive = TRUE)
+	out_types = c(".png", ".svg")
+	all_plots = purrr::iwalk(plot_list, \(iplot, id) {
+		# id = "RNA"
+		# iplot = plot_list[[id]]
+
+		purrr::iwalk(iplot$figure, \(ifig, fig_id) {
+			# fig_id = "pca"
+			# ifig = iplot$figure[[fig_id]]
+			full_fig = paste0(id, "_", fig_id)
+			purrr::walk(out_types, \(in_type) {
+				out_plot = fs::path(out_dir, full_fig) |>
+					fs::path_ext_set(in_type)
+				if (in_type %in% ".svg") {
+					svglite::svglite(out_plot)
+					print(ifig)
+					dev.off()
+				} else if (in_type %in% ".png") {
+					ragg::agg_png(
+						filename = out_plot,
+						width = 10,
+						height = 8,
+						res = 600,
+						units = "in"
+					)
+					print(ifig)
+					dev.off()
+				}
+				return(out_plot)
+			})
+		})
+	})
+	all_plots
+}
+
 export_pca_heatmaps_pptx = function(plot_list, ppt_file) {
 	# plot_list = tar_read(pca_heatmap_list)
 	# ppt_file = "docs/pca_heatmap_figures.pptx"
 	new_ppt = officer::read_pptx()
 	for (iplot in plot_list) {
-		new_ppt = officer::add_slide(new_ppt, layout = "Blank")
+		new_ppt = officer::add_slide(new_ppt, layout = "Title Only")
+		new_ppt = officer::ph_with(
+			new_ppt,
+			value = iplot$id,
+			location = officer::ph_location_type(type = "title")
+		)
 		# grab the PCA part
 
 		# add PCA
+		new_ppt = officer::add_slide(new_ppt, layout = "Blank")
+		tmp_pca = tempfile("pca", fileext = ".svg")
+		svglite::svglite(tmp_pca, width = 10, height = 8, bg = "white")
+		print(iplot$figure$pca)
+		dev.off()
 		new_ppt = officer::ph_with(
 			new_ppt,
-			value = iplot$figure$pca,
-			location = officer::ph_location(
-				left = 0,
-				top = 1,
-				width = 3,
-				height = 4
-			),
-			res = 600
+			value = officer::external_img(tmp_pca),
+			location = officer::ph_location_fullsize()
 		)
 
 		new_ppt = officer::ph_with(
@@ -309,14 +352,12 @@ export_pca_heatmaps_pptx = function(plot_list, ppt_file) {
 
 		# write heatmap to tmp file before incorporating it as a PNG
 
-		tmp_file = tempfile("heatmap", fileext = ".png")
-		heatmap_tmp = ragg::agg_png(
+		tmp_file = tempfile("heatmap", fileext = ".svg")
+		svglite::svglite(
 			tmp_file,
-			width = 3,
-			height = 4,
-			res = 600,
-			units = "in",
-			background = "white"
+			width = 10,
+			height = 8,
+			bg = "white"
 		)
 		draw(iplot$figure$heatmap)
 		dev.off()
@@ -984,4 +1025,67 @@ length_db_plot_up_down = function(
 	out_types = out_types[!null_plots]
 
 	return(out_types)
+}
+
+create_enrichment_dotplots = function(
+	in_go,
+	subset = "MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle"
+) {
+	# in_go = tar_read(rna_patient_enrichment_grouped_eachgo)$all
+	# subset = "MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle"
+	if (!is.null(subset)) {
+		subset_go = in_go |>
+			dplyr::filter(grepl(subset, group)) |>
+			dplyr::arrange(group, padjust)
+	} else {
+		subset_go = in_go
+	}
+
+	subset_go$description = factor(subset_go$description)
+
+	return(NULL)
+}
+
+write_lipid_class_plots = function(
+	plot_list,
+	out_dir = "docs/binomial_lipid_plots"
+) {
+	# plot_list = tar_read(binomial_plot_list)
+	# out_dir = "docs/binomial_lipid_plots"
+
+	unlink(out_dir, recursive = TRUE)
+	out_types = c(".png", ".svg")
+	all_plots = purrr::iwalk(plot_list, \(iplot, id) {
+		# id = "overall"
+		# iplot = plot_list[[id]]
+
+		# id = "Cer"
+		# iplot = plot_list[[id]]
+
+		if (id %in% "overall") {
+			iplot = iplot$plot
+		}
+
+		purrr::walk(out_types, \(in_type) {
+			out_path = fs::path(out_dir, glue::glue("binomial_lipids_{id}")) |>
+				fs::path_ext_set(in_type)
+			if (in_type %in% ".svg") {
+				svglite::svglite(out_path)
+				print(wrap_plots(iplot, nrow = 1))
+				dev.off()
+			} else if (in_type %in% ".png") {
+				ragg::agg_png(
+					filename = out_path,
+					width = 10,
+					height = 8,
+					res = 600,
+					units = "in"
+				)
+				print(wrap_plots(iplot, nrow = 1))
+				dev.off()
+			}
+			return(out_path)
+		})
+	})
+	all_plots
 }
