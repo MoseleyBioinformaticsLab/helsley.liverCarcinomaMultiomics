@@ -301,6 +301,42 @@ tar_plan(
 		label = "Compounds"
 	),
 
+	rna_small_heatmap_0 = create_logratio_heatmap_small(
+		rna_patient_logratios,
+		rna_de_patient |>
+			dplyr::filter(biotype %in% "protein_coding"),
+		limit = 15,
+		n_missing = 0,
+		id = "name"
+	),
+	lipidomics_small_heatmap_0 = create_logratio_heatmap_small(
+		lipidomics_patient_logratios,
+		lipidomics_de_patient |>
+			dplyr::filter(!is.na(metabolite_id)),
+		limit = 15,
+		n_missing = 0,
+		id = "metabolite_id",
+		label = "Compounds"
+	),
+	bioamines_small_heatmap_0 = create_logratio_heatmap_small(
+		bioamines_patient_logratios,
+		bioamines_de_patient |>
+			dplyr::filter(!is.na(metabolite_id)),
+		limit = 15,
+		n_missing = 0,
+		id = "metabolite_id",
+		label = "Compounds"
+	),
+	pm_small_heatmap_0 = create_logratio_heatmap_small(
+		pm_patient_logratios,
+		pm_de_patient |>
+			dplyr::filter(!is.na(metabolite_id)),
+		limit = 15,
+		n_missing = 0,
+		id = "metabolite_id",
+		label = "Compounds"
+	),
+
 	## Annotations --------
 	### Genes -------
 	ensembl_uniprot = get_ensembl_uniprot(version = "112"),
@@ -382,6 +418,11 @@ tar_plan(
 		similarity_cutoff = 0.8
 	),
 
+	rna_patient_dotplot_eachgo = purrr::map(
+		rna_patient_enrichment_grouped_eachgo,
+		create_enrichment_dotplots
+	),
+
 	#### Reactome ---------
 	rna_treatment_enrichment_reactome = run_enrichment(
 		rna_de_treatment,
@@ -405,6 +446,11 @@ tar_plan(
 	rna_patient_enrichment_grouped_eachreactome = group_annotations_each(
 		rna_patient_enrichment_reactome,
 		similarity_cutoff = 0.8
+	),
+	rna_patient_dotplot_eachreactome = purrr::map(
+		rna_patient_enrichment_grouped_eachreactome,
+		create_enrichment_dotplots,
+		subset = NULL
 	),
 
 	metabolomics_de_treatment_list = list(
@@ -868,6 +914,8 @@ tar_plan(
 		color_scales,
 		c(0.01, 0.1)
 	),
+
+	rna_interesting_heatmap = create_logratio_specific_heatmap(),
 
 	## median correlation figures --------
 	median_cor_list = list(

@@ -1029,21 +1029,65 @@ length_db_plot_up_down = function(
 
 create_enrichment_dotplots = function(
 	in_go,
-	subset = "MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle"
+	subset = "MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle",
+	subset_column = "group",
+	...
 ) {
-	# in_go = tar_read(rna_patient_enrichment_grouped_eachgo)$all
+	# in_go = tar_read(rna_patient_enrichment_grouped_eachgo)$pos
 	# subset = "MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle"
+
+	# in_go = tar_read(rna_patient_enrichment_grouped_eachreactome)$neg
+	# subset = "166658|2173782|977606|198933|166786|166663|500792|109582|1474244|2168880"
+	# subset_column = "ID"
+
+	# in_go = tar_read(rna_patient_enrichment_grouped_eachreactome)$neg
+	# in_go = in_go |>
+	# 	dplyr::arrange(padjust) |>
+	# 	dplyr::slice_head(n = 10)
+
 	if (!is.null(subset)) {
+		subset_locs = grepl(subset, in_go[[subset_column]])
 		subset_go = in_go |>
-			dplyr::filter(grepl(subset, group)) |>
+			dplyr::filter(subset_locs) |>
 			dplyr::arrange(group, padjust)
 	} else {
 		subset_go = in_go
 	}
 
-	subset_go$description = factor(subset_go$description)
+	# if (!is.null(do_wrap)) {
+	# 	subset_go = subset_go |>
+	# 		dplyr::mutate(
+	# 			split_description = stringr::str_wrap(
+	# 				description,
+	# 				width = do_wrap
+	# 			)
+	# 		)
+	# } else {
+	# 	subset_go = subset_go |>
+	# 		dplyr::mutate(
+	# 			split_description = description
+	# 		)
+	# }
 
-	return(NULL)
+	subset_go = subset_go |>
+		dplyr::mutate(
+			Annotation = factor(description, levels = description),
+			`Significant Fraction` = counts / significant,
+			`N-Features` = counts,
+			`P-Adjusted` = padjust
+		)
+
+	out_plot = subset_go |>
+		ggplot(aes(
+			x = `Significant Fraction`,
+			y = Annotation,
+			color = `P-Adjusted`,
+			size = `N-Features`
+		)) +
+		geom_point() +
+		scale_color_gradient(limits = c(0, 0.01)) +
+		scale_y_discrete(labels = scales::label_wrap(40))
+	return(out_plot)
 }
 
 write_lipid_class_plots = function(

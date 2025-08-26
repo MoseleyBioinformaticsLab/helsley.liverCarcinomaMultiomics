@@ -19,7 +19,7 @@ knitr::opts_chunk$set(
   message = FALSE,
   warning = FALSE,
   fig.width = 10,
-  fig.height = 5,
+  fig.height = 10,
   dev = c("ragg_png", "svg"),
   dpi = 600
 )
@@ -37,10 +37,10 @@ tar_load(c(
   lipidomics_qcqa,
   primary_metabolism_qcqa,
   rna_qcqa,
-  rna_pca_heatmap,
-  bioamines_pca_heatmap,
-  lipidomics_pca_heatmap,
-  pm_pca_heatmap
+  rna_pca_heatmap_small,
+  bioamines_pca_heatmap_small,
+  lipidomics_pca_heatmap_small,
+  pm_pca_heatmap_small
 ))
 ```
 
@@ -80,13 +80,26 @@ use_colors = color_scales$normal_cancer
 ```
 
 
+```{r}
+#| label: define-layout
+layout = 'AB
+CC'
+
+```
+
 ## RNA-Seq
 
 ```{r}
 #| label: fig-rna-seq
 #| fig-cap: RNA-seq samples PCA (left), volcano plot (center) and differential gene heatmap (right). Differential genes are colored by the log2-fold-change cancerous / normal adjacent samples in each patient.
-rna_pca_heatmap$heatmap = draw(rna_pca_heatmap$heatmap) |> grid.grabExpr()
-patchwork::wrap_plots(rna_pca_heatmap, nrow = 1)
+rna_pca_heatmap_small$heatmap = draw(rna_pca_heatmap_small$heatmap) |>
+  grid.grabExpr()
+patchwork::wrap_plots(
+  A = rna_pca_heatmap_small$pca,
+  B = rna_pca_heatmap_small$volcano,
+  C = rna_pca_heatmap_small$heatmap,
+  design = layout
+)
 ```
 
 ```{r}
@@ -119,10 +132,17 @@ refactor_treatment(rna_qcqa) |>
 ```{r}
 #| label: fig-lipidomics
 #| fig-cap: Lipidomics PCA (left) and differential metabolite heatmap (right). Differential metabolites are colored by the log2-fold-change cancerous / normal adjacent samples in each patient.
-lipidomics_pca_heatmap$heatmap = draw(lipidomics_pca_heatmap$heatmap) |>
+lipidomics_pca_heatmap_small$heatmap = draw(
+  lipidomics_pca_heatmap_small$heatmap
+) |>
   grid.grabExpr()
 
-patchwork::wrap_plots(lipidomics_pca_heatmap, nrow = 1)
+patchwork::wrap_plots(
+  A = lipidomics_pca_heatmap_small$pca,
+  B = lipidomics_pca_heatmap_small$volcano,
+  C = lipidomics_pca_heatmap_small$heatmap,
+  design = layout
+)
 ```
 
 ```{r}
@@ -153,10 +173,17 @@ refactor_treatment(lipidomics_qcqa) |>
 ```{r}
 #| label: fig-bioamines
 #| fig-cap: Biogenic amines PCA (left) and differential metabolite heatmap (right). Differential metabolites are colored by the log2-fold-change cancerous / normal adjacent samples in each patient.
-bioamines_pca_heatmap$heatmap = draw(bioamines_pca_heatmap$heatmap) |>
+bioamines_pca_heatmap_small$heatmap = draw(
+  bioamines_pca_heatmap_small$heatmap
+) |>
   grid.grabExpr()
 
-patchwork::wrap_plots(bioamines_pca_heatmap, nrow = 1)
+patchwork::wrap_plots(
+  A = bioamines_pca_heatmap_small$pca,
+  B = bioamines_pca_heatmap_small$volcano,
+  C = bioamines_pca_heatmap_small$heatmap,
+  design = layout
+)
 ```
 
 ```{r}
@@ -187,9 +214,15 @@ refactor_treatment(bioamines_qcqa) |>
 ```{r}
 #| label: fig-primary-metabolism
 #| fig-cap: Primary metabolism PCA of samples (left) and differential metabolite heatmap (right). Differential metabolites are colored by the log2-fold-change cancerous / normal adjacent samples in each patient.
-pm_pca_heatmap$heatmap = draw(pm_pca_heatmap$heatmap) |> grid.grabExpr()
+pm_pca_heatmap_small$heatmap = draw(pm_pca_heatmap_small$heatmap) |>
+  grid.grabExpr()
 
-patchwork::wrap_plots(pm_pca_heatmap, nrow = 1)
+patchwork::wrap_plots(
+  A = pm_pca_heatmap_small$pca,
+  B = pm_pca_heatmap_small$volcano,
+  C = pm_pca_heatmap_small$heatmap,
+  design = layout
+)
 ```
 
 ```{r}

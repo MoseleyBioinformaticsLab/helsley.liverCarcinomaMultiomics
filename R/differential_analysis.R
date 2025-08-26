@@ -598,11 +598,109 @@ create_logratio_heatmap = function(
 	out_heatmap
 }
 
+check_gene_rankings = function(
+	rna_de_patient,
+	rna_patient_logratios,
+	features = c("HBA", "BASP1", "OLFML3", "HK3", "AKR1B10", "PEG10", "MYBL2"),
+	n_missing = 0
+) {
+	# tar_load(c(rna_de_patient, rna_patient_logratios))
+	# features = c("HBA", "BASP1", "OLFML3", "HK3", "AKR1B10", "PEG10", "MYBL2")
+	# n_missing = 0
+	max_padj = 0.01
+	n_miss_logratios = data.frame(
+		feature_id = rownames(rna_patient_logratios),
+		n_na = rowSums(is.na(rna_patient_logratios))
+	)
+	n_miss_low = n_miss_logratios |>
+		dplyr::filter(n_na <= n_missing)
+	keep_patient = rna_de_patient |>
+		dplyr::filter(
+			padj <= max_padj,
+			feature_id %in% n_miss_low$feature_id,
+			biotype %in% "protein_coding"
+		)
+
+	pos_ranking = keep_patient |>
+		dplyr::filter(log2FoldChange > 0) |>
+		dplyr::arrange((log2FoldChange)) |>
+		dplyr::mutate(rank = rank(dplyr::desc(log2FoldChange)))
+	neg_ranking = keep_patient |>
+		dplyr::filter(log2FoldChange < 0) |>
+		dplyr::arrange(log2FoldChange) |>
+		dplyr::mutate(rank = rank(log2FoldChange))
+
+	all_ranking = dplyr::bind_rows(pos_ranking, neg_ranking)
+
+	all_ranking = all_ranking |>
+		dplyr::mutate(
+			is_interesting = dplyr::case_when(
+				name %in% features ~ "yes",
+				TRUE ~ "no"
+			)
+		)
+	logratio_df = rna_patient_logratios |>
+		as.data.frame() |>
+		tibble::rownames_to_column(var = "feature_id")
+
+	all_ranking = dplyr::left_join(all_ranking, logratio_df, by = "feature_id")
+	write.table(
+		all_ranking,
+		file = "docs/helsley_zeromissing_ranks.csv",
+		sep = ",",
+		row.names = FALSE,
+		col.names = TRUE
+	)
+}
+
+create_logratio_specific_heatmap = function(
+	csv_file = "data/Top15UpandDown_Helsley.csv",
+	fontsize = 10,
+	label = "Genes"
+) {
+	# csv_file = "data/Top15UpandDown_Helsley.csv"
+	# fontsize = 12
+	# label = "Genes"
+	csv_data = readr::read_csv(csv_file)
+
+	csv_specific = csv_data |>
+		dplyr::filter(is_interesting %in% "yes")
+
+	rank_logratio = csv_specific |>
+		dplyr::arrange(dplyr::desc(log2FoldChange))
+
+	all_lfc = rank_logratio |>
+		dplyr::select(tidyselect::starts_with("patient")) |>
+		as.matrix()
+	rownames(all_lfc) = rank_logratio$name
+
+	max_range = ceiling(max(abs(all_lfc), na.rm = TRUE))
+	use_range = c(-1 * max_range, max_range)
+	n_value = 20
+	heatmap_colors = circlize::colorRamp2(
+		seq(use_range[1], use_range[2], length.out = n_value),
+		scico::scico(n_value, palette = "berlin")
+	)
+
+	out_heatmap = Heatmap(
+		all_lfc,
+		col = heatmap_colors,
+		name = "Log2FC",
+		show_row_names = TRUE,
+		show_column_names = FALSE,
+		row_title = label,
+		column_title = "Patients",
+		cluster_rows = FALSE,
+		row_names_gp = gpar(fontsize = fontsize)
+	)
+	return(out_heatmap)
+}
 
 create_logratio_heatmap_small = function(
 	rna_patient_logratios,
 	rna_de_patient,
 	limit = 15,
+	n_missing = 2,
 	id = "name",
 	fontsize = 10,
 	label = "Genes"
@@ -617,13 +715,19 @@ create_logratio_heatmap_small = function(
 	# limit = 15
 	# id = "metabolite_id"
 
+	# tar_load(c(rna_patient_logratios,
+	# 					 rna_de_patient))
+	# limit = 15
+	# id = "name"
+	# n_missing = 0
+
 	max_padj = 0.01
 	n_miss_logratios = data.frame(
 		feature_id = rownames(rna_patient_logratios),
 		n_na = rowSums(is.na(rna_patient_logratios))
 	)
 	n_miss_low = n_miss_logratios |>
-		dplyr::filter(n_na <= 2)
+		dplyr::filter(n_na <= n_missing)
 	keep_patient = rna_de_patient |>
 		dplyr::filter(padj <= max_padj, feature_id %in% n_miss_low$feature_id)
 
