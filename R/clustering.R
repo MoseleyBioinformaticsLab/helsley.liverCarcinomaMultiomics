@@ -218,7 +218,8 @@ cluster_create_heatmaps = function(
 		lipid_chr_labels = lipid_labels$annotation_str
 		names(lipid_chr_labels) = lipid_labels$feature_id
 	} else {
-		lipid_chr_labels = feature_labels$label
+		lipid_chr_labels = feature_labels$label |>
+			stringr::str_to_sentence()
 		names(lipid_chr_labels) = feature_labels$feature_id
 		lipid_chr_labels = lipid_chr_labels[colnames(lipid_matrix)]
 	}
