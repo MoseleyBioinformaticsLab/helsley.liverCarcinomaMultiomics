@@ -120,7 +120,7 @@ create_lipid_labels = function(feature_lipid) {
 		by = "feature_id"
 	)
 	lipid_out_annotation = lipid_out_annotation |>
-		dplyr::mutate(annotation_str = paste0(class, "_", length, "_", db))
+		dplyr::mutate(annotation_str = paste0(class, " ", length, ":", db))
 
 	lipid_out_annotation
 }
@@ -176,7 +176,11 @@ cluster_create_heatmaps = function(
 		lipid_order,
 		by = "feature_id"
 	)
-	gene_clusters = dplyr::left_join(gene_clusters, gene_order, by = "feature_id")
+	gene_clusters = dplyr::left_join(
+		gene_clusters,
+		gene_order,
+		by = "feature_id"
+	)
 	lipid_colors = list(metabolite = create_cluster_color_list(lipid_clusters))
 	gene_colors = list(gene = create_cluster_color_list(gene_clusters))
 
@@ -260,9 +264,9 @@ cluster_create_heatmaps = function(
 				show_row_names = TRUE,
 				show_column_names = TRUE,
 				column_names_side = "bottom",
-				column_labels = tmp_lipid_labels,
+				column_labels = fix_labels(tmp_lipid_labels, width = 15),
 				row_names_side = "right",
-				row_labels = tmp_gene_labels,
+				row_labels = fix_labels(tmp_gene_labels, width = 15),
 				column_names_gp = gpar(fontsize = 12),
 				row_names_gp = gpar(fontsize = 12)
 			)
@@ -272,7 +276,10 @@ cluster_create_heatmaps = function(
 
 	out_gene_heatmaps = c(list(full = full_lipid_map), lipid_gene_heatmaps)
 	if (which %in% "lipids") {
-		names(out_gene_heatmaps) = paste0("genes-lipids-", names(out_gene_heatmaps))
+		names(out_gene_heatmaps) = paste0(
+			"genes-lipids-",
+			names(out_gene_heatmaps)
+		)
 	} else {
 		names(out_gene_heatmaps) = paste0(
 			"genes-compounds-",

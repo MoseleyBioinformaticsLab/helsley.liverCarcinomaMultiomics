@@ -592,7 +592,8 @@ create_logratio_heatmap = function(
 		show_row_names = FALSE,
 		show_column_names = FALSE,
 		row_title = "Features",
-		column_title = "Patients"
+		column_title = "Patients",
+		row_labels = fix_labels(rownames(rna_sig_logratio))
 	)
 
 	out_heatmap
@@ -691,7 +692,8 @@ create_logratio_specific_heatmap = function(
 		row_title = label,
 		column_title = "Patients",
 		cluster_rows = FALSE,
-		row_names_gp = gpar(fontsize = fontsize)
+		row_names_gp = gpar(fontsize = fontsize),
+		row_labels = fix_labels(rownames(all_lfc))
 	)
 	return(out_heatmap)
 }
@@ -762,7 +764,7 @@ create_logratio_heatmap_small = function(
 		row_title = label,
 		column_title = "Patients",
 		cluster_rows = FALSE,
-		row_labels = all_15[[id]],
+		row_labels = fix_labels(all_15[[id]]),
 		row_names_gp = gpar(fontsize = fontsize)
 	)
 	return(out_heatmap)

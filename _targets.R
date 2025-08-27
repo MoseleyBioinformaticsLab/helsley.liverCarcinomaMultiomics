@@ -862,7 +862,7 @@ tar_plan(
 	rna_pca_heatmap_small = create_pca_heatmap_figures(
 		rna_qcqa,
 		rna_volcano,
-		rna_small_heatmap,
+		rna_interesting_heatmap,
 		color_scales,
 		c(0.01, 0.9)
 	),
@@ -878,7 +878,7 @@ tar_plan(
 	bioamines_pca_heatmap_small = create_pca_heatmap_figures(
 		bioamines_qcqa,
 		bioamines_volcano,
-		bioamines_small_heatmap,
+		bioamines_small_heatmap_0,
 		color_scales,
 		c(0.01, 0.1)
 	),
@@ -894,7 +894,7 @@ tar_plan(
 	lipidomics_pca_heatmap_small = create_pca_heatmap_figures(
 		lipidomics_qcqa,
 		lipidomics_volcano,
-		lipidomics_small_heatmap,
+		lipidomics_small_heatmap_0,
 		color_scales,
 		c(0.01, 0.9)
 	),
@@ -910,7 +910,7 @@ tar_plan(
 	pm_pca_heatmap_small = create_pca_heatmap_figures(
 		primary_metabolism_qcqa,
 		pm_volcano,
-		pm_small_heatmap,
+		pm_small_heatmap_0,
 		color_scales,
 		c(0.01, 0.1)
 	),
@@ -989,6 +989,11 @@ tar_plan(
 	# 	pca_heatmap_list,
 	# 	"docs/pca_heatmap_figures.pptx"
 	# ),
+
+	pca_heatmaps_figures = export_pca_heatmaps_images(
+		pca_heatmap_list,
+		"docs/pca_heatmap_figures"
+	),
 
 	median_cor_outliers_ppt = export_median_cor_pptx(
 		median_correlation_figures,

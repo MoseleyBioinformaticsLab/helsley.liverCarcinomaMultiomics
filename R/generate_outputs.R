@@ -275,6 +275,31 @@ export_median_cor_pptx = function(
 	NULL
 }
 
+fix_labels = function(in_labels, width = 25) {
+	# in_labels = c(
+	# 	"N-Benzyl-N,N-dimethyl-1-hexadecanaminium cation",
+	# 	"Benzyldimethylstearylammonium cation",
+	# 	"PI 38:6|PI 16:0_22:6",
+	# 	"PC O-41:10|PC O-21:5_20:5",
+	# 	"Lactosylceramide d18:1/24:1 15Z"
+	# )
+
+	fixed_labels = replace_choose_pipe(in_labels) |>
+		stringr::str_replace("_", "/") |>
+		stringr::str_wrap(width = width, whitespace_only = FALSE)
+	fixed_labels
+}
+
+replace_choose_pipe = function(in_labels) {
+	has_pipe = which(stringr::str_detect(in_labels, "\\|"))
+
+	pipe_labels = in_labels[has_pipe]
+	pipe_split = stringr::str_split_fixed(pipe_labels, "\\|", 2)
+	out_labels = in_labels
+	out_labels[has_pipe] = pipe_split[, 2]
+	out_labels
+}
+
 export_pca_heatmaps_images = function(plot_list, out_dir) {
 	# plot_list = tar_read(pca_heatmap_list)
 	# out_dir = "docs/pca_heatmap_figures"
