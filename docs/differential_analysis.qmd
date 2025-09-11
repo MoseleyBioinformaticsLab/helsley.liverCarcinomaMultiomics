@@ -12,9 +12,7 @@ format:
 ```{r}
 #| label: setup
 #| include: false
-knitr::opts_chunk$set(echo = FALSE,
-											warning = FALSE,
-											message = FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 ## target knits qmds in their own session, so load libraries here.
 targets::tar_source("./packages.R")
 tar_source("./R")
@@ -23,28 +21,30 @@ tar_source("./R")
 ```{r}
 #| label: load-targets
 #| include: false
-tar_load(c(rna_de_treatment,
-					 rna_de_patient,
-					 novagene_rna_stats,
-					 metabolomics_de_compare,
-					 metabolomics_de_aov_compare,
-					 metabolomics_treatment_enrichment_reactome,
-					 metabolomics_patient_enrichment_reactome,
-					 rna_treatment_enrichment_reactome,
-					 rna_treatment_enrichment_go,
-					 rna_patient_enrichment_reactome,
-					 rna_treatment_enrichment_kegg,
-					 metabolomics_treatment_enrichment_kegg,
-					 rna_patient_enrichment_grouped_go,
-					 rna_treatment_enrichment_grouped_go,
-					 rna_patient_enrichment_grouped_eachgo,
-					 rna_patient_enrichment_grouped_reactome,
-					 rna_patient_enrichment_grouped_eachreactome,
-					 rna_treatment_enrichment_grouped_reactome,
-					 metabolomics_de_patient_list,
-					 compound_kegg,
-					 metabolomics_de_patient_kegg,
-					 metabolites_multi_assay_correlations))
+tar_load(c(
+  rna_de_treatment,
+  rna_de_patient,
+  novagene_rna_stats,
+  metabolomics_de_compare,
+  metabolomics_de_aov_compare,
+  metabolomics_treatment_enrichment_reactome,
+  metabolomics_patient_enrichment_reactome,
+  rna_treatment_enrichment_reactome,
+  rna_treatment_enrichment_go,
+  rna_patient_enrichment_reactome,
+  rna_treatment_enrichment_kegg,
+  metabolomics_treatment_enrichment_kegg,
+  rna_patient_enrichment_grouped_go,
+  rna_treatment_enrichment_grouped_go,
+  rna_patient_enrichment_grouped_eachgo,
+  rna_patient_enrichment_grouped_reactome,
+  rna_patient_enrichment_grouped_eachreactome,
+  rna_treatment_enrichment_grouped_reactome,
+  metabolomics_de_patient_list,
+  compound_kegg,
+  metabolomics_de_patient_kegg,
+  metabolites_multi_assay_correlations
+))
 
 ```
 
@@ -89,18 +89,29 @@ We will calculate ratios of $-1 \times log_{10}(p-values)$ just to see which of 
 
 ```{r}
 #| label: transcriptomics-comparisons
-patient_treatment = dplyr::left_join(rna_de_patient[, c("feature_id", "pvalue", "padj")],
-																		 rna_de_treatment[, c("feature_id", "pvalue", "padj")],
-																		 by = "feature_id", suffix = c(".patient", ".treatment"))
-patient_treatment = dplyr::left_join(patient_treatment, novagene_rna_stats[, c("gene_id", "pvalue", "padj")], 
-																		 by = c("feature_id" = "gene_id"),
-																		 suffix = c(".patient", ".novagene"))
+patient_treatment = dplyr::left_join(
+  rna_de_patient[, c("feature_id", "pvalue", "padj")],
+  rna_de_treatment[, c("feature_id", "pvalue", "padj")],
+  by = "feature_id",
+  suffix = c(".patient", ".treatment")
+)
+patient_treatment = dplyr::left_join(
+  patient_treatment,
+  novagene_rna_stats[, c("gene_id", "pvalue", "padj")],
+  by = c("feature_id" = "gene_id"),
+  suffix = c(".patient", ".novagene")
+)
 patient_treatment = patient_treatment |>
-	dplyr::mutate(pvalue.novagene = pvalue,
-								padj.novagene = padj) |>
-	dplyr::mutate(patient_treatment = -1*log10(pvalue.patient) - -1*log10(pvalue.treatment),
-								treatment_novagene = -1*log10(pvalue.treatment) - -1*log10(pvalue.novagene),
-								patient_novagene = -1*log10(pvalue.patient) - -1*log10(pvalue.novagene))
+  dplyr::mutate(pvalue.novagene = pvalue, padj.novagene = padj) |>
+  dplyr::mutate(
+    patient_treatment = -1 *
+      log10(pvalue.patient) -
+      -1 * log10(pvalue.treatment),
+    treatment_novagene = -1 *
+      log10(pvalue.treatment) -
+      -1 * log10(pvalue.novagene),
+    patient_novagene = -1 * log10(pvalue.patient) - -1 * log10(pvalue.novagene)
+  )
 ```
 
 The p-value histograms imply that there is definitely a biological signal in the comparison of non-adjacent normal to cancer.
@@ -112,14 +123,25 @@ Surprisingly, the number of very low NovaGene p-values seem to be in-between the
 #| label: fig-transcriptomics-pvalues
 #| fig-cap: P-Value histogram for each of the different sets of p-values.
 patient_treatment_pvals = patient_treatment |>
-	dplyr::select(feature_id, pvalue.patient, pvalue.treatment, pvalue.novagene) |>
-	tidyr::pivot_longer(-feature_id, names_to = "type", values_to = "pvalue") |>
-	dplyr::mutate(type = gsub("pvalue.", "", type)) |>
-	dplyr::mutate(type = factor(type, levels = c("novagene", "treatment", "patient"), ordered = TRUE))
+  dplyr::select(
+    feature_id,
+    pvalue.patient,
+    pvalue.treatment,
+    pvalue.novagene
+  ) |>
+  tidyr::pivot_longer(-feature_id, names_to = "type", values_to = "pvalue") |>
+  dplyr::mutate(type = gsub("pvalue.", "", type)) |>
+  dplyr::mutate(
+    type = factor(
+      type,
+      levels = c("novagene", "treatment", "patient"),
+      ordered = TRUE
+    )
+  )
 patient_treatment_pvals |>
-	ggplot(aes(x = pvalue)) +
-	geom_histogram(binwidth = 0.01) +
-	facet_wrap(~ type, ncol = 1)
+  ggplot(aes(x = pvalue)) +
+  geom_histogram(binwidth = 0.01) +
+  facet_wrap(~type, ncol = 1)
 ```
 
 @fig-transcriptomics-comparison shows that in general, it appears that using the paired patient information results in more extreme p-values than not, which is expected.
@@ -129,31 +151,46 @@ In addition, when considering the number of significant genes (those with adjust
 #| label: fig-transcriptomics-comparison
 #| fig-cap: Sina plot of comparisons of $-1 \times log_{10}(p-values)$ from differential calculations between treatment vs NovaGene; patient vs treatment; and patient vs NovaGene. Red line denotes no difference.
 patient_treatment_diff = patient_treatment |>
-	dplyr::select(feature_id, patient_treatment, treatment_novagene, patient_novagene) |>
-	tidyr::pivot_longer(-feature_id,
-											names_to = "comparison",
-											values_to = "difference") |>
-	dplyr::mutate(comparison = factor(comparison, levels = c("patient_novagene", "treatment_novagene", "patient_treatment"), ordered = TRUE))
+  dplyr::select(
+    feature_id,
+    patient_treatment,
+    treatment_novagene,
+    patient_novagene
+  ) |>
+  tidyr::pivot_longer(
+    -feature_id,
+    names_to = "comparison",
+    values_to = "difference"
+  ) |>
+  dplyr::mutate(
+    comparison = factor(
+      comparison,
+      levels = c("patient_novagene", "treatment_novagene", "patient_treatment"),
+      ordered = TRUE
+    )
+  )
 patient_treatment_diff |>
-	dplyr::filter(dplyr::between(difference, -2.5, 2.5)) |>
-	ggplot(aes(x = difference, y = comparison)) +
-	geom_sina(alpha = 0.5, size = 0.5) +
-	geom_vline(xintercept = 0, color = "red")
+  dplyr::filter(dplyr::between(difference, -2.5, 2.5)) |>
+  ggplot(aes(x = difference, y = comparison)) +
+  geom_sina(alpha = 0.5, size = 0.5) +
+  geom_vline(xintercept = 0, color = "red")
 ```
 
 
 ```{r}
 #| label: fig-transcriptomics-upset
 #| fig-cap: UpSet plot of significant features from transcriptomics from each method.
-transcriptomics_sig = list(patient = patient_treatment |>
-													 	dplyr::filter(padj.patient <= 0.05) |>
-													 	dplyr::pull(feature_id),
-													 treatment = patient_treatment |>
-													 	dplyr::filter(padj.treatment <= 0.05) |>
-													 	dplyr::pull(feature_id),
-													 novagene = patient_treatment |>
-													 	dplyr::filter(padj.novagene <= 0.05) |>
-													 	dplyr::pull(feature_id))
+transcriptomics_sig = list(
+  patient = patient_treatment |>
+    dplyr::filter(padj.patient <= 0.05) |>
+    dplyr::pull(feature_id),
+  treatment = patient_treatment |>
+    dplyr::filter(padj.treatment <= 0.05) |>
+    dplyr::pull(feature_id),
+  novagene = patient_treatment |>
+    dplyr::filter(padj.novagene <= 0.05) |>
+    dplyr::pull(feature_id)
+)
 ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(transcriptomics_sig))
 ```
 
@@ -175,20 +212,25 @@ However, there are more things specifically significant in the patient considere
 #| label: fig-metabolomics-comparisons
 #| fig-cap: P-Value histograms for treatment and patient differential analyses across each metabolomics platform using t-test.
 metabolomics_de_compare = metabolomics_de_compare |>
-	dplyr::mutate(type = dplyr::case_when(
-		grepl("bioamine", feature_id) ~ "bioamines",
-		grepl("pm$", feature_id) ~ "pm",
-		grepl("lipids", feature_id) ~ "lipidomics"
-	))
+  dplyr::mutate(
+    type = dplyr::case_when(
+      grepl("bioamine", feature_id) ~ "bioamines",
+      grepl("pm$", feature_id) ~ "pm",
+      grepl("lipids", feature_id) ~ "lipidomics"
+    )
+  )
 metabolomics_pvalue_long = metabolomics_de_compare |>
-	dplyr::select(feature_id, pvalue.patient, pvalue.treatment, type) |>
-	tidyr::pivot_longer(c(-feature_id, -type), names_to = "pvalue_type",
-											values_to = "p.value") |>
-	dplyr::mutate(pvalue_type = gsub("pvalue.", "", pvalue_type))
+  dplyr::select(feature_id, pvalue.patient, pvalue.treatment, type) |>
+  tidyr::pivot_longer(
+    c(-feature_id, -type),
+    names_to = "pvalue_type",
+    values_to = "p.value"
+  ) |>
+  dplyr::mutate(pvalue_type = gsub("pvalue.", "", pvalue_type))
 metabolomics_pvalue_long |>
-	ggplot(aes(x = p.value)) +
-	geom_histogram(binwidth = 0.05) +
-	facet_grid(pvalue_type ~ type)
+  ggplot(aes(x = p.value)) +
+  geom_histogram(binwidth = 0.05) +
+  facet_grid(pvalue_type ~ type)
 ```
 
 
@@ -196,25 +238,33 @@ metabolomics_pvalue_long |>
 #| label: fig-metabolomics-sina
 #| fig-cap: Sina plot of comparisons of $-1 \times log_{10}(p-values)$ from differential calculations between patient vs treatment for all three metabolomics types using a t-test.
 metabolomics_diffs = metabolomics_de_compare |>
-	dplyr::mutate(patient_treatment = -1*log10(pvalue.patient) - -1*log10(pvalue.treatment)) |>
-	dplyr::select(type, feature_id, patient_treatment) |>
-	tidyr::pivot_longer(c(-type, -feature_id),
-											names_to = "comparison",
-											values_to = "difference")
+  dplyr::mutate(
+    patient_treatment = -1 *
+      log10(pvalue.patient) -
+      -1 * log10(pvalue.treatment)
+  ) |>
+  dplyr::select(type, feature_id, patient_treatment) |>
+  tidyr::pivot_longer(
+    c(-type, -feature_id),
+    names_to = "comparison",
+    values_to = "difference"
+  )
 metabolomics_diffs |>
-	ggplot(aes(x = difference, y = comparison)) +
-	geom_sina(size = 0.1) +
-	geom_vline(xintercept = 0, color = "red") +
-	facet_wrap(~ type, nrow = 1)
+  ggplot(aes(x = difference, y = comparison)) +
+  geom_sina(size = 0.1) +
+  geom_vline(xintercept = 0, color = "red") +
+  facet_wrap(~type, nrow = 1)
 ```
 
 ```{r}
 #| label: tbl-metabolomics-diffs
 #| tbl-cap: Number of metabolites with better or worse p-values when including patient information using t-test.
 metabolomics_diff_summary = metabolomics_diffs |>
-	dplyr::group_by(type) |>
-	dplyr::summarise(`Patient Worse` = sum(difference <= 0),
-									 `Patient Better` = sum(difference > 0))
+  dplyr::group_by(type) |>
+  dplyr::summarise(
+    `Patient Worse` = sum(difference <= 0),
+    `Patient Better` = sum(difference > 0)
+  )
 gt::gt(metabolomics_diff_summary)
 ```
 
@@ -222,37 +272,52 @@ gt::gt(metabolomics_diff_summary)
 #| label: fig-upset-bioamines
 #| fig-cap: UpSet plot of significant features for bioamines, considering and ignoring patient.
 diff_split_type = split(metabolomics_de_compare, metabolomics_de_compare$type)
-bioamines_compare = list(patient = diff_split_type$bioamines |>
-													 	dplyr::filter(padj.patient <= 0.05) |>
-													 	dplyr::pull(feature_id),
-													 treatment = diff_split_type$bioamines |>
-													 	dplyr::filter(padj.treatment <= 0.05) |>
-													 	dplyr::pull(feature_id))
-ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(bioamines_compare), column_title = "Bioamines")
+bioamines_compare = list(
+  patient = diff_split_type$bioamines |>
+    dplyr::filter(padj.patient <= 0.05) |>
+    dplyr::pull(feature_id),
+  treatment = diff_split_type$bioamines |>
+    dplyr::filter(padj.treatment <= 0.05) |>
+    dplyr::pull(feature_id)
+)
+ComplexHeatmap::UpSet(
+  ComplexHeatmap::make_comb_mat(bioamines_compare),
+  column_title = "Bioamines"
+)
 ```
 
 ```{r}
 #| label: fig-upset-lipidomics
 #| fig-cap: UpSet plot of significant features for lipidomics, considering and ignoring patient.
-lipidomics_compare = list(patient = diff_split_type$lipidomics |>
-													 	dplyr::filter(padj.patient <= 0.05) |>
-													 	dplyr::pull(feature_id),
-													 treatment = diff_split_type$lipidomics |>
-													 	dplyr::filter(padj.treatment <= 0.05) |>
-													 	dplyr::pull(feature_id))
-ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(lipidomics_compare), column_title = "Lipidomics")
+lipidomics_compare = list(
+  patient = diff_split_type$lipidomics |>
+    dplyr::filter(padj.patient <= 0.05) |>
+    dplyr::pull(feature_id),
+  treatment = diff_split_type$lipidomics |>
+    dplyr::filter(padj.treatment <= 0.05) |>
+    dplyr::pull(feature_id)
+)
+ComplexHeatmap::UpSet(
+  ComplexHeatmap::make_comb_mat(lipidomics_compare),
+  column_title = "Lipidomics"
+)
 ```
 
 ```{r}
 #| label: fig-upset-pm
-#| fig-cap: UpSet plot of significant features for primary metabolism, considering and ignoring patient.	
-pm_compare = list(patient = diff_split_type$pm |>
-													 	dplyr::filter(padj.patient <= 0.05) |>
-													 	dplyr::pull(feature_id),
-													 treatment = diff_split_type$pm |>
-													 	dplyr::filter(padj.treatment <= 0.05) |>
-													 	dplyr::pull(feature_id))
-ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(pm_compare), column_title = "Primary Metabolism")
+#| fig-cap: UpSet plot of significant features for primary metabolism, considering and ignoring patient.
+pm_compare = list(
+  patient = diff_split_type$pm |>
+    dplyr::filter(padj.patient <= 0.05) |>
+    dplyr::pull(feature_id),
+  treatment = diff_split_type$pm |>
+    dplyr::filter(padj.treatment <= 0.05) |>
+    dplyr::pull(feature_id)
+)
+ComplexHeatmap::UpSet(
+  ComplexHeatmap::make_comb_mat(pm_compare),
+  column_title = "Primary Metabolism"
+)
 ```
 
 ## Multi-Assay Metabolite Comparisons
@@ -266,19 +331,19 @@ This shows that significant correlations do have relatively high correlation val
 #| label: fig-multi-assay-correlations
 #| fig-cap: Metabolite - metabolite Spearman correlations for those metabolites measured in multiple measurement or assay types. Blue line indicates those correlations with a p-value < 0.05, and the red line indicates those with an adjusted p-value < 0.05.
 p_limit = metabolites_multi_assay_correlations |>
-	dplyr::filter(pvalue <= 0.05) |>
-	dplyr::slice_min(cor, n = 1) |>
-	dplyr::pull(cor)
+  dplyr::filter(pvalue <= 0.05) |>
+  dplyr::slice_min(cor, n = 1) |>
+  dplyr::pull(cor)
 padjust_limit = metabolites_multi_assay_correlations |>
-	dplyr::filter(padjust <= 0.05) |>
-	dplyr::slice_min(cor, n = 1) |>
-	dplyr::pull(cor)
+  dplyr::filter(padjust <= 0.05) |>
+  dplyr::slice_min(cor, n = 1) |>
+  dplyr::pull(cor)
 metabolites_multi_assay_correlations |>
-	ggplot(aes(x = cor)) +
-	geom_histogram(bins = 60) +
-	geom_vline(xintercept = p_limit[1], color = "blue") +
-	geom_vline(xintercept = padjust_limit[1], color = "red") +
-	labs(x = "Metabolite - metabolite Spearman correlations")
+  ggplot(aes(x = cor)) +
+  geom_histogram(bins = 60) +
+  geom_vline(xintercept = p_limit[1], color = "blue") +
+  geom_vline(xintercept = padjust_limit[1], color = "red") +
+  labs(x = "Metabolite - metabolite Spearman correlations")
 ```
 
 ## Enrichment Results
@@ -293,33 +358,42 @@ Simply looking at whether they are named, and then if they map to a pathway can 
 #| label: tbl-named-metabolite-locs
 #| tbl-cap: Number of named and unknown metabolites by overall metabolite class and direction, for all and significant metabolites. *has_name* indicates whether the metabolite is named or unknown; *lfc_direction* indicates what direction the log-fold-change was; *n_entry.all* is how many metabolites were present across all metabolites; *perc_entry.all* is what percentage of metabolites across all metabolites; *n_entry.sig* is how many were present in the significant set; *perc_entry.sig* is what percentage of the significant set.
 metabolites_significant = metabolomics_de_patient_list |>
-	dplyr::mutate(has_name = dplyr::case_when(
-		!is.na(metabolite_id) ~ "named",
-		is.na(metabolite_id) ~ "unknown"
-	),
-	lfc_direction = dplyr::case_when(
-		log2FoldChange > 0 ~ "Positive",
-		log2FoldChange < 0 ~ "Negative"
-	))
+  dplyr::mutate(
+    has_name = dplyr::case_when(
+      !is.na(metabolite_id) ~ "named",
+      is.na(metabolite_id) ~ "unknown"
+    ),
+    lfc_direction = dplyr::case_when(
+      log2FoldChange > 0 ~ "Positive",
+      log2FoldChange < 0 ~ "Negative"
+    )
+  )
 summary_names = metabolites_significant |>
-	dplyr::group_by(type, has_name, lfc_direction) |>
-	dplyr::summarise(n_entry.all = dplyr::n()) |>
-	dplyr::ungroup() |>
-	dplyr::mutate(perc_entry.all = n_entry.all / sum(n_entry.all))
+  dplyr::group_by(type, has_name, lfc_direction) |>
+  dplyr::summarise(n_entry.all = dplyr::n()) |>
+  dplyr::ungroup() |>
+  dplyr::mutate(perc_entry.all = n_entry.all / sum(n_entry.all))
 summary_sig = metabolites_significant |>
-	dplyr::filter(padj <= 0.05) |>
-	dplyr::group_by(type, has_name, lfc_direction) |>
-	dplyr::summarise(n_entry.sig = dplyr::n()) |>
-	dplyr::ungroup() |>
-	dplyr::mutate(perc_entry.sig = n_entry.sig / sum(n_entry.sig))
+  dplyr::filter(padj <= 0.05) |>
+  dplyr::group_by(type, has_name, lfc_direction) |>
+  dplyr::summarise(n_entry.sig = dplyr::n()) |>
+  dplyr::ungroup() |>
+  dplyr::mutate(perc_entry.sig = n_entry.sig / sum(n_entry.sig))
 
-summary_all = dplyr::bind_cols(summary_names[, c("type", "has_name", "lfc_direction", 
-																								 "n_entry.all", "perc_entry.all")],
-															 summary_sig[, c("n_entry.sig", "perc_entry.sig")])
+summary_all = dplyr::bind_cols(
+  summary_names[, c(
+    "type",
+    "has_name",
+    "lfc_direction",
+    "n_entry.all",
+    "perc_entry.all"
+  )],
+  summary_sig[, c("n_entry.sig", "perc_entry.sig")]
+)
 summary_all |>
-	dplyr::group_by(type) |>
-gt::gt() |>
-	gt::fmt_percent(c(perc_entry.all, perc_entry.sig), decimals = 0)
+  dplyr::group_by(type) |>
+  gt::gt() |>
+  gt::fmt_percent(c(perc_entry.all, perc_entry.sig), decimals = 0)
 ```
 
 Concentrating on those **bioamines**, how many of the named ones are annotated to a pathway?
@@ -328,30 +402,35 @@ Concentrating on those **bioamines**, how many of the named ones are annotated t
 #| label: tbl-bioamines-pathway
 #| tbl-cap: Number of bioamines that are named, can be mapped to a KEGG compound, and then to a KEGG pathway.
 bioamines_sig = metabolites_significant |>
-	dplyr::filter(padj <= 0.05, type %in% "bioamines") |>
-	dplyr::select(feature_id, metabolite_id, log2FoldChange)
-bioamines_sig_merge = dplyr::left_join(bioamines_sig, metabolomics_de_patient_kegg[, c("feature_id", "feature_org")],
-																			 by = c("feature_id" = "feature_org"))
+  dplyr::filter(padj <= 0.05, type %in% "bioamines") |>
+  dplyr::select(feature_id, metabolite_id, log2FoldChange)
+bioamines_sig_merge = dplyr::left_join(
+  bioamines_sig,
+  metabolomics_de_patient_kegg[, c("feature_id", "feature_org")],
+  by = c("feature_id" = "feature_org")
+)
 all_kegg_annotated = unique(unlist(compound_kegg@annotation_features))
 
 bioamines_sig_merge = bioamines_sig_merge |>
-	dplyr::mutate(pathway = dplyr::case_when(
-		feature_id.y %in% all_kegg_annotated ~ "in_pathway",
-		TRUE ~ "unknown"
-	),
-	kegg = dplyr::case_when(
-		!is.na(feature_id.y) ~ "in_kegg",
-		TRUE ~ "unknown"
-	),
-	lfc_direction = dplyr::case_when(
-		log2FoldChange > 0 ~ "Positive",
-		log2FoldChange < 0 ~ "Negative"
-	))
+  dplyr::mutate(
+    pathway = dplyr::case_when(
+      feature_id.y %in% all_kegg_annotated ~ "in_pathway",
+      TRUE ~ "unknown"
+    ),
+    kegg = dplyr::case_when(
+      !is.na(feature_id.y) ~ "in_kegg",
+      TRUE ~ "unknown"
+    ),
+    lfc_direction = dplyr::case_when(
+      log2FoldChange > 0 ~ "Positive",
+      log2FoldChange < 0 ~ "Negative"
+    )
+  )
 
 bioamines_kegg_n = bioamines_sig_merge |>
-	dplyr::group_by(lfc_direction, kegg, pathway) |>
-	dplyr::summarise(n_compound = dplyr::n()) |>
-	dplyr::ungroup()
+  dplyr::group_by(lfc_direction, kegg, pathway) |>
+  dplyr::summarise(n_compound = dplyr::n()) |>
+  dplyr::ungroup()
 gt::gt(bioamines_kegg_n)
 ```
 
@@ -365,36 +444,38 @@ Zip, zero, nothing in the case of Reactome and 1 in the case of KEGG, and it doe
 ```{r}
 #| label: fig-enrichment-intersections-reactome
 #| fig-cap: UpSet plot comparing the various enrichment results from Reactome pathways.
-list_enrich = list(rna_patient_neg = rna_patient_enrichment_reactome$stats$neg |>
-									 	dplyr::filter(padjust <= 0.05) |>
-									 	dplyr::pull(ID),
-									 rna_patient_pos = rna_patient_enrichment_reactome$stats$pos |>
-									 	dplyr::filter(padjust <= 0.05) |>
-									 	dplyr::pull(ID),
-									 rna_patient_all = rna_patient_enrichment_reactome$stats$all |>
-									 	dplyr::filter(padjust <= 0.05) |>
-									 	dplyr::pull(ID),
-									 rna_treatment_neg = rna_treatment_enrichment_reactome$stats$neg |>
-									 	dplyr::filter(padjust <= 0.05) |>
-									 	dplyr::pull(ID),
-									 rna_treatment_pos = rna_treatment_enrichment_reactome$stats$pos |>
-									 	dplyr::filter(padjust <= 0.05) |>
-									 	dplyr::pull(ID),
-									 rna_treatment_all = rna_treatment_enrichment_reactome$stats$all |>
-									 	dplyr::filter(padjust <= 0.05) |>
-									 	dplyr::pull(ID),
-									 metabolomics_treatment_neg = metabolomics_treatment_enrichment_reactome$stats$neg |>
-									 	dplyr::filter(padjust <= 0.05) |>
-									 	dplyr::pull(ID),
-									 metabolomics_treatment_all = metabolomics_treatment_enrichment_reactome$stats$all |>
-									 	dplyr::filter(padjust <= 0.05) |>
-									 	dplyr::pull(ID),
-									 metabolomics_patient_neg = metabolomics_patient_enrichment_reactome$stats$neg |>
-									 	dplyr::filter(padjust <= 0.05) |>
-									 	dplyr::pull(ID),
-									 metabolomics_patient_all = metabolomics_patient_enrichment_reactome$stats$all |>
-									 	dplyr::filter(padjust <= 0.05) |>
-									 	dplyr::pull(ID))
+list_enrich = list(
+  rna_patient_neg = rna_patient_enrichment_reactome$stats$neg |>
+    dplyr::filter(padjust <= 0.05) |>
+    dplyr::pull(ID),
+  rna_patient_pos = rna_patient_enrichment_reactome$stats$pos |>
+    dplyr::filter(padjust <= 0.05) |>
+    dplyr::pull(ID),
+  rna_patient_all = rna_patient_enrichment_reactome$stats$all |>
+    dplyr::filter(padjust <= 0.05) |>
+    dplyr::pull(ID),
+  rna_treatment_neg = rna_treatment_enrichment_reactome$stats$neg |>
+    dplyr::filter(padjust <= 0.05) |>
+    dplyr::pull(ID),
+  rna_treatment_pos = rna_treatment_enrichment_reactome$stats$pos |>
+    dplyr::filter(padjust <= 0.05) |>
+    dplyr::pull(ID),
+  rna_treatment_all = rna_treatment_enrichment_reactome$stats$all |>
+    dplyr::filter(padjust <= 0.05) |>
+    dplyr::pull(ID),
+  metabolomics_treatment_neg = metabolomics_treatment_enrichment_reactome$stats$neg |>
+    dplyr::filter(padjust <= 0.05) |>
+    dplyr::pull(ID),
+  metabolomics_treatment_all = metabolomics_treatment_enrichment_reactome$stats$all |>
+    dplyr::filter(padjust <= 0.05) |>
+    dplyr::pull(ID),
+  metabolomics_patient_neg = metabolomics_patient_enrichment_reactome$stats$neg |>
+    dplyr::filter(padjust <= 0.05) |>
+    dplyr::pull(ID),
+  metabolomics_patient_all = metabolomics_patient_enrichment_reactome$stats$all |>
+    dplyr::filter(padjust <= 0.05) |>
+    dplyr::pull(ID)
+)
 
 ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(list_enrich))
 ```
@@ -402,21 +483,23 @@ ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(list_enrich))
 ```{r}
 #| label: fig-enrichment-intersections-kegg
 #| fig-cap: UpSet plot comparing the various enrichment results from KEGG pathways.
-kegg_enrich = list(rna_treatment_neg = rna_treatment_enrichment_kegg$stats$neg |>
-									 	dplyr::filter(p <= 0.05) |>
-									 	dplyr::pull(ID),
-									 rna_treatment_pos = rna_treatment_enrichment_kegg$stats$pos |>
-									 	dplyr::filter(p <= 0.05) |>
-									 	dplyr::pull(ID),
-									 rna_treatment_all = rna_treatment_enrichment_kegg$stats$all |>
-									 	dplyr::filter(p <= 0.05) |>
-									 	dplyr::pull(ID),
-									 metabolomics_treatment_neg = metabolomics_treatment_enrichment_kegg$stats$neg |>
-									 	dplyr::filter(p <= 0.05) |>
-									 	dplyr::pull(ID),
-									 metabolomics_treatment_all = metabolomics_treatment_enrichment_kegg$stats$all |>
-									 	dplyr::filter(p <= 0.05) |>
-									 	dplyr::pull(ID))
+kegg_enrich = list(
+  rna_treatment_neg = rna_treatment_enrichment_kegg$stats$neg |>
+    dplyr::filter(p <= 0.05) |>
+    dplyr::pull(ID),
+  rna_treatment_pos = rna_treatment_enrichment_kegg$stats$pos |>
+    dplyr::filter(p <= 0.05) |>
+    dplyr::pull(ID),
+  rna_treatment_all = rna_treatment_enrichment_kegg$stats$all |>
+    dplyr::filter(p <= 0.05) |>
+    dplyr::pull(ID),
+  metabolomics_treatment_neg = metabolomics_treatment_enrichment_kegg$stats$neg |>
+    dplyr::filter(p <= 0.05) |>
+    dplyr::pull(ID),
+  metabolomics_treatment_all = metabolomics_treatment_enrichment_kegg$stats$all |>
+    dplyr::filter(p <= 0.05) |>
+    dplyr::pull(ID)
+)
 
 ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(kegg_enrich))
 ```
@@ -424,9 +507,12 @@ ComplexHeatmap::UpSet(ComplexHeatmap::make_comb_mat(kegg_enrich))
 ```{r}
 #| label: tbl-kegg-intersect
 #| tbl-cap: KEGG pathways that are enriched in both the metabolomics and RNA datasets.
-kegg_match = base::intersect(kegg_enrich$rna_treatment_neg, kegg_enrich$metabolomics_treatment_neg)
+kegg_match = base::intersect(
+  kegg_enrich$rna_treatment_neg,
+  kegg_enrich$metabolomics_treatment_neg
+)
 rna_kegg_table = rna_treatment_enrichment_kegg$stats$neg |>
-	dplyr::filter(ID %in% kegg_match)
+  dplyr::filter(ID %in% kegg_match)
 gt::gt(rna_kegg_table |> dplyr::select(ID, description))
 ```
 
@@ -455,13 +541,16 @@ Full tables should have been provided in an Excel file.
 #| tbl-cap: Grouped GO terms for transcriptomics paired patient sample differential analysis, irrespective of fold-change direction.
 go_all = rna_patient_enrichment_grouped_eachgo$all
 go_print_all = go_all |>
-	dplyr::filter(grepl("MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle", group)) |>
-	dplyr::arrange(group, padjust)
+  dplyr::filter(grepl(
+    "MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle",
+    group
+  )) |>
+  dplyr::arrange(group, padjust)
 weird_row = go_print_all$ID %in% "GO:0016098"
 go_all_out = gt::gt(go_print_all) |>
-	gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
-	gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
-	gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
+  gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
+  gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
+  gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
 go_all_out
 ```
 
@@ -470,13 +559,16 @@ go_all_out
 #| tbl-cap: Grouped GO terms for transcriptomics paired patient sample differential analysis, negative fold-change direction.
 go_neg = rna_patient_enrichment_grouped_eachgo$neg
 go_print_neg = go_neg |>
-	dplyr::filter(grepl("MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle", group)) |>
-	dplyr::arrange(group, padjust)
+  dplyr::filter(grepl(
+    "MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle",
+    group
+  )) |>
+  dplyr::arrange(group, padjust)
 weird_row = go_print_neg$ID %in% "GO:0016098"
 go_neg_out = gt::gt(go_print_all) |>
-	gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
-	gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
-	gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
+  gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
+  gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
+  gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
 go_neg_out
 ```
 
@@ -485,13 +577,16 @@ go_neg_out
 #| tbl-cap: Grouped GO terms for transcriptomics paired patient sample differential analysis, positive fold-change direction.
 go_pos = rna_patient_enrichment_grouped_eachgo$pos
 go_print_pos = go_pos |>
-	dplyr::filter(grepl("MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle", group)) |>
-	dplyr::arrange(group, padjust)
+  dplyr::filter(grepl(
+    "MF:lipoprotein particle binding|CC:vesicle lumen|BP:regulation of tube size|BP:regulation of lipase activity|lipo.*|CC:protein-lipid complex|BP:regulation of spindle checkpoint|BP:regulation of chromosome segregation|BP:negative regulation of cell cycle",
+    group
+  )) |>
+  dplyr::arrange(group, padjust)
 weird_row = go_print_pos$ID %in% "GO:0016098"
 go_pos_out = gt::gt(go_print_pos) |>
-	gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
-	gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
-	gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
+  gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
+  gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
+  gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
 go_pos_out
 ```
 
@@ -499,25 +594,26 @@ go_pos_out
 #| label: tbl-rna-patient-reactome-all
 #| tbl-cap: Grouped Reactome pathways for transcriptomics paired patient sample differential analysis, for all differential genes.
 reactome_all = rna_patient_enrichment_grouped_eachreactome$all |>
-	dplyr::filter(!group %in% "") |>
-	dplyr::arrange(group, padjust)
+  dplyr::filter(!group %in% "") |>
+  dplyr::arrange(group, padjust)
 reactome_print_all = gt::gt(reactome_all) |>
-	gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
-	gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
-	gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
+  gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
+  gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
+  gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
 reactome_print_all
 ```
 
 ```{r}
 #| label: tbl-rna-patient-reactome-neg
 #| tbl-cap: Grouped Reactome pathways for transcriptomics paired patient sample differential analysis, for negatively differential genes.
-reactome_neg = rna_patient_enrichment_grouped_eachreactome$all |>
-	dplyr::filter(!group %in% "") |>
-	dplyr::arrange(group, padjust)
+reactome_neg = rna_patient_enrichment_grouped_eachreactome$neg |>
+  dplyr::filter(!group %in% "") |>
+  dplyr::select(-group) |>
+  dplyr::arrange(padjust)
 reactome_print_neg = gt::gt(reactome_neg) |>
-	gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
-	gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
-	gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
+  gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
+  gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
+  gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
 reactome_print_neg
 ```
 
@@ -525,12 +621,13 @@ reactome_print_neg
 #| label: tbl-rna-patient-reactome-pos
 #| tbl-cap: Grouped Reactome pathways for transcriptomics paired patient sample differential analysis, for positively differential genes.
 reactome_pos = rna_patient_enrichment_grouped_eachreactome$pos |>
-	dplyr::filter(!group %in% "") |>
-	dplyr::arrange(group, padjust)
+  dplyr::filter(!group %in% "") |>
+  dplyr::select(-group) |>
+  dplyr::arrange(padjust)
 reactome_print_pos = gt::gt(reactome_pos) |>
-	gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
-	gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
-	gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
+  gt::fmt_number(columns = ends_with(c("odds", "expected", "counts"))) |>
+  gt::fmt_scientific(columns = ends_with(c("p", "padjust"))) |>
+  gt::cols_width(ends_with(c("p", "padjust")) ~ px(400))
 reactome_print_pos
 ```
 

@@ -814,7 +814,8 @@ tar_plan(
 		rna_interesting_compounds_clusters,
 		"docs/compound_genes_clusters.xlsx"
 	),
-	## sub-group heatmaps ----------
+	## sub-group heatmaps / clusters ----------
+	### clustering of compounds and genes from within a correlations ----------
 
 	rna_interesting_lipids_hc = cluster_create_heatmaps(
 		rna_compounds_matrix,
@@ -848,6 +849,94 @@ tar_plan(
 		rna_de_patient,
 		metabolomics_de_patient_list,
 		feature_lipid
+	),
+
+	### enrichment of the sub-clusters ------
+	rna_interesting_compounds_cluster_enrich_reactome = enrich_clusters_hypergeom(
+		rna_interesting_compounds_hc,
+		rna_de_patient,
+		metabolomics_de_patient_list,
+		ensembl_reactome,
+		feature_reactome
+	),
+	rna_interesting_lipids_cluster_enrich_reactome = enrich_clusters_hypergeom(
+		rna_interesting_lipids_hc,
+		rna_de_patient,
+		metabolomics_de_patient_list,
+		ensembl_reactome,
+		feature_lipid
+	),
+
+	rna_interesting_compounds_cluster_enrich_go = enrich_clusters_hypergeom(
+		rna_interesting_compounds_hc,
+		rna_de_patient,
+		metabolomics_de_patient_list,
+		ensembl_go,
+		feature_reactome
+	),
+	rna_interesting_lipids_cluster_enrich_go = enrich_clusters_hypergeom(
+		rna_interesting_lipids_hc,
+		rna_de_patient,
+		metabolomics_de_patient_list,
+		ensembl_go,
+		feature_lipid
+	),
+
+	### comparison of sub-cluster enrichments with previous pathways
+	cluster_rna_compounds_vs_rna_reactome = compare_cluster_enrich_with_significant(
+		rna_interesting_compounds_cluster_enrich_reactome,
+		list(
+			negative_transcriptomics = rna_patient_enrichment_reactome$stats$neg,
+			positive_transcriptomics = rna_patient_enrichment_reactome$stats$pos
+		)
+	),
+	cluster_rna_lipids_vs_rna_reactome = compare_cluster_enrich_with_significant(
+		rna_interesting_lipids_cluster_enrich_reactome,
+		list(
+			negative_transcriptomics = rna_patient_enrichment_reactome$stats$neg,
+			positive_transcriptomics = rna_patient_enrichment_reactome$stats$pos
+		)
+	),
+
+	cluster_rna_compounds_vs_rna_go = compare_cluster_enrich_with_significant(
+		rna_interesting_compounds_cluster_enrich_go,
+		list(
+			negative_transcriptomics = rna_patient_enrichment_go$stats$neg,
+			positive_transcriptomics = rna_patient_enrichment_go$stats$pos
+		)
+	),
+	cluster_rna_lipids_vs_rna_go = compare_cluster_enrich_with_significant(
+		rna_interesting_lipids_cluster_enrich_go,
+		list(
+			negative_transcriptomics = rna_patient_enrichment_go$stats$neg,
+			positive_transcriptomics = rna_patient_enrichment_go$stats$pos
+		)
+	),
+
+	### enrichment of heatmap against all -------
+	rna_interesting_compounds_all_enrich = enrich_correlated_to_all(
+		rna_interesting_compounds_hc,
+		rna_de_patient,
+		metabolomics_de_patient_list,
+		ensembl_reactome,
+		feature_reactome
+	),
+	rna_interesting_lipids_all_enrich = enrich_correlated_to_all(
+		rna_interesting_lipids_hc,
+		rna_de_patient,
+		metabolomics_de_patient_list,
+		ensembl_reactome,
+		feature_lipid
+	),
+
+	### number annotated to annotations -------
+	rna_interesting_compounds_ncount = find_overlap_with_significant_pathways(
+		rna_interesting_compounds_hc,
+		rna_patient_enrichment_reactome
+	),
+	rna_interesting_lipids_ncount = find_overlap_with_significant_pathways(
+		rna_interesting_lipids_hc,
+		rna_patient_enrichment_reactome
 	),
 
 	## pca / heatmap figures -------------
@@ -1025,7 +1114,11 @@ tar_plan(
 		quiet = FALSE
 	),
 	tar_quarto(gene_metabolite_heatmaps, "docs/gene_metabolite_heatmaps.qmd"),
-	tar_quarto(gene_metabolite_pair_doc, "docs/gene_metabolite_pairs.qmd")
+	tar_quarto(gene_metabolite_pair_doc, "docs/gene_metabolite_pairs.qmd"),
+	tar_quarto(
+		heatmap_cluster_enrichments,
+		"docs/heatmap_cluster_enrichments.qmd"
+	)
 	# target = function_to_make(arg), ## drake style
 
 	# tar_target(target2, function_to_make2(arg)) ## targets style

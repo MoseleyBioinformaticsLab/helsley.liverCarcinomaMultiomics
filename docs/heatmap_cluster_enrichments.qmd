@@ -1,0 +1,232 @@
+---
+title: "Heatmap Cluster Enrichments"
+author: "Robert M Flight"
+date: last-modified
+date-format: YYYY-MM-DD HH:mm
+format: 
+  docx:
+    keep-md: true
+  html:
+    toc: true
+    embed-resources: true
+---
+
+## Purpose
+
+We **hope** that the genes that are significantly correlated to the enriched metabolites have some functional or pathway similarities.
+
+This is us trying to discover it via enrichments.
+
+Just as background, we took either the binomial enriched compounds (primary metabolism and bioamines) or lipids, with FC in the enriched direction, and calculated Spearman correlations with the differentially significant genes.
+After finding significant correlations, we grouped each into clusters based on the hierarchical clustering of the heatmaps.
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  dev = c("ragg_png", "svg"),
+  dpi = 600
+)
+## target knits qmds in their own session, so load libraries here.
+## source(here::here("packages.R"))
+## if you want access to the functions you've written
+## lapply(list.files(here::here("./R"), full.names = TRUE), source
+```
+
+
+```{r}
+#| label: load-targets
+#| include: false
+targets::tar_source("./packages.R")
+tar_load(c(
+  cluster_rna_compounds_vs_rna_reactome,
+  cluster_rna_lipids_vs_rna_reactome,
+  cluster_rna_compounds_vs_rna_go,
+  cluster_rna_lipids_vs_rna_go,
+  rna_interesting_lipids_heatmaps,
+  rna_interesting_compounds_heatmaps
+))
+```
+
+## Hypergeometric Enrichment of Clusters
+
+For each of the **primary** clusters (big ones on the heatmaps in @fig-gene-compound-heatmap and @fig-gene-lipids-heatmap), we consider the **cluster** features (genes, compounds, lipids) as **significant**, similar to the differential analysis, and compare those **cluster** feature annotations to **all** the feature annotations.
+
+We used a higher adjusted p-value to consider things significant, as the clusters have relatively small numbers of annotated features.
+
+We also checked to see if these enriched annotations from clusters overlap with **any** significant annotations (p-adjust <= 0.01) from the positive and negative differentially enriched transcriptomics results (column `enrich_id`).
+
+## Genes & Compounds Heatmap Cluster
+
+```{r}
+#| label: fig-gene-compound-heatmap
+#| fig-cap: Differentially significant genes significantly correlated with enriched compounds.
+#| fig-height: 16
+#| fig-width: 10
+rna_interesting_compounds_heatmaps$`genes-compounds-full`
+```
+
+### Genes, Reactome Enrichment
+
+```{r}
+#| label: genes-compounds-reactome
+cluster_rna_compounds_vs_rna_reactome$genes |>
+  dplyr::select(
+    cluster,
+    p,
+    padjust,
+    expected,
+    counts,
+    significant,
+    odds,
+    description,
+    ID,
+    enrich_id
+  ) |>
+  gt::gt() |>
+  gt::fmt_scientific(columns = c(p, padjust)) |>
+  gt::fmt_number(columns = c(odds, expected), decimals = 2)
+```
+
+### Genes, GO Enrichment
+
+```{r}
+#| label: genes-compounds-go
+cluster_rna_compounds_vs_rna_go$genes |>
+  dplyr::select(
+    cluster,
+    p,
+    padjust,
+    expected,
+    counts,
+    significant,
+    odds,
+    description,
+    ID,
+    enrich_id
+  ) |>
+  gt::gt() |>
+  gt::fmt_scientific(columns = c(p, padjust)) |>
+  gt::fmt_number(columns = c(odds, expected), decimals = 2)
+```
+
+### Compounds, Reactome Enrichment
+
+```{r}
+#| label: compounds-compounds-reactome
+cluster_rna_compounds_vs_rna_reactome$compounds |>
+  dplyr::select(
+    cluster,
+    p,
+    padjust,
+    expected,
+    counts,
+    significant,
+    odds,
+    description,
+    ID,
+    enrich_id
+  ) |>
+  gt::gt() |>
+  gt::fmt_scientific(columns = c(p, padjust)) |>
+  gt::fmt_number(columns = c(odds, expected), decimals = 2)
+```
+
+
+## Genes & Lipids Heatmap Cluster
+
+```{r}
+#| label: fig-gene-lipids-heatmap
+#| fig-cap: Differentially significant genes having significant correlations with enriched lipids.
+#| fig-height: 16
+#| fig-width: 8
+rna_interesting_lipids_heatmaps$`genes-lipids-full`
+```
+
+### Genes, Reactome Enrichment
+
+```{r}
+#| label: genes-lipids-reactome
+cluster_rna_lipids_vs_rna_reactome$genes |>
+  dplyr::select(
+    cluster,
+    p,
+    padjust,
+    expected,
+    counts,
+    significant,
+    odds,
+    description,
+    ID,
+    enrich_id
+  ) |>
+  gt::gt() |>
+  gt::fmt_scientific(columns = c(p, padjust)) |>
+  gt::fmt_number(columns = c(odds, expected), decimals = 2)
+```
+
+### Genes, GO Enrichment
+
+```{r}
+#| label: genes-lipids-go
+cluster_rna_lipids_vs_rna_go$genes |>
+  dplyr::select(
+    cluster,
+    p,
+    padjust,
+    expected,
+    counts,
+    significant,
+    odds,
+    description,
+    ID,
+    enrich_id
+  ) |>
+  gt::gt() |>
+  gt::fmt_scientific(columns = c(p, padjust)) |>
+  gt::fmt_number(columns = c(odds, expected), decimals = 2)
+```
+
+
+### Lipids enrichment
+
+```{r}
+#| label: genes-lipids-lipids
+cluster_rna_lipids_vs_rna_go$compounds |>
+  dplyr::select(
+    cluster,
+    p,
+    padjust,
+    expected,
+    counts,
+    significant,
+    odds,
+    description,
+    ID,
+    enrich_id
+  ) |>
+  gt::gt() |>
+  gt::fmt_scientific(columns = c(p, padjust)) |>
+  gt::fmt_number(columns = c(odds, expected), decimals = 2)
+```
+
+## Executive Summary
+
+* For both the genes with significant correlations with compounds or lipids, only **cluster 1** showed any significant enrichment (p-adjusted <= 0.05).
+* In both cases, overlapping **gene** enrichments were observed with only the enriched pathways or GO terms from the negatively differential transcriptomics results.
+* Genes correlated with compounds:
+  * Cluster 1 genes:
+    * Reactome and GO show pathways / terms related to fatty-acid oxidation.
+  * Cluster 1 compounds:
+    * 2 compounds related to a variety of different things. Given each one shows only 2 compounds, I'm betting they are the same 2 compounds in every enrichment.
+* Genes correlated with lipids:
+  * Cluster 1 genes:
+    * Reactome shows pathways related to PD-1 signaling and immune activation.
+    * GO terms are all related to extracellular matrix.
+  * Cluster 1 lipids:
+    * length of 34
+  * Cluster 2 lipids:
+    * Ceramides.
