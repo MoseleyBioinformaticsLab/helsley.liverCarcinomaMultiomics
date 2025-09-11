@@ -1158,3 +1158,62 @@ write_lipid_class_plots = function(
 	})
 	all_plots
 }
+
+
+generate_enriched_comparison_excel = function(lists_of_lists, output_file) {
+	# lists_of_lists = list(
+	# 	compounds_reactome = tar_read(cluster_rna_compounds_vs_rna_reactome),
+	# 	compounds_go = tar_read(cluster_rna_compounds_vs_rna_go),
+	# 	lipids_reactome = tar_read(cluster_rna_lipids_vs_rna_reactome),
+	# 	lipids_go = tar_read(cluster_rna_lipids_vs_rna_go)
+	# )
+	# output_file = "docs/cluster_rna_interesting_compounds.xlsx"
+
+	list_un_lev1 = purrr::list_flatten(lists_of_lists)
+
+	data_dictionary = tibble::tribble(
+		~header,
+		~meaning,
+		"to get report results, filter by 'is_significant', and sort by cluster & padjust",
+		"",
+		"compounds_reactome_genes",
+		"gene-compound correlations, reactome pathway annotations, genes",
+		"compounds_reactome_compounds",
+		"gene-comound correlations, reactome pathway annotations, compounds",
+		"compounds_go_genes",
+		"gene-compound correlations, GO term annotations, genes",
+		"compounds_go_compounds",
+		"gene-compound correlations, GO term annotations, compounds",
+		"lipids_reactome_genes",
+		"gene-lipid correlations, reactome pathway annotations, genes",
+		"lipids_reactome_compounds",
+		"gene-lipid correlations, reactome pathway annotations, lipids",
+		"lipids_go_genes",
+		"gene-lipid correlations, GO term annotations, genes",
+		"lipids_go_compounds",
+		"gene-lipid correlations, GO term annotations, lipids",
+		"expected",
+		"expected number of features based on number differential",
+		"counts",
+		"number of features observed with that annotation in differential",
+		"padjust",
+		"Benjamini-Hochberg adjusted p-value",
+		"ID",
+		"identifier of the annotation",
+		"description",
+		"text description of the annotation",
+		"cluster",
+		"which cluster is being tested for enrichment",
+		"p",
+		"hypergeometric p-value",
+		"is_significant",
+		"is the adjusted p-value below the cutoff (0.05)",
+		"enrich_id",
+		"does this term overlap with something found to be significant in the transcriptomics, what is it?"
+	)
+
+	all_lists = c(list(data_dictionary = data_dictionary), list_un_lev1)
+
+	openxlsx::write.xlsx(all_lists, file = output_file, overwrite = TRUE)
+	return(output_file)
+}

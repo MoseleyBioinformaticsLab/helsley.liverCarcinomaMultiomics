@@ -145,7 +145,10 @@ group_annotations = function(group_enrichment, similarity_cutoff = 0.8) {
 	just_enrich = group_enrichment$enrich
 
 	enrich_graph = generate_annotation_graph(just_enrich)
-	enrich_graph = suppressMessages(remove_edges(enrich_graph, similarity_cutoff))
+	enrich_graph = suppressMessages(remove_edges(
+		enrich_graph,
+		similarity_cutoff
+	))
 	enrich_assign = annotation_combinations(enrich_graph)
 	enrich_assign = assign_colors(enrich_assign)
 
@@ -938,4 +941,264 @@ map_features_kegg_chebi = function(
 	)
 	feature_other$chebi_id = as.character(feature_other$chebi_id)
 	feature_other
+}
+
+enrich_clusters_hypergeom = function(
+	hc_clusters,
+	rna_de,
+	compound_de,
+	gene_annotation,
+	compound_annotation
+) {
+	# hc_clusters = tar_read(rna_interesting_lipids_hc)
+	# gene_annotation = tar_read(ensembl_reactome)
+	# rna_de = tar_read(rna_de_patient)
+	# compound_annotation = tar_read(feature_lipid)
+	# compound_de = tar_read(metabolomics_de_patient_list)
+
+	gene_background = rna_de$feature_id
+
+	gene_clusters = hc_clusters$clusters$genes |>
+		dplyr::mutate(cluster2 = stringr::str_replace(cluster, "\\.[0-9]", ""))
+
+	gene_bycluster = split(
+		gene_clusters$feature_id,
+		gene_clusters$cluster2
+	)
+
+	gene_bycluster_enrich = purrr::map(gene_bycluster, \(in_genes) {
+		if (length(in_genes) >= 2) {
+			enrich = hypergeometric_features(
+				significant = in_genes,
+				universe = gene_background,
+				annotation = gene_annotation
+			) |>
+				hypergeometric_feature_enrichment(min_features = 2)
+		} else {
+			enrich = NULL
+		}
+		return(enrich)
+	})
+
+	compound_background = compound_de$feature_id
+	compound_clusters = hc_clusters$clusters$metabolites |>
+		dplyr::mutate(cluster2 = stringr::str_replace(cluster, "\\.[0-9]", ""))
+	compound_bycluster = split(
+		compound_clusters$feature_id,
+		compound_clusters$cluster2
+	)
+
+	compound_bycluster_enrich = purrr::map(compound_bycluster, \(in_comp) {
+		if (length(in_comp) >= 2) {
+			enrich = hypergeometric_features(
+				significant = in_comp,
+				universe = compound_background,
+				annotation = compound_annotation
+			) |>
+				hypergeometric_feature_enrichment(min_features = 2)
+		} else {
+			enrich = NULL
+		}
+		return(enrich)
+	})
+	list(genes = gene_bycluster_enrich, compounds = compound_bycluster_enrich)
+}
+
+enrich_correlated_to_all = function(
+	hc_clusters,
+	rna_de,
+	compound_de,
+	gene_annotation,
+	compound_annotation
+) {
+	# hc_clusters = tar_read(rna_interesting_lipids_hc)
+	# gene_annotation = tar_read(ensembl_reactome)
+	# rna_de = tar_read(rna_de_patient)
+	# compound_annotation = tar_read(feature_lipid)
+	# compound_de = tar_read(metabolomics_de_patient_list)
+
+	# hc_clusters = tar_read(rna_interesting_compounds_hc)
+	# gene_annotation = tar_read(ensembl_reactome)
+	# rna_de = tar_read(rna_de_patient)
+	# compound_annotation = tar_read(feature_lipid)
+	# compound_de = tar_read(metabolomics_de_patient_list)
+
+	gene_enrich = hypergeometric_features(
+		significant = hc_clusters$clusters$genes$feature_id,
+		universe = rna_de$feature_id,
+		annotation = gene_annotation
+	) |>
+		hypergeometric_feature_enrichment(min_features = 2)
+
+	compound_enrich = hypergeometric_features(
+		significant = hc_clusters$clusters$metabolites$feature_id,
+		universe = compound_de$feature_id,
+		annotation = compound_annotation
+	) |>
+		hypergeometric_feature_enrichment(min_features = 2)
+
+	list(genes = gene_enrich, compounds = compound_enrich)
+}
+
+find_overlap_with_significant_pathways = function(hc_clusters, pathway_sig) {
+	# hc_clusters = tar_read(rna_interesting_lipids_hc)
+	# pathway_sig = tar_read(rna_patient_enrichment_reactome)
+
+	gene_memberships = hc_clusters$clusters$genes |>
+		dplyr::mutate(cluster2 = stringr::str_replace(cluster, "\\.[0-9]", ""))
+
+	neg_stats = pathway_sig$stats$neg |>
+		dplyr::arrange(p) |>
+		dplyr::slice_head(n = 15)
+	neg_ids = neg_stats$ID
+
+	gene_annotations = pathway_sig$enrich@annotation@annotation_features
+
+	neg_annotations = gene_annotations[neg_ids]
+
+	neg_df = purrr::imap_dfr(neg_annotations, \(in_features, in_id) {
+		tibble::tibble(ID = in_id, feature_id = in_features)
+	})
+
+	neg_df_cluster = dplyr::inner_join(
+		neg_df,
+		gene_memberships[, c("feature_id", "cluster2")],
+		by = "feature_id"
+	)
+	neg_n_cluster = neg_df_cluster |>
+		dplyr::group_by(ID, cluster2) |>
+		dplyr::summarise(n = dplyr::n())
+	neg_n_cluster = dplyr::left_join(
+		neg_n_cluster,
+		neg_stats[, c("ID", "description")],
+		by = "ID"
+	)
+
+	cluster_n = gene_memberships |>
+		dplyr::group_by(cluster2) |>
+		dplyr::summarise(n_genes = dplyr::n())
+	cluster_by_neg = dplyr::inner_join(
+		gene_memberships[, c("feature_id", "cluster2")],
+		neg_df,
+		by = "feature_id"
+	)
+	cluster_by_neg_n = cluster_by_neg |>
+		dplyr::group_by(cluster2, ID) |>
+		dplyr::summarise(n_in_pathway = dplyr::n())
+	cluster_by_neg_n = dplyr::left_join(
+		cluster_by_neg_n,
+		neg_stats[, c("ID", "description")],
+		by = "ID"
+	)
+
+	pos_stats = pathway_sig$stats$pos |>
+		dplyr::arrange(p) |>
+		dplyr::slice_head(n = 15)
+	pos_ids = pos_stats$ID
+
+	pos_annotations = gene_annotations[pos_ids]
+
+	pos_df = purrr::imap_dfr(pos_annotations, \(in_features, in_id) {
+		tibble::tibble(ID = in_id, feature_id = in_features)
+	})
+
+	pos_df_cluster = dplyr::inner_join(
+		pos_df,
+		gene_memberships[, c("feature_id", "cluster2")],
+		by = "feature_id"
+	)
+	pos_n_cluster = pos_df_cluster |>
+		dplyr::group_by(ID, cluster2) |>
+		dplyr::summarise(n = dplyr::n())
+	pos_n_cluster = dplyr::left_join(
+		pos_n_cluster,
+		pos_stats[, c("ID", "description")],
+		by = "ID"
+	)
+
+	cluster_by_pos = dplyr::inner_join(
+		gene_memberships[, c("feature_id", "cluster2")],
+		pos_df,
+		by = "feature_id"
+	)
+	cluster_by_pos_n = cluster_by_pos |>
+		dplyr::group_by(cluster2, ID) |>
+		dplyr::summarise(n_in_pathway = dplyr::n())
+	cluster_by_pos_n = dplyr::left_join(
+		cluster_by_pos_n,
+		pos_stats[, c("ID", "description")],
+		by = "ID"
+	)
+
+	return(list(
+		neg = list(
+			cluster_2_annotation = neg_n_cluster,
+			annotation_2_cluster = cluster_by_neg_n
+		),
+		pos = list(
+			cluster_2_annotation = pos_n_cluster,
+			annotation_2_cluster = cluster_by_pos_n
+		)
+	))
+}
+
+compare_cluster_enrich_with_significant = function(
+	cluster_enrich,
+	significant_enrich
+) {
+	# cluster_enrich = tar_read(rna_interesting_compounds_cluster_enrich)
+	# significant_enrich = list(
+	# 	negative_transcriptomics = tar_read(
+	# 		rna_patient_enrichment_reactome
+	# 	)$stats$neg,
+	# 	positive_transcriptomics = tar_read(
+	# 		rna_patient_enrichment_reactome
+	# 	)$stats$pos
+	# )
+
+	get_stats = function(in_enrich, id) {
+		if (!is.null(in_enrich)) {
+			tmp_stats = extract_enrich_stats(in_enrich)
+			if (is.na(tmp_stats$description[1])) {
+				tmp_stats$description = tmp_stats$ID
+			}
+			tmp_stats$cluster = id
+			return(tmp_stats)
+		} else {
+			return(NULL)
+		}
+	}
+	gene_tables = purrr::imap(cluster_enrich$genes, get_stats) |>
+		purrr::list_rbind() |>
+		dplyr::mutate(is_significant = padjust <= 0.05) |>
+		dplyr::arrange(cluster, padjust)
+
+	# for the positive and negative tables, add a column that has the name
+	# in them, row bind them, and then we can merge them with the gene table
+	# from above.
+	sig_table = purrr::imap(significant_enrich, \(in_enrich, id) {
+		in_enrich$enrich_id = id
+		in_enrich |>
+			dplyr::filter(padjust <= 0.01)
+	}) |>
+		purrr::list_rbind()
+
+	gene_tables = dplyr::left_join(
+		gene_tables,
+		sig_table[, c("ID", "enrich_id")],
+		by = "ID"
+	)
+
+	compound_tables = purrr::imap(cluster_enrich$compounds, get_stats) |>
+		purrr::list_rbind() |>
+		dplyr::mutate(is_significant = padjust <= 0.05) |>
+		dplyr::arrange(cluster, padjust)
+
+	compound_tables = dplyr::left_join(
+		compound_tables,
+		sig_table[, c("ID", "enrich_id")],
+		by = "ID"
+	)
+
+	return(list(genes = gene_tables, compounds = compound_tables))
 }

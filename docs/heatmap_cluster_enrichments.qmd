@@ -74,6 +74,7 @@ rna_interesting_compounds_heatmaps$`genes-compounds-full`
 ```{r}
 #| label: genes-compounds-reactome
 cluster_rna_compounds_vs_rna_reactome$genes |>
+  dplyr::filter(is_significant) |>
   dplyr::select(
     cluster,
     p,
@@ -96,6 +97,7 @@ cluster_rna_compounds_vs_rna_reactome$genes |>
 ```{r}
 #| label: genes-compounds-go
 cluster_rna_compounds_vs_rna_go$genes |>
+  dplyr::filter(is_significant) |>
   dplyr::select(
     cluster,
     p,
@@ -118,6 +120,7 @@ cluster_rna_compounds_vs_rna_go$genes |>
 ```{r}
 #| label: compounds-compounds-reactome
 cluster_rna_compounds_vs_rna_reactome$compounds |>
+  dplyr::filter(is_significant) |>
   dplyr::select(
     cluster,
     p,
@@ -151,6 +154,7 @@ rna_interesting_lipids_heatmaps$`genes-lipids-full`
 ```{r}
 #| label: genes-lipids-reactome
 cluster_rna_lipids_vs_rna_reactome$genes |>
+  dplyr::filter(is_significant) |>
   dplyr::select(
     cluster,
     p,
@@ -173,6 +177,7 @@ cluster_rna_lipids_vs_rna_reactome$genes |>
 ```{r}
 #| label: genes-lipids-go
 cluster_rna_lipids_vs_rna_go$genes |>
+  dplyr::filter(is_significant) |>
   dplyr::select(
     cluster,
     p,
@@ -196,6 +201,7 @@ cluster_rna_lipids_vs_rna_go$genes |>
 ```{r}
 #| label: genes-lipids-lipids
 cluster_rna_lipids_vs_rna_go$compounds |>
+  dplyr::filter(is_significant) |>
   dplyr::select(
     cluster,
     p,

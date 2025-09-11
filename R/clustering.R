@@ -327,7 +327,7 @@ plot_list[[\"{in_name}\"]]
 #| fig-height: 15
 #| fig-width: 15
 #| echo: false
-plot_list[[\"{in_name}\"]]
+draw(plot_list[[\"{in_name}\"]], padding = unit(c(2, 2, 2, 8), 'mm'))
 ```"
 			)
 		} else {
@@ -338,7 +338,7 @@ plot_list[[\"{in_name}\"]]
 #| fig-height: 8
 #| fig-width: 15
 #| echo: false
-plot_list[[\"{in_name}\"]]
+draw(plot_list[[\"{in_name}\"]], padding = unit(c(2, 2, 2, 8), 'mm'))
 ```"
 			)
 		}
@@ -396,7 +396,7 @@ plot_list[[\"{in_name}\"]]
 #| fig-height: 15
 #| fig-width: 15
 #| echo: false
-plot_list[[\"{in_name}\"]]
+draw(plot_list[[\"{in_name}\"]], padding = unit(c(8, 2, 2, 8), 'mm'))
 ```"
 			)
 		} else {
@@ -407,7 +407,7 @@ plot_list[[\"{in_name}\"]]
 #| fig-height: 8
 #| fig-width: 15
 #| echo: false
-plot_list[[\"{in_name}\"]]
+draw(plot_list[[\"{in_name}\"]], padding = unit(c(8, 2, 2, 8), 'mm'))
 ```"
 			)
 		}

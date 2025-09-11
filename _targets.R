@@ -814,6 +814,17 @@ tar_plan(
 		rna_interesting_compounds_clusters,
 		"docs/compound_genes_clusters.xlsx"
 	),
+
+	cluster_interesting_compounds_excel = generate_enriched_comparison_excel(
+		list(
+			compounds_reactome = cluster_rna_compounds_vs_rna_reactome,
+			compounds_go = cluster_rna_compounds_vs_rna_go,
+			lipids_reactome = cluster_rna_lipids_vs_rna_reactome,
+			lipids_go = cluster_rna_lipids_vs_rna_go
+		),
+		"docs/cluster_rna_interesting_compounds.xlsx"
+	),
+
 	## sub-group heatmaps / clusters ----------
 	### clustering of compounds and genes from within a correlations ----------
 
