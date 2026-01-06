@@ -937,13 +937,14 @@
     },
     "categoryCompare2": {
       "Package": "categoryCompare2",
-      "Version": "0.100.23",
+      "Version": "0.200.2",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
-      "RemoteRepo": "categoryCompare2",
-      "RemoteUsername": "moseleyBioinformaticsLab",
-      "RemoteSha": "380e8fc9fe78fe97597a87a9ce97b014f00ff1ab",
+      "RemoteUsername": "moseleybioinformaticslab",
+      "RemoteRepo": "categorycompare2",
+      "RemoteRef": "main",
+      "RemoteSha": "10416667ae6b5210a497a904abcfd319d2c3e87b",
       "Requirements": [
         "AnnotationDbi",
         "Biobase",
@@ -960,7 +961,7 @@
         "rlang",
         "stats"
       ],
-      "Hash": "aa4bc4a87de7c3bd986d4a5386e0c74d"
+      "Hash": "3ba7e515272edbc4ed6e28edb38cdcb5"
     },
     "cellranger": {
       "Package": "cellranger",
@@ -1140,13 +1141,13 @@
     },
     "curl": {
       "Package": "curl",
-      "Version": "5.2.3",
+      "Version": "6.4.0",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
         "R"
       ],
-      "Hash": "d91263322a58af798f6cf3b13fd56dde"
+      "Hash": "a331a41f5a999c2b59fdff9f48ac579f"
     },
     "data.table": {
       "Package": "data.table",
@@ -1755,6 +1756,16 @@
       ],
       "Hash": "e18861963cbc65a27736e02b3cd3c4a0"
     },
+    "here": {
+      "Package": "here",
+      "Version": "1.0.1",
+      "Source": "Repository",
+      "Repository": "https://packagemanager.posit.co/cran/latest",
+      "Requirements": [
+        "rprojroot"
+      ],
+      "Hash": "24b224366f9c2e7534d2344d10d59211"
+    },
     "highr": {
       "Package": "highr",
       "Version": "0.11",
@@ -1828,7 +1839,7 @@
     },
     "httr2": {
       "Package": "httr2",
-      "Version": "1.0.5",
+      "Version": "1.2.1",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -1845,7 +1856,7 @@
         "vctrs",
         "withr"
       ],
-      "Hash": "d84e4c33206aaace37714901ac2b00c3"
+      "Hash": "6e29f1ed132b927f7d52e9fd8869f0ea"
     },
     "igraph": {
       "Package": "igraph",
@@ -2360,7 +2371,7 @@
     },
     "openxlsx": {
       "Package": "openxlsx",
-      "Version": "4.2.7.1",
+      "Version": "4.2.8",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -2373,7 +2384,7 @@
         "utils",
         "zip"
       ],
-      "Hash": "14304e44a0f90fa2d0f905472333c561"
+      "Hash": "0dae94b258dc5abc4713eacdbbebcb51"
     },
     "paint": {
       "Package": "paint",
@@ -2445,12 +2456,11 @@
     },
     "pillar": {
       "Package": "pillar",
-      "Version": "1.9.0",
+      "Version": "1.11.0",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
         "cli",
-        "fansi",
         "glue",
         "lifecycle",
         "rlang",
@@ -2458,7 +2468,7 @@
         "utils",
         "vctrs"
       ],
-      "Hash": "15da5a8412f317beeee6175fbc76f4bb"
+      "Hash": "10344e4bdafc6725ed83c3d6b756f4d9"
     },
     "pixmap": {
       "Package": "pixmap",
@@ -2832,6 +2842,16 @@
       ],
       "Hash": "200f4395d59984219194fdc68e735df2"
     },
+    "rprojroot": {
+      "Package": "rprojroot",
+      "Version": "2.1.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R"
+      ],
+      "Hash": "74c506458effb43d21f74750e8cd42f6"
+    },
     "rstudioapi": {
       "Package": "rstudioapi",
       "Version": "0.16.0",
@@ -3035,6 +3055,23 @@
       ],
       "Hash": "960e2ae9e09656611e0b8214ad543207"
     },
+    "svglite": {
+      "Package": "svglite",
+      "Version": "2.2.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "base64enc",
+        "cli",
+        "cpp11",
+        "lifecycle",
+        "rlang",
+        "systemfonts",
+        "textshaping"
+      ],
+      "Hash": "a8a754856a1b29a24cbe269b8e03989a"
+    },
     "sys": {
       "Package": "sys",
       "Version": "3.4.3",
@@ -3044,15 +3081,20 @@
     },
     "systemfonts": {
       "Package": "systemfonts",
-      "Version": "1.1.0",
+      "Version": "1.2.3",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
         "R",
+        "base64enc",
         "cpp11",
-        "lifecycle"
+        "grid",
+        "jsonlite",
+        "lifecycle",
+        "tools",
+        "utils"
       ],
-      "Hash": "213b6b8ed5afbf934843e6c3b090d418"
+      "Hash": "fe31683d2c6fd9a5724bcdf8ed44ded9"
     },
     "tarchetypes": {
       "Package": "tarchetypes",

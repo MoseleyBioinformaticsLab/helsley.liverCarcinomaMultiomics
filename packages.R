@@ -6,8 +6,11 @@ library(tarchetypes)
 paint::mask_print()
 ggplot2::theme_set(cowplot::theme_cowplot())
 library(furrr)
-options(parallelly.fork.enable = TRUE,
-				tflow.report_dir = "docs")
+options(
+	parallelly.fork.enable = TRUE,
+	future.globals.maxSize = 2000 * 1024^2,
+	tflow.report_dir = "docs"
+)
 plan(multicore(workers = 4))
 library(ggplot2)
 theme_set(cowplot::theme_cowplot())

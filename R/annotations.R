@@ -353,56 +353,56 @@ write_goeach_to_excel = function(go_stuff, reactome_stuff) {
 	# go_stuff = tar_read(rna_patient_enrichment_grouped_eachgo)
 	# reactome_stuff = tar_read(rna_patient_enrichment_grouped_eachreactome)
 	data_dictionary = tibble::tribble(
-		~table,
-		~header,
-		~meaning,
-		"GO*",
-		"p",
-		"hypergeometric p-value",
-		"GO*",
-		"odds",
-		"hypergeometric odds ratio, roughly counts / expected",
-		"GO*",
-		"expected",
-		"expected number of genes based on number differential",
-		"GO*",
-		"counts",
-		"number of genes observed with that annotation in differential",
-		"GO*",
-		"padjust",
-		"Benjamini-Hochberg adjusted p-value",
-		"GO*",
-		"ID",
-		"identifier of the annotation",
-		"GO*",
-		"description",
-		"text description of the annotation",
-		"GO*",
-		"group",
-		"is the annotation part of a group of highly related annotations",
-		"Reactome*",
-		"p",
-		"hypergeometric p-value",
-		"Reactome*",
-		"odds",
-		"hypergeometric odds ratio, roughly counts / expected",
-		"Reactome*",
-		"expected",
-		"expected number of genes based on number differential",
-		"Reactome*",
-		"counts",
-		"number of genes observed with that annotation in differential",
-		"Reactome*",
-		"padjust",
-		"Benjamini-Hochberg adjusted p-value",
-		"Reactome*",
-		"ID",
-		"identifier of the annotation",
-		"Reactome*",
-		"description",
-		"text description of the annotation",
-		"Reactome*",
-		"group",
+		~table                                                            ,
+		~header                                                           ,
+		~meaning                                                          ,
+		"GO*"                                                             ,
+		"p"                                                               ,
+		"hypergeometric p-value"                                          ,
+		"GO*"                                                             ,
+		"odds"                                                            ,
+		"hypergeometric odds ratio, roughly counts / expected"            ,
+		"GO*"                                                             ,
+		"expected"                                                        ,
+		"expected number of genes based on number differential"           ,
+		"GO*"                                                             ,
+		"counts"                                                          ,
+		"number of genes observed with that annotation in differential"   ,
+		"GO*"                                                             ,
+		"padjust"                                                         ,
+		"Benjamini-Hochberg adjusted p-value"                             ,
+		"GO*"                                                             ,
+		"ID"                                                              ,
+		"identifier of the annotation"                                    ,
+		"GO*"                                                             ,
+		"description"                                                     ,
+		"text description of the annotation"                              ,
+		"GO*"                                                             ,
+		"group"                                                           ,
+		"is the annotation part of a group of highly related annotations" ,
+		"Reactome*"                                                       ,
+		"p"                                                               ,
+		"hypergeometric p-value"                                          ,
+		"Reactome*"                                                       ,
+		"odds"                                                            ,
+		"hypergeometric odds ratio, roughly counts / expected"            ,
+		"Reactome*"                                                       ,
+		"expected"                                                        ,
+		"expected number of genes based on number differential"           ,
+		"Reactome*"                                                       ,
+		"counts"                                                          ,
+		"number of genes observed with that annotation in differential"   ,
+		"Reactome*"                                                       ,
+		"padjust"                                                         ,
+		"Benjamini-Hochberg adjusted p-value"                             ,
+		"Reactome*"                                                       ,
+		"ID"                                                              ,
+		"identifier of the annotation"                                    ,
+		"Reactome*"                                                       ,
+		"description"                                                     ,
+		"text description of the annotation"                              ,
+		"Reactome*"                                                       ,
+		"group"                                                           ,
 		"is the annotation part of a group of highly related annotations"
 	)
 
@@ -1201,4 +1201,81 @@ compare_cluster_enrich_with_significant = function(
 	)
 
 	return(list(genes = gene_tables, compounds = compound_tables))
+}
+
+parse_chebi_json = function(chebi_json_file) {
+	# chebi_json_file = "/big_data/data/metabolite_conversions/chebi.json"
+
+	chebi_json = jsonlite::fromJSON(chebi_json_file, simplifyVector = FALSE)
+	chebi_nodes = chebi_json$graphs[[1]]$nodes
+
+	get_meta = function(meta_data) {
+		# meta_data = in_node$meta
+
+		if (!is.null(meta_data$synonyms)) {
+			synonyms = purrr::map(meta_data$synonyms, \(in_syn) {
+				tibble::tibble(
+					pred = in_syn$pred,
+					val = in_syn$val,
+					data = "synonym"
+				)
+			}) |>
+				purrr::list_rbind()
+		} else {
+			synonyms = NULL
+		}
+
+		if (!is.null(meta_data$xrefs)) {
+			xrefs = purrr::map(meta_data$xrefs, \(in_xref) {
+				split_data = stringr::str_split_fixed(in_xref$val, ":", 2)
+				tibble::tibble(
+					pred = split_data[1, 1],
+					val = split_data[1, 2],
+					data = "cross-reference"
+				)
+			}) |>
+				purrr::list_rbind()
+		} else {
+			xrefs = NULL
+		}
+
+		if (!is.null(meta_data$basicPropertyValues)) {
+			properties = purrr::map(meta_data$basicPropertyValues, \(in_value) {
+				tibble::tibble(
+					pred = fs::path_file(in_value$pred),
+					val = in_value$val,
+					data = "properties"
+				)
+			}) |>
+				purrr::list_rbind()
+		} else {
+			properties = NULL
+		}
+
+		dplyr::bind_rows(synonyms, xrefs, properties)
+	}
+
+	grab_chebi = function(in_node) {
+		# in_node = chebi_nodes[[2]]
+
+		if (!is.null(in_node$meta[["deprecated"]])) {
+			return(NULL)
+		}
+
+		id = fs::path_file(in_node$id[1])
+		label = in_node$lbl[1]
+
+		id_data = tibble::tibble(pred = "chebid", val = id, data = "id")
+
+		out_meta = get_meta(in_node$meta)
+
+		all_data = dplyr::bind_rows(id_data, out_meta)
+		all_data$chebi = id
+		all_data
+	}
+
+	chebi_data = furrr::future_map(chebi_nodes, grab_chebi, .progress = TRUE) |>
+		purrr::list_rbind()
+
+	chebi_data
 }

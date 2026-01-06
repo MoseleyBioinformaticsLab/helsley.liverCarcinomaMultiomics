@@ -357,6 +357,11 @@ tar_plan(
 
 	### Metabolites -----
 	tar_target(
+		chebi_data,
+		parse_chebi_json("/big_data/data/metabolite_conversions/chebi.json")
+	),
+
+	tar_target(
 		chebi_reactome_file,
 		"data/ChEBI2Reactome_All_Levels.txt",
 		format = "file"

@@ -93,7 +93,7 @@ floor_values = function(rna_matrix) {
 
 
 keep_presence_dds = function(rna_dds, fraction = 0.75) {
-	# rna_dds = tar_read(rna_dds_treatment)
+	# rna_dds = tar_read(rna_dds)
 	# fraction = 0.75
 	norm_wide = DESeq2::counts(rna_dds)
 	sample_info = as.data.frame(colData(rna_dds))
