@@ -5,12 +5,6 @@ source("./packages.R")
 tar_source("R")
 
 ## tar_plan supports drake-style targets and also tar_target()
-tar_assign({
-	color_scales = create_color_scales() |>
-		tar_target()
-	sample_list_file = "raw_data/sample_list.xlsx" |>
-		tar_target(format = "file")
-})
 
 tar_plan(
 	color_scales = create_color_scales(),
