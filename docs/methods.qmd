@@ -1,0 +1,157 @@
+---
+title: "Methods"
+author: "Report Author"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: docx
+---
+
+
+```{r}
+#| label: load-targets
+#| include: false
+#| echo: false
+targets::tar_source(c("./packages.R", "R"))
+tar_load(c(
+  rna_de_patient,
+  bioamines_de_patient,
+  pm_de_patient,
+  lipidomics_de_patient
+))
+```
+
+### Data Processing
+
+All data processing and statistical analysis used R v 4.4.1 [R Core Team (2024). _R: A Language and Environment for Statistical Computing_. R Foundation for Statistical Computing, Vienna, Austria. <https://www.R-project.org/>] and Bioconductor v 3.19 [http://www.nature.com/nmeth/journal/v12/n2/full/nmeth.3252.html]. 
+Abundance values were read in using either readxl v 1.4.3 [Wickham H, Bryan J (2023). _readxl: Read Excel Files_. R package version 1.4.3, <https://CRAN.R-project.org/package=readxl>.] or readr v 2.1.5 [Wickham H, Hester J, Bryan J (2024). _readr: Read Rectangular Text Data_. R package version 2.1.5, <https://CRAN.R-project.org/package=readr>.], with feature id and sample id cleaning using janitor v 2.2.0 [Firke S (2023). _janitor: Simple Tools for Examining and Cleaning Dirty Data_. R package version 2.2.0, <https://CRAN.R-project.org/package=janitor>.] and dplyr v 1.1.4 [ Wickham H, François R, Henry L, Müller K, Vaughan D (2023). _dplyr: A Grammar of Data Manipulation_. R package version 1.1.4, <https://CRAN.R-project.org/package=dplyr>.].
+Plots were generated using either singly or in combination packages: ggplot2 v 3.5.1 [H. Wickham. ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York, 2016.]; geom_sina from ggforce v 0.4.2 [Pedersen T (2024). _ggforce: Accelerating 'ggplot2'_. R package version 0.4.2, <https://CRAN.R-project.org/package=ggforce>.]; patchwork v 1.3.0 [Pedersen T (2024). _patchwork: The Composer of Plots_. R package version 1.3.0, <https://CRAN.R-project.org/package=patchwork>.]; ComplexHeatmap v 2.20.0 [Zuguang Gu, Roland Eils, Matthias Schlesner, Complex heatmaps reveal patterns and correlations in multidimensional genomic data, Bioinformatics, Volume 32, Issue 18, September 2016, Pages 2847–2849, https://doi.org/10.1093/bioinformatics/btw313].
+Analysis workflows were coordinated using targets v 1.8.0 [Landau, W. M., (2021). The targets R package: a dynamic Make-like function-oriented pipeline toolkit for reproducibility and high-performance computing. Journal of Open Source Software, 6(57),
+  2959, https://doi.org/10.21105/joss.02959].
+
+All four omics datasets (transcriptomics, biogenic amines, primary metabolism, lipidomics) were processed and analyzed separately as they were acquired in separate runs of instrumentation.
+Omics features were kept for further analysis if they were present (raw abundance >= 10) in 75% or more in either the tumor or adjacent nontumor samples (visualizationQualityControl v 0.5.1 [Flight RM, Moseley HN (2024). _visualizationQualityControl: Development of visualization methods for quality control_. R package version 0.5.1, commit 118c765fd076f08d32cadc7693cc738a36e08c3f,  <https://github.com/moseleyBioinformaticsLab/visualizationQualityControl>]).
+All data sets were stored in R and manipulated as DESeq2 datasets (v 1.44.0, [Love, M.I., Huber, W., Anders, S. Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2 Genome Biology 15(12):550 (2014)]).
+
+Sample normalization used estimateSizeFactors from DESeq2.
+
+### Quality Control / Quality Assurance
+
+Sample - sample correlations were calculated using information-content-informed Kendall-tau (ICI-Kt, ICIKendallTau v 1.2.2, [Flight RM, Bhatt PS, Moseley HN (2025). “Information-Content-Informed Kendall-tau Correlation Methodology: Interpreting Missing Values as Useful Information.” bioRxiv. doi:10.1101/2022.02.24.481854, https://doi.org/10.1101/2022.02.24.481854.]). 
+Outlier samples to be removed prior to differential analysis were based on scores calculated from the median ICI-Kt values within tumor and adjacent nontumor treatments and outliers detected using boxplot.stats.
+
+### Principal Component Analysis (PCA)
+
+Missing values were set to zero, and abundances were log-transformed using log(x + 1) (log1p function in R), and principal components calculated using the prcomp function, with centering and no scaling. 
+Principal component variances and percentages of total were calculated using visqc_score_contributions.
+
+### Differential Analysis
+
+Patients that had either a tumor or adjacent nontumor sample removed from outlier detection had the other sample removed prior to differential analysis.
+Any duplicate samples were collapsed using the collapseReplicates function from DESeq2.
+Statistics were calculated using DESeq2, with dispersions fit to the mean intensity using the paremetric method for transcriptomics, and the local method for the metabolomics datasets.
+The linear model for the differential analysis included the patient to account for the paired nature of the samples, specifically using the design of ~ patient + treatment, and then extracting the contrast of treatment in the DESeq results.
+P-values were adjusted using the Benjamini-Hochberg method [Benjamini, Y., and Hochberg, Y. (1995). Controlling the false discovery rate: a practical and powerful approach to multiple testing. Journal of the Royal Statistical Society Series B, 57, 289–300. doi:10.1111/j.2517-6161.1995.tb02031.x.].
+
+### Annotation Enrichment
+
+Reactome pathway annotations for Ensembl genes were downloaded from the reactome pathway website on 2024-02-23 [Milacic M, Beavers D, Conley P, Gong C, Gillespie M, Griss J, Haw R, Jassal B, Matthews L, May B, Petryszak R, Ragueneau E, Rothfels K, Sevilla C, Shamovsky V, Stephan R, Tiwari K, Varusai T, Weiser J, Wright A, Wu G, Stein L, Hermjakob H, D’Eustachio P. The Reactome Pathway Knowledgebase 2024. Nucleic Acids Research. 2024. doi: 10.1093/nar/gkad1025.].
+Reactome pathway annotations for CheBI metabolites were downloaded from the reactome pathway website.
+Metabolites were mapped to CheBI by a combination of InChiKey's generated by OpenBabel from the download of CheBI to InChi, as well as through mapping of KEGG compounds.
+Lipids were annotated by lipid class, chain lengths, total chain lengths, and unsaturations using custom code to parse the lipid IDs provided.
+
+Hypergeometric enrichment used all annotated features as the universe, and those features with an adjusted p-value $\le 0.01$ as the significant set, with features split by log-fold-change direction (positively and negatively changed), using the hypergeometric_feature_enrichment in categoryCompare2 v 0.200.2 [Flight RM, Harrison BJ, Mohammad F, Bunge MB, Moon LDF, Petruska JC, Rouchka EC (2014). “CATEGORYCOMPARE, an analytical tool based on feature annotations.” _Frontiers in Genetics_.  doi:10.3389/fgene.2014.00098 <https://doi.org/10.3389/fgene.2014.00098>, <http://dx.doi.org/10.3389/fgene.2014.00098>.].
+Enrichment p-values were adjusted using the Benjamini-Hochberg method.
+
+Binomial enrichment used all features regardless of p-value, using the binomial_feature_enrichment function in categoryCompare2, with annotations that have at least six features, the null hypothesis that the ratio of positively to negatively changed features should be 0.5, and adjusting p-values using the Benjamini-Hochberg method [Benjamini, Y., and Hochberg, Y. (1995). Controlling the false discovery rate: a practical and powerful approach to multiple testing. Journal of the Royal Statistical Society Series B, 57, 289–300. doi:10.1111/j.2517-6161.1995.tb02031.x.].
+
+### Spearman Correlation of Transcripts and Metabolomites
+
+Correlations of all metabolites were calculated with all of the transcripts across the samples common to all omics methods, using Spearman correlation, with zero representing a missing value.
+Significantly changed transcripts (Padj $\le 0.01$) with significant correlations (Padj $\le 0.01$) correlations to either compounds (biogenic amines & primary metabolism) or lipids that are associated with a significant binomial enriched category (pathway or lipid annotation, Padj $\le 0.05$) were extracted.
+The Spearman correlation was used as input for calculating the Euclidian distances between the metabolites and the genes, and then clustered using hierarchical clustering via hclust, and ordered using dendsort v 0.3.4 [Sakai R, Biederstedt E (2021). _dendsort: Modular Leaf Ordering Methods for Dendrogram Nodes_. R package version 0.3.4, <https://CRAN.R-project.org/package=dendsort>.]. 
+Clusters of metabolites and transcripts were defined in two passes.
+The first was by splitting the hierarchical clustering into *x* clusters using cutree, defined by the number of clusters desired.
+Subsequently, chosen clusters were split into sub-clusters by pruning away branches not in the desired cluster (via the prune function of dendextend v 1.18.0 [Tal Galili (2015). dendextend: an R package for visualizing, adjusting, and comparing trees of hierarchical clustering. Bioinformatics. DOI: 10.1093/bioinformatics/btv428]), and then splitting the remainder again into the number of desired clusters using cutree.
+
+Hypergeometric enrichment of transcripts and metabolites in each cluster used all measured features as the universe, and the members of the cluster as the significant set. 
+P-values were adjusted using the Benjamini-Hochberg method.
+
+### Code and Data Availability
+
+All R code used for the analysis and feature abundances are available on Zenodo.
+
+## Results
+
+### Transcriptomics
+
+```{r}
+#| label: report-n-sig
+#| echo: false
+
+count_notna = function(in_vector) {
+  sum(!is.na(in_vector))
+}
+report_n_sig = function(de_results, pcut = 0.01) {
+  # de_results = rna_de_patient
+  # pcut = 0.01
+  force(pcut)
+  de_all = de_results |>
+    dplyr::filter(padj <= pcut)
+  de_pos = de_all |>
+    dplyr::filter(log2FoldChange >= 0)
+  de_neg = de_all |>
+    dplyr::filter(log2FoldChange < 0)
+
+  out_tbl = tibble::tibble(
+    result = c("Measured", "Sig", "Sig Pos", "Sig Neg"),
+    N = c(nrow(de_results), nrow(de_all), nrow(de_pos), nrow(de_neg)),
+    Perc = c(NA, NA, nrow(de_pos) / nrow(de_all), nrow(de_neg) / nrow(de_all)),
+    Min = c(NA, NA, min(de_pos$log2FoldChange), max(de_neg$log2FoldChange))
+  )
+
+  if (!is.null(de_results[["metabolite_id"]])) {
+    n_annot = tibble::tibble(
+      N_Annot = c(
+        count_notna(de_results$metabolite_id),
+        count_notna(de_all$metabolite_id),
+        count_notna(de_pos$metabolite_id),
+        count_notna(de_neg$metabolite_id)
+      )
+    )
+    out_tbl = dplyr::bind_cols(out_tbl, n_annot)
+    out_tbl = out_tbl |>
+      dplyr::mutate(Perc_Annot = N_Annot / N)
+  }
+  out_tbl
+}
+```
+
+
+```{r}
+#| label: n-transcriptomics
+#| echo: false
+gt::gt(report_n_sig(rna_de_patient))
+```
+
+### Primary Metabolism
+
+```{r}
+#| label: n-pm
+#| echo: false
+gt::gt(report_n_sig(pm_de_patient))
+```
+
+### Biogenic Amines
+
+```{r}
+#| label: n-bioamines
+#| echo: false
+gt::gt(report_n_sig(bioamines_de_patient))
+```
+
+### Lipidomics
+
+```{r}
+#| label: n-lipidomics
+#| echo: false
+gt::gt(report_n_sig(lipidomics_de_patient))
+```

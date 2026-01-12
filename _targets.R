@@ -1134,7 +1134,8 @@ tar_plan(
 	tar_quarto(
 		heatmap_cluster_enrichments,
 		"docs/heatmap_cluster_enrichments.qmd"
-	)
+	),
+	tar_quarto(methods, "docs/methods.qmd")
 	# target = function_to_make(arg), ## drake style
 
 	# tar_target(target2, function_to_make2(arg)) ## targets style

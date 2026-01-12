@@ -1,0 +1,50 @@
+{
+    "creators": [
+        {
+            "orcid": "0000-0001-8141-7788",
+            "affiliation": "University of Kentucky",
+            "name": "Flight, Robert M"
+        }
+    ],
+    "contributors": [
+        {
+            "orcid": "0000-0002-8703-4857",
+            "affiliation": "University of Kentucky",
+            "name": "Anspach, Garrett B"
+        },
+        {
+            "affiliation": "University of Kentucky",
+            "name": "Park, Sehyung"
+        },
+        {
+            "orcid": "0000-0001-5000-3187",
+            "affiliation": "University of Kentucky",
+            "name": "Helsley, Robert N"
+        },
+        {
+            "orcid": "0000-0003-3995-5368",
+            "affiliation": "University of Kentucky",
+            "name": "Moseley, Hunter NB"
+        }
+    ],
+    "license": "CC-BY-4.0",
+    "title": "Code and Data for Multi-omic Analyses Reveal Novel Gene-Metabolite Relationships in Human Steatohepatitic-driven HCC",
+    "grants": [
+        {
+            "id": "K01DK128022"
+        },
+        {
+            "id": "R01DK139147"
+        },
+        {
+            "id": "23CDA1051959"
+        },
+        {
+            "id": "IRG2215234"
+        },
+        {
+            "id": "P30CA177558"
+        }
+    ],
+    "related_identifiers": []
+}
