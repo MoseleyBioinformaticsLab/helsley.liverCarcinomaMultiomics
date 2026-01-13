@@ -32,5 +32,26 @@
         }
     ],
     "license": "CC-BY-4.0",
-    "title": "Code and Data for Multi-omic Analyses Reveal Novel Gene-Metabolite Relationships in Human Steatohepatitic-driven HCC"
+    "title": "Code and Data for Multi-omic Analyses Reveal Novel Gene-Metabolite Relationships in Human Steatohepatitic-driven HCC",
+    "access_right": "open",
+    "funding": [
+        {
+            "award": {
+                "identifiers": [
+                    {
+                        "identifier": "https://reporter.nih.gov/project-details/11250051",
+                        "scheme": "url"
+                    }
+                ],
+                "number": "5K01DK128022-05",
+                "title": {
+                    "en": "Elucidating Molecular Mechanisms Linking Fructose to Cholesterol Metabolism"
+                }
+            },
+            "funder": {
+                "id": "01cwqze88",
+                "name": "National Institutes of Health"
+            }
+        }
+    ]
 }
