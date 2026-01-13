@@ -28,10 +28,5 @@
         }
     ],
     "license": "CC-BY-4.0",
-    "title": "Code and Data for Multi-omic Analyses Reveal Novel Gene-Metabolite Relationships in Human Steatohepatitic-driven HCC",
-    "grants": [
-        {
-            "id": "10.13039/100000002::11250051"
-        }
-    ]
+    "title": "Code and Data for Multi-omic Analyses Reveal Novel Gene-Metabolite Relationships in Human Steatohepatitic-driven HCC"
 }
