@@ -10,21 +10,25 @@
         {
             "orcid": "0000-0002-8703-4857",
             "affiliation": "University of Kentucky",
-            "name": "Anspach, Garrett B"
+            "name": "Anspach, Garrett B",
+            "type": "Researcher"
         },
         {
             "affiliation": "University of Kentucky",
-            "name": "Park, Sehyung"
+            "name": "Park, Sehyung",
+            "type": "Researcher"
         },
         {
             "orcid": "0000-0001-5000-3187",
             "affiliation": "University of Kentucky",
-            "name": "Helsley, Robert N"
+            "name": "Helsley, Robert N",
+            "type": "ProjectLeader"
         },
         {
             "orcid": "0000-0003-3995-5368",
             "affiliation": "University of Kentucky",
-            "name": "Moseley, Hunter NB"
+            "name": "Moseley, Hunter NB",
+            "type": "ProjectMember"
         }
     ],
     "license": "CC-BY-4.0",
