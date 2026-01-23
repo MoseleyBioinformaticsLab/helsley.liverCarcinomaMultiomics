@@ -350,10 +350,6 @@ tar_plan(
 	ensembl_reactome = create_reactome_gene_annotations(reactome_gene_file),
 
 	### Metabolites -----
-	tar_target(
-		chebi_data,
-		parse_chebi_json("/big_data/data/metabolite_conversions/chebi.json")
-	),
 
 	tar_target(
 		chebi_reactome_file,
