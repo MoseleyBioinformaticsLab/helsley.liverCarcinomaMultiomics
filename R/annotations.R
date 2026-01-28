@@ -349,6 +349,128 @@ get_inchikey_hash = function(inchi_df, inchikey_directory = "data/chebi") {
 # obabel [9]*.inchi -oinchikey -m -e
 #
 
+write_hypergeometric_excel = function(hyper_stats, excel_file) {
+	# hyper_stats = tar_read(cluster_rna_lipids_vs_rna_go)$genes
+	# excel_file = "docs/rna_cluster_enrich_lipids.xlsx"
+
+	hyper_stats = hyper_stats |>
+		dplyr::arrange(padjust)
+	data_dictionary = tibble::tribble(
+		~header                                                            ,
+		~meaning                                                           ,
+		"p"                                                                ,
+		"hypergeometric p-value"                                           ,
+		"odds"                                                             ,
+		"hypergeometric odds ratio, roughly counts / expected"             ,
+		"expected"                                                         ,
+		"expected number of features based on number differential"         ,
+		"counts"                                                           ,
+		"number of features observed with that annotation in differential" ,
+		"padjust"                                                          ,
+		"Benjamini-Hochberg adjusted p-value"                              ,
+		"significant"                                                      ,
+		"the number of things that were significant in the test"           ,
+		"ID"                                                               ,
+		"identifier of the annotation"                                     ,
+		"description"                                                      ,
+		"text description of the annotation"                               ,
+		"cluster"                                                          ,
+		"which heatmap cluster does this match, if any"                    ,
+		"is_significant"                                                   ,
+		"was the adjusted p-value below the cutoff"                        ,
+		"enrich_id"                                                        ,
+		"does this match another enriched ID from another analysis"
+	)
+
+	tab_out = list(dictionary = data_dictionary, enrichment = hyper_stats)
+	tabular_output = openxlsx::write.xlsx(
+		tab_out,
+		excel_file,
+		overwrite = TRUE
+	)
+	tabular_output
+}
+
+write_binomial_excel = function(binomial_stats, excel_file) {
+	# binomial_stats = tar_read(metabolomics_enrichment_lipid_binomial)
+	# excel_file = "docs/lipidomics_binomial_enrichments.xlsx"
+
+	binomial_stats = binomial_stats$stats
+	binomial_stats = binomial_stats |>
+		dplyr::arrange(padjust) |>
+		dplyr::select(
+			null_value,
+			p,
+			padjust,
+			num_positive,
+			num_negative,
+			direction,
+			id
+		)
+	data_dictionary = tibble::tribble(
+		~header                                       ,
+		~meaning                                      ,
+		"null_value"                                  ,
+		"the null ratio used to test against"         ,
+		"p"                                           ,
+		"p-value"                                     ,
+		"padjust"                                     ,
+		"adjusted p-value"                            ,
+		"num_positive"                                ,
+		"number of positive log-fold-change features" ,
+		"num_negative"                                ,
+		"number of negative log-fold-change features" ,
+		"direction"                                   ,
+		"overall direction of log-fold-changes"       ,
+		"id"                                          ,
+		"the annotation being tested"
+	)
+
+	tab_out = list(dictionary = data_dictionary, enrichment = binomial_stats)
+	tabular_output = openxlsx::write.xlsx(
+		tab_out,
+		excel_file,
+		overwrite = TRUE
+	)
+	tabular_output
+}
+
+write_reactome_excel = function(reactome_stats, excel_file) {
+	# reactome_stats = tar_read(rna_patient_enrichment_grouped_eachreactome)$pos
+	# excel_file = "docs/transcriptomics_reactome_positive_enrichments.xlsx"
+	data_dictionary = tibble::tribble(
+		~header                                                           ,
+		~meaning                                                          ,
+		"p"                                                               ,
+		"hypergeometric p-value"                                          ,
+		"odds"                                                            ,
+		"hypergeometric odds ratio, roughly counts / expected"            ,
+		"expected"                                                        ,
+		"expected number of genes based on number differential"           ,
+		"counts"                                                          ,
+		"number of genes observed with that annotation in differential"   ,
+		"padjust"                                                         ,
+		"Benjamini-Hochberg adjusted p-value"                             ,
+		"significant"                                                     ,
+		"the number of things that were significant in the test"          ,
+		"ID"                                                              ,
+		"identifier of the annotation"                                    ,
+		"description"                                                     ,
+		"text description of the annotation"                              ,
+		"group"                                                           ,
+		"is the annotation part of a group of highly related annotations"
+	)
+
+	reactome_stats = reactome_stats |> dplyr::arrange(padjust)
+	tab_out = list(dictionary = data_dictionary, enrichment = reactome_stats)
+	tabular_output = openxlsx::write.xlsx(
+		tab_out,
+		excel_file,
+		overwrite = TRUE
+	)
+	tabular_output
+}
+
 write_goeach_to_excel = function(go_stuff, reactome_stuff) {
 	# go_stuff = tar_read(rna_patient_enrichment_grouped_eachgo)
 	# reactome_stuff = tar_read(rna_patient_enrichment_grouped_eachreactome)
@@ -371,6 +493,9 @@ write_goeach_to_excel = function(go_stuff, reactome_stuff) {
 		"GO*"                                                             ,
 		"padjust"                                                         ,
 		"Benjamini-Hochberg adjusted p-value"                             ,
+		"GO*"                                                             ,
+		"significant"                                                     ,
+		"the number of things significant"                                ,
 		"GO*"                                                             ,
 		"ID"                                                              ,
 		"identifier of the annotation"                                    ,
@@ -395,6 +520,9 @@ write_goeach_to_excel = function(go_stuff, reactome_stuff) {
 		"Reactome*"                                                       ,
 		"padjust"                                                         ,
 		"Benjamini-Hochberg adjusted p-value"                             ,
+		"Reactome"                                                        ,
+		"significant"                                                     ,
+		"the number of things that were significant in the test"          ,
 		"Reactome*"                                                       ,
 		"ID"                                                              ,
 		"identifier of the annotation"                                    ,

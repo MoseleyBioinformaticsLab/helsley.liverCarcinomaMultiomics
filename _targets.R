@@ -765,6 +765,26 @@ tar_plan(
 		rna_patient_enrichment_grouped_eachreactome
 	),
 
+	transcriptomics_reactome_pos_excel = write_reactome_excel(
+		rna_patient_enrichment_grouped_eachreactome$pos,
+		"docs/transcriptomics_reactome_positive_enrichments.xlsx"
+	),
+
+	transcriptomics_reactome_neg_excel = write_reactome_excel(
+		rna_patient_enrichment_grouped_eachreactome$neg,
+		"docs/transcriptomcis_reactome_negative_enrichments.xlsx"
+	),
+
+	lipid_binomial_enrich_excel = write_binomial_excel(
+		metabolomics_enrichment_lipid_binomial,
+		"docs/lipidomics_binomial_enrichments.xlsx"
+	),
+
+	metabolomics_binomial_enrich_excel = write_binomial_excel(
+		metabolomics_enrichment_reactome_binomial,
+		"docs/metabolomics_binomial_enrichments.xlsx"
+	),
+
 	metabolomics_de_excel = generate_metabolomics_de_output(
 		metabolomics_de_patient_list
 	),
@@ -933,6 +953,25 @@ tar_plan(
 		metabolomics_de_patient_list,
 		ensembl_reactome,
 		feature_lipid
+	),
+
+	### MOAR excel outputs for clustered enrichments
+	rna_cluster_lipids_enrich_excel = write_hypergeometric_excel(
+		cluster_rna_lipids_vs_rna_go$genes,
+		"docs/rna_cluster_enrich_lipids.xlsx"
+	),
+	lipids_cluster_rna_enrich_excel = write_hypergeometric_excel(
+		cluster_rna_lipids_vs_rna_go$compounds,
+		"docs/lipids_cluster_enrich_rna.xlsx"
+	),
+
+	rna_cluster_compounds_enrich_excel = write_hypergeometric_excel(
+		cluster_rna_compounds_vs_rna_go$genes,
+		"docs/rna_cluster_enrich_compounds.xlsx"
+	),
+	compounds_cluster_rna_enrich_excel = write_hypergeometric_excel(
+		cluster_rna_compounds_vs_rna_go$compounds,
+		"docs/compounds_cluster_enrich_rna.xlsx"
 	),
 
 	### number annotated to annotations -------
@@ -1128,5 +1167,11 @@ tar_plan(
 	tar_quarto(methods, "docs/methods.qmd")
 	# target = function_to_make(arg), ## drake style
 
+	# notes for future me, because I'll forget later.
+	#  * lipids binomial enrichment include more than just the lipid classes, they also
+	#    include the double bonds, chain lengths, and combinations.
+	#  * correlations of transcripts with lipids were done for ALL transcripts against all
+	#    metabolites simultaneously (see `rna_metabolites_all_spearman_sig`, and
+	#    `rna_compounds_matrix` above).
 	# tar_target(target2, function_to_make2(arg)) ## targets style
 )
