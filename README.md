@@ -1,8 +1,10 @@
-## Code and Data for Multi-omic Analyses Reveal Novel Gene-Metabolite Relationships in Human Steatohepatitic-driven HCC
+## Code and Data for An Integrated Multi-omic Analysis Reveals Novel Gene-Metabolite Relationships in Human Steatohepatitic Hepatocellular Carcinoma
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18233569.svg)](https://doi.org/10.5281/zenodo.18233569)
 
-This repository provides the data and code for the analyses reported in "Multi-omic Analyses Reveal Novel Gene-Metabolite Relationships in Human Steatohepatitic-driven HCC".
+This repository provides the data and code for the analyses reported in: 
+
+Garrett B. Anspach, Robert M. Flight, Sehyung Park, Hunter N.B. Moseley, and Robert N. Helsley. "An Integrated Multi-omic Analysis Reveals Novel Gene-Metabolite Relationships in Human Steatohepatitic Hepatocellular Carcinoma" medRxiv 2026.01.28.26344977 (2026). https://doi.org/10.64898/2026.01.28.26344977
 
 The permanent record is archived on [Zenodo](https://doi.org/10.5281/zenodo.18227400).
 
@@ -36,3 +38,12 @@ install.packages("renv")
 library(renv)
 renv::restore()
 ```
+
+## Funding
+
+Funding for this work was provided by:
+
+* National Institutes of Health grant 5K01DK128022;
+* National Institutes of Health grant 1R01DK139147;
+* American Heart Association grant 23CDA1051959;
+* American Cancer Society grant IRG2215234.
