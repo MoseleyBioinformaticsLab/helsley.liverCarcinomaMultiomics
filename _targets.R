@@ -11,13 +11,33 @@ tar_plan(
 
 	tar_target(sample_list_file, "raw_data/sample_list.xlsx", format = "file"),
 
-	sample_info = suppressMessages(readxl::read_excel(sample_list_file)) |>
+	sample_info_org = suppressMessages(readxl::read_excel(sample_list_file)) |>
 		janitor::clean_names() |>
 		dplyr::mutate(
 			sample_id = paste0("s", sample_label),
 			treatment = tolower(gsub(" ", "_", treatment)),
 			patient = tolower(gsub(" ", "_", patient))
 		),
+
+	tar_target(
+		sample_list_file_sex,
+		"raw_data/sample_list_sex.xlsx",
+		format = "file"
+	),
+	sample_info_sex = suppressMessages(readxl::read_excel(
+		sample_list_file_sex
+	)) |>
+		janitor::clean_names() |>
+		dplyr::mutate(
+			sample_id = replicate,
+			sex = tolower(sex)
+		),
+
+	sample_info = dplyr::left_join(
+		sample_info_org,
+		sample_info_sex[, c("sample_id", "sex")],
+		by = "sample_id"
+	),
 
 	sample_info_no11 = sample_info |>
 		dplyr::filter(!(sample_id %in% "s11")),
@@ -213,6 +233,24 @@ tar_plan(
 		pm = pm_de_patient_named
 	) |>
 		merge_list(),
+
+	### Paired t-test + sex covariate included --------
+	rna_de_patient_sex = calculate_deseq_stats(
+		rna_paired,
+		which = "sex",
+		fit_type = "parametric"
+	),
+
+	bioamines_de_patient_sex = calculate_deseq_stats(
+		bioamines_paired,
+		which = "sex"
+	),
+
+	lipidomics_de_patient_sex = calculate_deseq_stats(
+		lipidomics_paired,
+		which = "sex"
+	),
+	pm_de_patient_sex = calculate_deseq_stats(pm_paired, which = "sex"),
 
 	### Paired Samples, but unpaired stats --------
 	rna_de_patient_unpaired = calculate_deseq_stats(

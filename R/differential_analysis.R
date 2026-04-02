@@ -138,8 +138,10 @@ calculate_deseq_stats = function(
 	# which = "treatment"
 	if (which %in% "treatment") {
 		design(rna_se) = ~treatment
-	} else {
+	} else if (which %in% "patient") {
 		design(rna_se) = ~ patient + treatment
+	} else if (which %in% "sex") {
+		design(rna_se) = ~ patient + treatment + sex
 	}
 
 	rna_deseq = DESeq(rna_se, fitType = fit_type)
