@@ -30,7 +30,7 @@ tar_plan(
 		janitor::clean_names() |>
 		dplyr::mutate(
 			sample_id = replicate,
-			sex = tolower(sex)
+			sex = factor(tolower(sex))
 		),
 
 	sample_info = dplyr::left_join(
@@ -234,23 +234,42 @@ tar_plan(
 	) |>
 		merge_list(),
 
-	### Paired t-test + sex covariate included --------
-	rna_de_patient_sex = calculate_deseq_stats(
+	### treatment + sex covariate included --------
+	# note, because sex is confounded with patient, we can't do the paired
+	# analysis here. It needs to be un-paired.
+	# we can pull the contrast out for treatment + sex though.
+	rna_de_sex_mvf = calculate_deseq_stats(
 		rna_paired,
 		which = "sex",
-		fit_type = "parametric"
+		fit_type = "parametric",
+		contrast = "sexm"
+	),
+	rna_de_sex_m = calculate_deseq_stats(
+		rna_paired,
+		which = "sex",
+		fit_type = "parametric",
+		contrast = "sexm.treatmentcancerous"
 	),
 
-	bioamines_de_patient_sex = calculate_deseq_stats(
-		bioamines_paired,
-		which = "sex"
+	rna_de_sex_f = calculate_deseq_stats(
+		rna_paired,
+		which = "sex",
+		fit_type = "parametric",
+		contrast = "sexf.treatmentcancerous"
 	),
 
-	lipidomics_de_patient_sex = calculate_deseq_stats(
-		lipidomics_paired,
-		which = "sex"
-	),
-	pm_de_patient_sex = calculate_deseq_stats(pm_paired, which = "sex"),
+	# bioamines_de_sex = calculate_deseq_stats(
+	# 	bioamines_paired,
+	# 	which = "sex",
+	# 	contrast = "treatmentnormal_adjacent.sexm"
+	# ),
+
+	# lipidomics_de_sex = calculate_deseq_stats(
+	# 	lipidomics_paired,
+	# 	which = "sex",
+	# 	contrast = "treatmentnormal_adjacent.sexm"
+	# ),
+	# pm_de_sex = calculate_deseq_stats(pm_paired, which = "sex"),
 
 	### Paired Samples, but unpaired stats --------
 	rna_de_patient_unpaired = calculate_deseq_stats(

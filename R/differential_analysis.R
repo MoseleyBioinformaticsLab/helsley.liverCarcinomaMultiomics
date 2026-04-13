@@ -136,16 +136,57 @@ calculate_deseq_stats = function(
 	#
 	# rna_se = tar_read(lipidomics_collapsed)
 	# which = "treatment"
+
+	# rna_se = tar_read(rna_paired)
+	# which = "sex"
+	# fit_type = "parametric"
+
+	use_model = NULL
 	if (which %in% "treatment") {
 		design(rna_se) = ~treatment
 	} else if (which %in% "patient") {
 		design(rna_se) = ~ patient + treatment
 	} else if (which %in% "sex") {
-		design(rna_se) = ~ patient + treatment + sex
+		tmp_coldata = colData(rna_se) |> as.data.frame()
+		tmp_sex_pt_treat = tmp_coldata |>
+			dplyr::select(sample_id, sex, patient, treatment) |>
+			dplyr::arrange(sex, patient, treatment)
+		n_patient_sex = tmp_sex_pt_treat |>
+			dplyr::summarise(
+				n_patient = length(unique(patient)),
+				.by = sex
+			)
+		extra_rep = purrr::map(seq_len(nrow(n_patient_sex)), \(in_row) {
+			rep(seq_len(n_patient_sex$n_patient[in_row]), each = 2)
+		}) |>
+			purrr::list_c() |>
+			factor()
+		names(extra_rep) = tmp_sex_pt_treat$sample_id
+		extra_rep = extra_rep[rna_se$sample_id]
+		rna_se$sex_rep = extra_rep
+		tmp_coldata = colData(rna_se) |> as.data.frame()
+		tmp_model = model.matrix(
+			~ sex + sex:treatment + sex:sex_rep,
+			data = tmp_coldata
+		)
+		is_allzero = apply(tmp_model, 2, \(x) {
+			all(x == 0)
+		})
+		use_model = tmp_model[, !is_allzero]
 	}
 
-	rna_deseq = DESeq(rna_se, fitType = fit_type)
-	rna_results = results(rna_deseq, contrast = contrast) |> as.data.frame()
+	if (is.null(use_model)) {
+		rna_deseq = DESeq(rna_se, fitType = fit_type)
+	} else {
+		rna_deseq = DESeq(rna_se, fitType = fit_type, full = use_model)
+	}
+
+	if (which %in% "sex") {
+		rna_results = results(rna_deseq, name = contrast) |> as.data.frame()
+	} else {
+		rna_results = results(rna_deseq, contrast = contrast) |> as.data.frame()
+	}
+
 	rna_info = rowData(rna_se) |> as.data.frame()
 	rna_results = cbind(rna_results, rna_info)
 
