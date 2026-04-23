@@ -4,6 +4,7 @@ source("./packages.R")
 ## Load your R files --------
 tar_source("R")
 
+
 ## tar_plan supports drake-style targets and also tar_target()
 
 tar_plan(
@@ -198,6 +199,12 @@ tar_plan(
 		fit_type = "parametric"
 	),
 
+	rna_paired_nosex = remove_sex(rna_paired),
+	rna_de_patient_nosex = calculate_deseq_stats(
+		rna_paired_nosex,
+		which = "patient",
+		fit_type = "parametric"
+	),
 	bioamines_paired = filter_to_pairs(bioamines_collapsed),
 	bioamines_de_patient = calculate_deseq_stats(
 		bioamines_paired,
@@ -235,13 +242,25 @@ tar_plan(
 		merge_list(),
 
 	### treatment + sex covariate included --------
-	# note, because sex is confounded with patient, we can't do the paired
-	# analysis here. It needs to be un-paired.
-	# we can pull the contrast out for treatment + sex though.
 	rna_de_sex_mvf = calculate_deseq_stats(
 		rna_paired,
 		which = "sex",
 		fit_type = "parametric",
+		contrast = "sexm"
+	),
+	lipidomics_de_sex_mvf = calculate_deseq_stats(
+		lipidomics_paired,
+		which = "sex",
+		contrast = "sexm"
+	),
+	bioamines_de_sex_mvf = calculate_deseq_stats(
+		bioamines_paired,
+		which = "sex",
+		contrast = "sexm"
+	),
+	pm_de_sex_mvf = calculate_deseq_stats(
+		pm_paired,
+		which = "sex",
 		contrast = "sexm"
 	),
 	rna_de_sex_m = calculate_deseq_stats(
@@ -256,6 +275,53 @@ tar_plan(
 		which = "sex",
 		fit_type = "parametric",
 		contrast = "sexf.treatmentcancerous"
+	),
+
+	# sex difference of differences ----------
+	# this is what we are really interested in as far as
+	# any sex specific changes
+	rna_de_cancer_sex_mvf = calculate_deseq_stats(
+		rna_paired,
+		which = "sex",
+		fit_type = "parametric",
+		contrast = list("sexf.treatmentcancerous", "sexm.treatmentcancerous")
+	),
+
+	bioamines_de_cancer_sex_mvf = calculate_deseq_stats(
+		bioamines_paired,
+		which = "sex",
+		contrast = list("sexf.treatmentcancerous", "sexm.treatmentcancerous")
+	),
+
+	lipidomics_de_cancer_sex_mvf = calculate_deseq_stats(
+		lipidomics_paired,
+		which = "sex",
+		contrast = list("sexf.treatmentcancerous", "sexm.treatmentcancerous")
+	),
+
+	pm_de_cancer_sex_mvf = calculate_deseq_stats(
+		pm_paired,
+		which = "sex",
+		contrast = list("sexf.treatmentcancerous", "sexm.treatmentcancerous")
+	),
+
+	rna_compare_sex = compare_sig_features(list(
+		`f-v-m-cancer-v-normal` = rna_de_cancer_sex_mvf,
+		`cancer-v-normal` = rna_de_patient
+	)),
+	bioamines_compare_sex = compare_sig_features(list(
+		`f-v-m-cancer-v-normal` = bioamines_de_cancer_sex_mvf,
+		`cancer-v-normal` = bioamines_de_patient
+	)),
+	pm_compare_sex = compare_sig_features(list(
+		`f-v-m-cancer-v-normal` = pm_de_cancer_sex_mvf,
+		`cancer-v-normal` = pm_de_patient
+	)),
+	lipidomics_compare_sex = compare_sig_features(
+		list(
+			`f-v-m-cancer-v-normal` = lipidomics_de_cancer_sex_mvf,
+			`cancer-v-normal` = lipidomics_de_patient
+		)
 	),
 
 	# bioamines_de_sex = calculate_deseq_stats(
@@ -524,6 +590,12 @@ tar_plan(
 		feature_reactome
 	),
 
+	metabolomics_de_cancer_sex_mvf_list = list(
+		bioamines = bioamines_de_cancer_sex_mvf,
+		lipidomics = lipidomics_de_cancer_sex_mvf,
+		pm = pm_de_sex_mvf
+	) |>
+		merge_list(),
 	metabolomics_de_patient_list = list(
 		bioamines = bioamines_de_patient,
 		lipidomics = lipidomics_de_patient,
@@ -842,6 +914,14 @@ tar_plan(
 		"docs/metabolomics_binomial_enrichments.xlsx"
 	),
 
+	metabolomics_de_cancer_mvf_excel = generate_metabolomics_de_output(
+		metabolomics_de_cancer_sex_mvf_list,
+		"docs/metabolomics_cancer_mvf_differential.xlsx"
+	),
+	transcriptomics_de_cancer_mvf_excel = generate_transcriptomics_de_output(
+		rna_de_cancer_sex_mvf,
+		"docs/transcriptomics_cancer_mvf_differential.xlsx"
+	),
 	metabolomics_de_excel = generate_metabolomics_de_output(
 		metabolomics_de_patient_list
 	),
@@ -1176,6 +1256,45 @@ tar_plan(
 		)
 	),
 
+	pca_sex_list = list(
+		RNA = list(
+			id = "RNA",
+			figure = rna_qcqa$pca_nooutlier_sex,
+			caption = "RNA samples PCA plot, colored by the sex of the patient."
+		),
+		Bioamines = list(
+			id = "Bioamines",
+			figure = bioamines_qcqa$pca_nooutlier_sex,
+			caption = "Biogenic amines samples PCA plot, colored by the sex of the patient."
+		),
+		Lipidomics = list(
+			id = "Lipidomics",
+			figure = lipidomics_qcqa$pca_nooutlier_sex,
+			caption = "Lipidomics samples PCA plot, colored by the sex of the patient."
+		),
+		PM = list(
+			id = "Primary Metabolites",
+			figure = primary_metabolism_qcqa$pca_nooutlier_sex,
+			caption = "Primary metabolism samples PCA plot, colored by the sex of the patient."
+		)
+	),
+
+	sex_pca_figures = export_single_images(
+		pca_sex_list,
+		"docs/pca_sex_figures",
+		"_pca_sex"
+	),
+
+	sex_comparison_figures = export_single_images(
+		list(
+			RNA = list(figure = rna_compare_sex),
+			PM = list(figure = pm_compare_sex),
+			Lipidomics = list(figure = lipidomics_compare_sex),
+			Bioamines = list(figure = bioamines_compare_sex)
+		),
+		"docs/upset_compare_sex_figures",
+		"_compare_differential_sex"
+	),
 	# pca_heatmap_ppt = export_pca_heatmaps_pptx(
 	# 	pca_heatmap_list,
 	# 	"docs/pca_heatmap_figures.pptx"
@@ -1221,7 +1340,14 @@ tar_plan(
 		heatmap_cluster_enrichments,
 		"docs/heatmap_cluster_enrichments.qmd"
 	),
-	tar_quarto(methods, "docs/methods.qmd")
+	tar_quarto(methods, "docs/methods.qmd"),
+	tar_quarto(differential_sex, "docs/differential_analysis_sexmf.qmd"),
+
+	### assigned counts -----------------
+	bioamine_counts = count_assignments(bioamines, "bioamines"),
+	pm_counts = count_assignments(primary_metabolism, "primary metabolism"),
+	lipidomics_counts = count_assignments(lipidomics, "lipids"),
+	all_counts = dplyr::bind_rows(bioamine_counts, pm_counts, lipidomics_counts)
 	# target = function_to_make(arg), ## drake style
 
 	# notes for future me, because I'll forget later.

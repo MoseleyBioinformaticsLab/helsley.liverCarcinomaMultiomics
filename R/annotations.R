@@ -223,6 +223,11 @@ run_enrichment = function(
 	# de_values = tar_read(rna_de_patient)
 	# annotation_obj = tar_read(ensembl_go)
 	# padj_cutoff = 0.01
+
+	# de_values = tar_read(rna_de_treatment)
+	# annotation_obj = tar_read(ensembl_go)
+	# padj_cutoff = 0.01
+	# keep_group = c("pos", "neg")
 	force(padj_cutoff)
 	de_entries = de_values |>
 		dplyr::filter(padj <= padj_cutoff)

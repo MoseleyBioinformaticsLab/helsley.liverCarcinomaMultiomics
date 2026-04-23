@@ -16,7 +16,8 @@ feature_correlations = function(
 	# 				 matched_samples))
 	# rna_significant = tar_read(rna_de_patient)
 	# metabolites_significant = tar_read(metabolomics_de_patient_list)
-	# method = "icikt"
+	# method = "spearman"
+	# significant_only = TRUE
 	if (significant_only) {
 		rna_sig = rna_significant |>
 			dplyr::filter(padj <= 0.05)

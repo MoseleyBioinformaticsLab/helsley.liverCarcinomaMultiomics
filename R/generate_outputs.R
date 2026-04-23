@@ -300,10 +300,43 @@ replace_choose_pipe = function(in_labels) {
 	out_labels
 }
 
+export_single_images = function(plot_list, out_dir, extra_info = "") {
+	# plot_list = tar_read(pca_sex_list)
+	# out_dir = "docs/pca_sex_figures"
+	unlink(out_dir, recursive = TRUE)
+	out_types = c(".png", ".svg")
+
+	all_plots = purrr::iwalk(plot_list, \(iplot, id) {
+		full_fig = paste0(id, extra_info)
+		purrr::walk(out_types, \(in_type) {
+			out_plot = fs::path(out_dir, full_fig) |>
+				fs::path_ext_set(in_type)
+			if (in_type %in% ".svg") {
+				svglite::svglite(out_plot)
+				print(iplot$figure)
+				dev.off()
+			} else if (in_type %in% ".png") {
+				ragg::agg_png(
+					filename = out_plot,
+					width = 10,
+					height = 8,
+					res = 600,
+					units = "in"
+				)
+				print(iplot$figure)
+				dev.off()
+			}
+			return(out_plot)
+		})
+	})
+}
+
 export_pca_heatmaps_images = function(plot_list, out_dir) {
 	# plot_list = tar_read(pca_heatmap_list)
 	# out_dir = "docs/pca_heatmap_figures"
 
+	# plot_list = tar_read(pca_sex_list)
+	# out_dir = "docs/pca_sex_figures"
 	unlink(out_dir, recursive = TRUE)
 	out_types = c(".png", ".svg")
 	all_plots = purrr::iwalk(plot_list, \(iplot, id) {
@@ -438,7 +471,10 @@ refactor_treatment = function(qcqa_obj) {
 }
 
 
-generate_metabolomics_de_output = function(metabolomics_de_patient_list) {
+generate_metabolomics_de_output = function(
+	metabolomics_de_patient_list,
+	xlsx_file = "docs/metabolomics_patient_differential.xlsx"
+) {
 	data_dictionary = tibble::tribble(
 		~header                                                                                ,
 		~meaning                                                                               ,
@@ -477,7 +513,9 @@ generate_metabolomics_de_output = function(metabolomics_de_patient_list) {
 		"type"                                                                                 ,
 		"which method did the metabolite come from"                                            ,
 		"..."                                                                                  ,
-		"mostly columns specific to each metabolite type"
+		"mostly columns specific to each metabolite type"                                      ,
+		"comparison_description"                                                               ,
+		"what comparison was actually defined for the DESeq2 results"
 	)
 	tab_out = list(
 		dictionary = data_dictionary,
@@ -485,13 +523,16 @@ generate_metabolomics_de_output = function(metabolomics_de_patient_list) {
 	)
 	tabular_output = openxlsx::write.xlsx(
 		tab_out,
-		"docs/metabolomics_patient_differential.xlsx",
+		xlsx_file,
 		overwrite = TRUE
 	)
 	tabular_output
 }
 
-generate_transcriptomics_de_output = function(rna_de_patient) {
+generate_transcriptomics_de_output = function(
+	rna_de_patient,
+	xlsx_file = "docs/transcriptomics_patient_differential.xlsx"
+) {
 	data_dictionary = tibble::tribble(
 		~header                                                           ,
 		~meaning                                                          ,
@@ -514,12 +555,14 @@ generate_transcriptomics_de_output = function(rna_de_patient) {
 		"biotype"                                                         ,
 		"what type of gene is it"                                         ,
 		"description"                                                     ,
-		"gene name"
+		"gene name"                                                       ,
+		"comparison_description"                                          ,
+		"what comparison was actually defined for the DESeq2 results"
 	)
-	tab_out = list(dictionary = data_dictionary, metabolomics = rna_de_patient)
+	tab_out = list(dictionary = data_dictionary, transcriptomics = rna_de_patient)
 	tabular_output = openxlsx::write.xlsx(
 		tab_out,
-		"docs/transcriptomics_patient_differential.xlsx",
+		xlsx_file,
 		overwrite = TRUE
 	)
 	tabular_output
@@ -1216,4 +1259,32 @@ generate_enriched_comparison_excel = function(lists_of_lists, output_file) {
 
 	openxlsx::write.xlsx(all_lists, file = output_file, overwrite = TRUE)
 	return(output_file)
+}
+
+count_assignments = function(in_raw_data, id = "bioamines") {
+	# in_raw_data = tar_read(bioamines)
+	# in_raw_data = tar_read(lipidomics)
+	# in_raw_data = tar_read(primary_metabolism)
+	# id = "primary_metabolism"
+
+	feature_data = rowData(in_raw_data) |> tibble::as_tibble()
+	which_species = which(grepl("species$", colnames(feature_data)))
+
+	if (length(which_species) == 0) {
+		pos_species = grepl("\\-P$", feature_data$in_chi_key)
+	} else {
+		pos_species = grepl("\\+$", feature_data[[which_species]])
+	}
+
+	assign_data = !is.na(feature_data$metabolite_id)
+
+	n_assign = tibble::tribble(
+		~polarity  , ~assigned , ~N                               ,
+		"positive" , "yes"     , sum(pos_species & assign_data)   ,
+		"positive" , "no"      , sum(pos_species & !assign_data)  ,
+		"negative" , "yes"     , sum(!pos_species & assign_data)  ,
+		"negative" , "no"      , sum(!pos_species & !assign_data)
+	) |>
+		dplyr::mutate(metabolite_class = id)
+	n_assign
 }

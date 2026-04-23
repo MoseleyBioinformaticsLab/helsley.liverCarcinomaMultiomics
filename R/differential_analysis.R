@@ -141,6 +141,17 @@ calculate_deseq_stats = function(
 	# which = "sex"
 	# fit_type = "parametric"
 
+	# rna_se = tar_read(pm_collapsed)
+	# which = "sex"
+	# fit_type = "local"
+	# named_only = FALSE
+	# contrast = list("sexf.treatmentcancerous", "sexm.treatmentcancerous")
+
+	# we set this here, in case other levels still exist
+	rna_se$treatment = factor(
+		rna_se$treatment,
+		levels = c("normal_adjacent", "cancerous")
+	)
 	use_model = NULL
 	if (which %in% "treatment") {
 		design(rna_se) = ~treatment
@@ -181,23 +192,32 @@ calculate_deseq_stats = function(
 		rna_deseq = DESeq(rna_se, fitType = fit_type, full = use_model)
 	}
 
-	if (which %in% "sex") {
-		rna_results = results(rna_deseq, name = contrast) |> as.data.frame()
+	if ((which %in% "sex") && inherits(contrast, "character")) {
+		rna_results = results(rna_deseq, name = contrast)
 	} else {
-		rna_results = results(rna_deseq, contrast = contrast) |> as.data.frame()
+		rna_results = results(rna_deseq, contrast = contrast)
 	}
+
+	rna_res_df = as.data.frame(rna_results)
 
 	rna_info = rowData(rna_se) |> as.data.frame()
-	rna_results = cbind(rna_results, rna_info)
+	rna_res_df = cbind(rna_res_df, rna_info)
+
+	contrast_desc = grep(
+		"^log2 fold change",
+		rna_results@elementMetadata$description,
+		value = TRUE
+	)
+	rna_res_df$comparison_description = contrast_desc
 
 	if (named_only) {
-		if ("metabolite_id" %in% colnames(rna_results)) {
-			has_id = !is.na(rna_results[["metabolite_id"]])
-			rna_results = rna_results[has_id, ]
-			rna_results$padj = p.adjust(rna_results$pvalue)
+		if ("metabolite_id" %in% colnames(rna_res_df)) {
+			has_id = !is.na(rna_res_df[["metabolite_id"]])
+			rna_res_df = rna_res_df[has_id, ]
+			rna_res_df$padj = p.adjust(rna_res_df$pvalue)
 		}
 	}
-	rna_results
+	rna_res_df
 }
 
 
@@ -811,4 +831,65 @@ create_logratio_heatmap_small = function(
 		row_names_gp = gpar(fontsize = fontsize)
 	)
 	return(out_heatmap)
+}
+
+compare_de_results = function(compare_list) {
+	compare_list = list(
+		paired_normal = tar_read(rna_de_patient),
+		sex_mf = tar_read(rna_de_sex_mvf),
+		sex_m = tar_read(rna_de_sex_m),
+		sex_f = tar_read(rna_de_sex_f)
+	)
+
+	out_features = purrr::map(compare_list, \(in_de) {
+		in_de |> dplyr::filter(padj <= 0.05) |> dplyr::pull(feature_id)
+	})
+
+	compare_mat = ComplexHeatmap::make_comb_mat(out_features)
+}
+
+remove_sex = function(rna_paired) {
+	# tar_load(rna_paired)
+	tmp_cols = colData(rna_paired)
+	tmp_cols[["sex"]] = NULL
+	colData(rna_paired) = tmp_cols
+	rna_paired
+}
+
+compare_with_without_sex = function(rna_de_patient, rna_de_patient_nosex) {
+	# tar_load(c(rna_de_patient, rna_de_patient_nosex))
+	all_values = dplyr::left_join(
+		rna_de_patient,
+		rna_de_patient_nosex,
+		suffix = c(".sex", ".nosex"),
+		by = "feature_id"
+	)
+}
+
+compare_sig_features = function(in_list) {
+	# de_sex = tar_read(rna_de_sex_mvf)
+	# de_patient = tar_read(rna_de_patient)
+
+	de_compare = purrr::map(in_list, \(x) {
+		x |> dplyr::filter(padj <= 0.01) |> dplyr::pull(feature_id)
+	})
+
+	de_matrix = make_comb_mat(de_compare)
+	de_upset = UpSet(
+		de_matrix,
+		top_annotation = upset_top_annotation(de_matrix, add_numbers = TRUE),
+		right_annotation = upset_right_annotation(de_matrix, add_numbers = TRUE)
+	)
+	de_upset
+}
+
+
+try_sex_t_v_nt = function(rna_paired) {
+	# tar_load(rna_paired)
+	rna_paired$sex = relevel(rna_paired$sex, ref = "f")
+	rna_paired$treatment = relevel(rna_paired$treatment, ref = "normal_adjacent")
+
+	design(rna_paired) = ~ patient + treatment * sex
+
+	rna_deseq = DESeq(rna_paired)
 }

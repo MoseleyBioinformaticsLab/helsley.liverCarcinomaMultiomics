@@ -354,6 +354,14 @@ create_qcqa_plots = function(cor_pca, color_scales) {
 			y = tmp_nooutlier_pca_var$labels[2]
 		)
 
+	nooutlier_sex_pca_plot = treatment_nooutlier_pca |>
+		ggplot(aes(x = PC1, y = PC2, color = sex)) +
+		geom_point(size = 2) +
+		labs(
+			x = tmp_nooutlier_pca_var$labels[1],
+			y = tmp_nooutlier_pca_var$labels[2]
+		)
+
 	median_cor_treatment_plot = sample_info_treatment |>
 		ggplot(aes(
 			x = treatment,
@@ -372,6 +380,7 @@ create_qcqa_plots = function(cor_pca, color_scales) {
 		pca_all = all_pca_plot,
 		pca_noblanks = noblanks_pca_plot,
 		pca_nooutlier = nooutlier_pca_plot,
+		pca_nooutlier_sex = nooutlier_sex_pca_plot,
 		pca_nooutlier_values = treatment_nooutlier_pca,
 		pca_nooutlier_variance = tmp_nooutlier_pca_var,
 		pca_nooutlier_anova = tmp_nooutlier_pca_anova
