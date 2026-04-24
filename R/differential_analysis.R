@@ -867,12 +867,74 @@ compare_with_without_sex = function(rna_de_patient, rna_de_patient_nosex) {
 }
 
 compare_sig_features = function(in_list) {
-	# de_sex = tar_read(rna_de_sex_mvf)
-	# de_patient = tar_read(rna_de_patient)
+	# in_list = list(
+	# 	`f-v-m-cancer-v-normal` = tar_read(rna_de_cancer_sex_mvf),
+	# 	`cancer-v-normal` = tar_read(rna_de_patient)
+	# )
+
+	# in_list = list(
+	# 	`f-v-m-cancer-v-normal` = tar_read(pm_de_cancer_sex_mvf),
+	# 	`cancer-v-normal` = tar_read(pm_de_patient)
+	# )
+
+	# in_list = list(
+	# 	`f-v-m-cancer-v-normal` = tar_read(bioamines_de_cancer_sex_mvf),
+	# 	`cancer-v-normal` = tar_read(bioamines_de_patient)
+	# )
+
+	# in_list = list(
+	# 	`f-v-m-cancer-v-normal` = tar_read(lipidomics_de_cancer_sex_mvf),
+	# 	`cancer-v-normal` = tar_read(lipidomics_de_patient)
+	# )
 
 	de_compare = purrr::map(in_list, \(x) {
 		x |> dplyr::filter(padj <= 0.01) |> dplyr::pull(feature_id)
 	})
+
+	de_df = purrr::imap(de_compare, \(features, source) {
+		tibble::tibble(source = source, feature_id = features)
+	}) |>
+		purrr::list_rbind()
+
+	de_summarize = de_df |>
+		dplyr::summarise(sources = paste0(source, collapse = ":"), .by = feature_id)
+
+	just_1 = de_summarize |>
+		dplyr::filter(
+			grepl(names(de_compare)[1], sources) &
+				!grepl(paste0(":", names(de_compare)[2]), sources)
+		)
+
+	if (nrow(just_1) > 0) {
+		if ("name" %in% names(in_list[[1]])) {
+			just_1 = dplyr::left_join(
+				just_1,
+				in_list[[1]][, c("name", "feature_id")],
+				by = "feature_id"
+			)
+		} else if ("annotation" %in% names(in_list[[1]])) {
+			just_1 = dplyr::left_join(
+				just_1,
+				in_list[[1]][, c(
+					"metabolite_id",
+					"feature_id",
+					"annotation"
+				)],
+				by = "feature_id"
+			)
+		} else if ("metabolite_id" %in% names(in_list[[1]])) {
+			just_1 = dplyr::left_join(
+				just_1,
+				in_list[[1]][, c(
+					"metabolite_id",
+					"feature_id",
+					"bin_base_name"
+				)],
+				by = "feature_id"
+			) |>
+				dplyr::mutate(annotation = bin_base_name)
+		}
+	}
 
 	de_matrix = make_comb_mat(de_compare)
 	de_upset = UpSet(
@@ -880,7 +942,7 @@ compare_sig_features = function(in_list) {
 		top_annotation = upset_top_annotation(de_matrix, add_numbers = TRUE),
 		right_annotation = upset_right_annotation(de_matrix, add_numbers = TRUE)
 	)
-	de_upset
+	list(upset = de_upset, just_1 = just_1)
 }
 
 
@@ -892,4 +954,39 @@ try_sex_t_v_nt = function(rna_paired) {
 	design(rna_paired) = ~ patient + treatment * sex
 
 	rna_deseq = DESeq(rna_paired)
+}
+
+write_name_string = function(compare_list) {
+	# compare_list = list(
+	# 	Genes = tar_read(rna_compare_sex)$just_1,
+	# 	Lipids = tar_read(lipidomics_compare_sex)$just_1,
+	# 	Bioamines = tar_read(bioamines_compare_sex)$just_1,
+	# 	`Primary Metabolites` = tar_read(pm_compare_sex)$just_1
+	# )
+
+	compare_list = purrr::map(compare_list, \(in_df) {
+		if (nrow(in_df) > 0) {
+			if ("name" %in% names(in_df)) {
+				in_df |>
+					dplyr::mutate(out_id = name)
+			} else if ("metabolite_id" %in% names(in_df)) {
+				in_df |>
+					dplyr::mutate(
+						out_id = dplyr::case_when(
+							is.na(metabolite_id) ~ annotation,
+							TRUE ~ metabolite_id
+						)
+					)
+			}
+		} else {
+			return(NULL)
+		}
+	})
+
+	compare_strings = purrr::imap(compare_list, \(in_df, id) {
+		paste0(id, ": ", paste0(sort(in_df$out_id), collapse = ", "), "; ")
+	}) |>
+		purrr::list_c() |>
+		paste0(collapse = "")
+	compare_strings
 }

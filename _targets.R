@@ -277,7 +277,7 @@ tar_plan(
 		contrast = "sexf.treatmentcancerous"
 	),
 
-	# sex difference of differences ----------
+	### sex difference of differences ----------
 	# this is what we are really interested in as far as
 	# any sex specific changes
 	rna_de_cancer_sex_mvf = calculate_deseq_stats(
@@ -1287,14 +1287,21 @@ tar_plan(
 
 	sex_comparison_figures = export_single_images(
 		list(
-			RNA = list(figure = rna_compare_sex),
-			PM = list(figure = pm_compare_sex),
-			Lipidomics = list(figure = lipidomics_compare_sex),
-			Bioamines = list(figure = bioamines_compare_sex)
+			RNA = list(figure = rna_compare_sex$upset),
+			PM = list(figure = pm_compare_sex$upset),
+			Lipidomics = list(figure = lipidomics_compare_sex$upset),
+			Bioamines = list(figure = bioamines_compare_sex$upset)
 		),
 		"docs/upset_compare_sex_figures",
 		"_compare_differential_sex"
 	),
+
+	sex_comparison_strings = write_name_string(list(
+		Genes = rna_compare_sex$just_1,
+		Lipids = lipidomics_compare_sex$just_1,
+		Bioamines = bioamines_compare_sex$just_1,
+		`Primary Metabolites` = pm_compare_sex$just_1
+	)),
 	# pca_heatmap_ppt = export_pca_heatmaps_pptx(
 	# 	pca_heatmap_list,
 	# 	"docs/pca_heatmap_figures.pptx"
@@ -1358,3 +1365,24 @@ tar_plan(
 	#    `rna_compounds_matrix` above).
 	# tar_target(target2, function_to_make2(arg)) ## targets style
 )
+
+# use_dir = fs::dir_create(
+# 	"outputs",
+# 	paste0("helsley_hcc_sexmvf_analysis_", Sys.Date())
+# )
+# c(
+# 	"docs/metabolomics_patient_differential.xlsx",
+# 	"docs/transcriptomics_patient_differential.xlsx",
+# 	"docs/metabolomics_cancer_mvf_differential.xlsx",
+# 	"docs/transcriptomics_cancer_mvf_differential.xlsx",
+# 	"docs/differential_analysis_sexmf.docx",
+# 	"docs/pca_sex_figures",
+# 	"docs/upset_compare_sex_figures"
+# ) |>
+# 	flighttools::ft_rename_outputs(prefix = "helsley_hcc", overwrite = TRUE) |>
+# 	fs::file_move(new_path = use_dir)
+# flighttools::ft_zip_directory(
+# 	use_dir,
+# 	paste0(use_dir, ".zip"),
+# 	add_date = FALSE
+# )
