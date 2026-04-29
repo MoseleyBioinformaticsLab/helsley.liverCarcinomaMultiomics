@@ -1,0 +1,154 @@
+---
+title: "Hepatocarcinoma Multi-Omics Differential Analysis of Sex, M v F"
+author: "Robert M Flight"
+date: last-modified
+date-format: YYYY-MM-DD HH:mm
+format: 
+  html:
+    embed-resources: true
+    toc: true
+  docx:
+    keep-md: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+## target knits qmds in their own session, so load libraries here.
+targets::tar_source("./packages.R")
+tar_source("./R")
+```
+
+```{r}
+#| label: load-targets
+#| include: false
+tar_load(c(
+  bioamines_compare_sex,
+  pm_compare_sex,
+  lipidomics_compare_sex,
+  rna_compare_sex,
+  rna_qcqa,
+  primary_metabolism_qcqa,
+  lipidomics_qcqa,
+  bioamines_qcqa
+))
+```
+
+## Purpose
+
+Differential analyses of transcriptomics and metabolomics (bioamines, primary metabolism, lipidomics) for several patients with hepatocarcinoma, comparing male vs female patients, and comparing with previous differential results for hepatocarcinoma.
+
+There is an [Executive Summar](#executive-summary) at the end of this document.
+
+## Data
+
+Transcriptomics and metabolomics datasets from hepatocarcinoma.
+Transcriptomics samples are normalized and statistical results reported by {DESeq2}.
+Each metabolomics type were analyzed separately.
+Metabolomics samples are normalized and statistical results reported by {DESeq2}, using a `local` fit for the modeling of dispersions of variance to mean abundance.
+
+For all datasets, we merged the two replicate samples normal adjacent samples from Patient 6, by adding the abundances via {DESeq2}.
+
+Significant in all of these is using a cutoff of adjusted-p-value $\le$ 0.01.
+
+## Results
+
+Sex doesn't seem to be a major factor, based on the PCA plots, and the number of significant transcripts or metabolites compared to cancer vs adjacent-normal.
+
+## Transcriptomics
+
+Number of features with an adjusted-p-value $\le$ 0.01:
+
+* $\text{f}(\text{cancer} - \text{non-cancer}) - \text{m}(\text{cancer} - \text{non-cancer})$: 37;
+* Cancer vs non-cancer: 1679;
+* Common: 10.
+
+```{r}
+#| label: fig-transcriptomics-diff-sex-cancer
+#| fig-cap: Upset plot comparing the number of significant differential transcripts for sex and cancer vs non-cancer.
+rna_compare_sex
+```
+
+
+
+```{r}
+#| label: fig-transcriptomics-pca-sex
+#| fig-cap: PCA of transcriptomics data without outliers, with samples colored by sex.
+rna_qcqa$pca_nooutlier_sex
+```
+
+
+## Bioamines
+
+Number of features with an adjusted-p-value $\le$ 0.01:
+
+* $\text{f}(\text{cancer} - \text{non-cancer}) - \text{m}(\text{cancer} - \text{non-cancer})$: 2;
+* Cancer vs non-cancer: 1649;
+* Common: 1.
+
+```{r}
+#| label: fig-bioamines-diff-sex-cancer
+#| fig-cap: Upset plot comparing the number of significant differential bioamines for sex and cancer vs non-cancer
+bioamines_compare_sex
+```
+
+
+```{r}
+#| label: fig-bioamines-pca-sex
+#| fig-cap: PCA of bioamines data without outliers, with samples colored by sex.
+bioamines_qcqa$pca_nooutlier_sex
+```
+
+
+
+## Lipidomics
+
+Number of features with an adjusted-p-value $\le$ 0.01:
+
+* $\text{f}(\text{cancer} - \text{non-cancer}) - \text{m}(\text{cancer} - \text{non-cancer})$: 2;
+* Cancer vs non-cancer: 292;
+* Common: 2.
+
+```{r}
+#| label: fig-lipidomics-diff-sex-cancer
+#| fig-cap: Upset plot comparing the number of significant differential lipidomics for sex and cancer vs non-cancer
+lipidomics_compare_sex
+```
+
+
+```{r}
+#| label: fig-lipidomics-pca-sex
+#| fig-cap: PCA of lipidomics data without outliers, with samples colored by sex.
+lipidomics_qcqa$pca_nooutlier_sex
+```
+
+
+
+## Primary Metabolites
+
+Number of features with an adjusted-p-value $\le$ 0.01:
+
+* $\text{f}(\text{cancer} - \text{non-cancer}) - \text{m}(\text{cancer} - \text{non-cancer})$: 1;
+* Cancer vs non-cancer: 47;
+* Common: 0.
+
+```{r}
+#| label: fig-pm-diff-sex-cancer
+#| fig-cap: Upset plot comparing the number of significant differential primary metabolites for sex and cancer vs non-cancer
+pm_compare_sex
+```
+
+
+```{r}
+#| label: fig-pm-pca-sex
+#| fig-cap: PCA of primary metabolites data without outliers, with samples colored by sex.
+primary_metabolism_qcqa$pca_nooutlier_sex
+```
+
+
+
+## Executive Summary
+
+* Sex is not a major contributor to the changes observed within patients between cancer and adjacent-normal tissue samples.
+* Statistical results for female v male should have been provided in Excel files.
