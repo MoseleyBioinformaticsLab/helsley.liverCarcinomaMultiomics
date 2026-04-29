@@ -50,6 +50,8 @@ Any duplicate samples were collapsed using the collapseReplicates function from 
 Statistics were calculated using DESeq2, with dispersions fit to the mean intensity using the paremetric method for transcriptomics, and the local method for the metabolomics datasets.
 The linear model for the differential analysis included the patient to account for the paired nature of the samples, specifically using the design of ~ patient + treatment, and then extracting the contrast of treatment in the DESeq results.
 P-values were adjusted using the Benjamini-Hochberg method [Benjamini, Y., and Hochberg, Y. (1995). Controlling the false discovery rate: a practical and powerful approach to multiple testing. Journal of the Royal Statistical Society Series B, 57, 289–300. doi:10.1111/j.2517-6161.1995.tb02031.x.].
+For the determination of differential features in tumor vs non-tumor between females and males, a secondary variable was created to handle the confounding of sex and patient (sex_rep, as noted in the DESeq2 vignette).
+The design used is then ~ sex + sex:treatment + sex:sex_rep, with a list contrast of "sexf.treatmentcancerous" and "sexm.treatmentcancerous" to extract the comparison of $\text{female}(\text{cancer} - \text{non-cancer}) - \text{male}(\text{cancer} - \text{non-cancer})$.
 
 ### Annotation Enrichment
 
@@ -86,7 +88,6 @@ All R code used for the analysis and feature abundances are available on Zenodo.
 ```{r}
 #| label: report-n-sig
 #| echo: false
-
 count_notna = function(in_vector) {
   sum(!is.na(in_vector))
 }
